@@ -1,0 +1,4 @@
+aws_profile      = "hitch-personal"
+aws_region       = "us-west-2"
+availability_zone = "us-west-2a"
+admin_cidr       = "203.0.113.10/32"

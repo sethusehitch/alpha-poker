@@ -1,0 +1,6 @@
+{
+  "api_version": "2026-09-01",
+  "name": "My First Bot",
+  "language": "python",
+  "entrypoint": "bot.py:decide"
+}

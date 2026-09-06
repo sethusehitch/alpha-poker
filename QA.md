@@ -14,7 +14,7 @@ Verified:
 
 - Production vinext build succeeds.
 - Ten rendered-page tests pass.
-- Twenty-four community-surface tests pass, covering `/feature-requests`,
+- Twenty-six community-surface tests pass, covering `/feature-requests`,
   `/contribute`, the six-stage lifecycle, anonymous feedback, responsive and
   accessible controls, exact GitHub URL validation, draft recovery, and
   deterministic server/browser date rendering.
@@ -175,6 +175,14 @@ Frontend (rendered-HTML/static-contract) coverage:
   Discord links, or feature-request comment counts.
 - `StatusChip` implements exactly the six lifecycle statuses (no `open` or
   `not_planned` remnants) and falls back unknown values to `submitted`.
+- Feature-request descriptions remain compact two-line previews. Every request
+  with details exposes a labelled Details control that opens a live desktop
+  split view or a native mobile sheet. Selection follows live vote/status
+  state, closes safely if a request disappears, and restores keyboard focus.
+- Browser checks at 1440 by 900 and 390 by 844 verified the selected-card
+  highlight, 504-pixel desktop panel, request switching, Escape and close
+  behavior, exact focus restoration, body scroll locking, safe long-text
+  wrapping, zero horizontal overflow, and a clean console after hydration.
 - The feedback widget accepts signed-out submissions with explicit anonymous
   copy. Its unsent draft survives full-page navigation in tab-scoped
   `sessionStorage`, clears after success, and never uses `localStorage`.

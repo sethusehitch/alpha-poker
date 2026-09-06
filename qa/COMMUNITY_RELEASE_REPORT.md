@@ -6,7 +6,8 @@ Date: September 5, 2026
 
 - `/feature-requests` publicly lists ideas with Top, New, and Planned views.
   Logged-in users can submit one idea, upvote or downvote once, switch their
-  vote, and clear it.
+  vote, and clear it. Compact cards open into a desktop split-view detail panel
+  or an accessible mobile sheet without losing the user's place in the list.
 - The lifecycle is `submitted`, `under_review`, `planned`, `in_progress`,
   `shipped`, or `declined`. Reserved operator accounts can moderate status and
   visibility.
@@ -41,7 +42,7 @@ Date: September 5, 2026
 
 ## Verification completed before publication
 
-- Full local gate: production build, 10 landing-page render tests, 24 community
+- Full local gate: production build, 10 landing-page render tests, 26 community
   render/contract tests, 4 container configuration tests, ESLint, 109 backend
   tests, 17 CLI tests, Python compilation, and deterministic starter-kit build.
 - Dependency audit: zero known production or development vulnerabilities.
@@ -51,8 +52,9 @@ Date: September 5, 2026
   passed through Caddy. The isolated volume and network were removed afterward.
 - Browser gate at desktop and 390 by 844: account creation/logout, feature
   submission/voting, feedback draft recovery across navigation, anonymous
-  feedback, mobile navigation landmark, no horizontal overflow, and visual
-  layouts passed.
+  feedback, mobile navigation landmark, feature-detail selection and switching,
+  Escape/close focus restoration, no horizontal overflow, and visual layouts
+  passed.
 - Browser QA found and fixed a UTC/local date hydration mismatch. A clean-tab
   retest produced zero console errors and a cross-time-zone regression test now
   covers the boundary.

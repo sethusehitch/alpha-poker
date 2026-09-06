@@ -16,7 +16,7 @@ test("community navigation is signed-in-only and grouped in one menu", async () 
   assert.match(siteHeader, /useSession/);
   assert.match(
     siteHeader,
-    /session \? \[LEADERBOARD, RIVALS\] : \[LEADERBOARD\]/,
+    /\? \[GETTING_STARTED, LEADERBOARD, MY_BOT, RIVALS\]\s*: \[GETTING_STARTED, LEADERBOARD\]/,
   );
   assert.match(siteHeader, /\{session && \(/);
   assert.match(siteHeader, /Community <ChevronIcon/);
@@ -35,7 +35,7 @@ test("community navigation is signed-in-only and grouped in one menu", async () 
   assert.doesNotMatch(appHeader, /href="\/account"/);
 });
 
-test("the app header points My Bot at a real route and renames Training", async () => {
+test("the app header uses the requested core-game order and real routes", async () => {
   const appHeader = await readFile(
     new URL("../app/components/app/AppHeader.tsx", import.meta.url),
     "utf8",
@@ -47,10 +47,13 @@ test("the app header points My Bot at a real route and renames Training", async 
   assert.match(appHeader, /label: "Getting Started",\s*href: "\/#instructions"/);
   assert.doesNotMatch(appHeader, /Training/);
   assert.match(appHeader, /label: "Rivals",\s*href: "\/rivals"/);
-  assert.match(appHeader, /label: "Leaderboard"/);
+  assert.match(appHeader, /label: "Leaderboard",\s*href: "\/leaderboard"/);
+  const navModel = appHeader.match(/const APP_NAV[\s\S]*?\n\];/)?.[0] ?? "";
+  assert.ok(navModel.indexOf('label: "Getting Started"') < navModel.indexOf('label: "Leaderboard"'));
+  assert.ok(navModel.indexOf('label: "Leaderboard"') < navModel.indexOf('label: "My Bot"'));
+  assert.ok(navModel.indexOf('label: "My Bot"') < navModel.indexOf('label: "Rivals"'));
 
   // Community stays in its own separated menu, not in APP_NAV.
-  const navModel = appHeader.match(/const APP_NAV[\s\S]*?\n\];/)?.[0] ?? "";
   assert.doesNotMatch(navModel, /Community/);
   assert.match(appHeader, /border-l border-zinc-200 pl-2/);
 
@@ -62,6 +65,10 @@ test("the app header points My Bot at a real route and renames Training", async 
   );
   assert.match(
     appHeader,
+    /isActive: \(path\) => path\.startsWith\("\/leaderboard"\)/,
+  );
+  assert.match(
+    appHeader,
     /isActive: \(path\) =>\s*path\.startsWith\("\/rivals"\) \|\| path\.startsWith\("\/hands\/"\)/,
   );
   assert.doesNotMatch(appHeader, /aria-current="page"\s*$/m);
@@ -69,15 +76,17 @@ test("the app header points My Bot at a real route and renames Training", async 
 });
 
 test("every app surface tells the header which route it is on", async () => {
-  const [rivals, hands, myBot] = await Promise.all([
+  const [rivals, hands, myBot, leaderboard] = await Promise.all([
     readFile(new URL("../app/rivals/page.tsx", import.meta.url), "utf8"),
     readFile(
       new URL("../app/hands/[hand_id]/page.tsx", import.meta.url),
       "utf8",
     ),
     readFile(new URL("../app/my-bot/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/leaderboard/page.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(rivals, /<AppHeader currentPath="\/rivals" \/>/);
   assert.match(hands, /<AppHeader currentPath="\/hands\/" \/>/);
   assert.match(myBot, /<AppHeader currentPath="\/my-bot" \/>/);
+  assert.match(leaderboard, /<AppHeader currentPath="\/leaderboard" \/>/);
 });

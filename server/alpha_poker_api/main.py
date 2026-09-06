@@ -370,10 +370,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     @app.get("/v1/leaderboard")
-    def leaderboard():
+    def leaderboard(authorization: str | None = Header(None)):
         run = db.one("SELECT * FROM runs WHERE status='completed' AND official=1 ORDER BY completed_at DESC LIMIT 1")
         if not run:
-            return {"run_id": None, "updated_at": None, "entries": []}
+            return {
+                "run_id": None, "updated_at": None, "entries": [],
+                "top_entries": [], "viewer_entry": None,
+            }
         rows = db.all("SELECT * FROM leaderboard WHERE run_id=? ORDER BY rank", (run["id"],))
         entries = [{
             "rank": r["rank"], "username": r["username"], "bot_name": r["bot_name"],
@@ -382,7 +385,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "matchup_draws": r["matchup_draws"],
             "bb_per_100": r["bb_per_100"], "confidence_95": [r["ci_low"], r["ci_high"]], "hands": r["hands"],
         } for r in rows]
-        return {"run_id": run["id"], "updated_at": run["completed_at"], "entries": entries}
+        viewer = authenticate_token(db, authorization)
+        viewer_entry = next(
+            (entry for entry in entries if viewer and entry["username"] == viewer and int(entry["rank"]) > 5),
+            None,
+        )
+        return {
+            "run_id": run["id"], "updated_at": run["completed_at"], "entries": entries,
+            "top_entries": entries[:5], "viewer_entry": viewer_entry,
+        }
 
     @app.get("/v1/matchups")
     def matchups():

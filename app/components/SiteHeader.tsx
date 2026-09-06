@@ -12,10 +12,20 @@ type NavItem = {
   href: string;
   isActive: (path: string) => boolean;
 };
+const GETTING_STARTED: NavItem = {
+  label: "Getting Started",
+  href: "/#instructions",
+  isActive: () => false,
+};
 const LEADERBOARD: NavItem = {
   label: "Leaderboard",
-  href: "/#leaderboard",
-  isActive: (path) => path === "/",
+  href: "/leaderboard",
+  isActive: (path) => path.startsWith("/leaderboard"),
+};
+const MY_BOT: NavItem = {
+  label: "My Bot",
+  href: "/my-bot",
+  isActive: (path) => path.startsWith("/my-bot"),
 };
 const RIVALS: NavItem = {
   label: "Rivals",
@@ -93,7 +103,9 @@ export function SiteHeader({
   const panelRef = useRef<HTMLDivElement>(null);
   const communityRef = useRef<HTMLLIElement>(null);
   const communityButtonRef = useRef<HTMLButtonElement>(null);
-  const coreItems = session ? [LEADERBOARD, RIVALS] : [LEADERBOARD];
+  const coreItems = session
+    ? [GETTING_STARTED, LEADERBOARD, MY_BOT, RIVALS]
+    : [GETTING_STARTED, LEADERBOARD];
 
   const closeMenus = () => {
     setMenuOpen(false);

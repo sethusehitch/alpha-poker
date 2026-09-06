@@ -2,23 +2,16 @@
 /* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-unused-expressions */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  rivalsApi,
-  type Challenge,
-  type Compare,
-  type Rival,
-  type RivalDetail,
-} from "./api";
+import { rivalsApi, type Challenge, type Rival, type RivalDetail } from "./api";
 import { BotAvatar } from "../BotAvatar";
 import { emit, on } from "../uiBus";
 import { useSession } from "../useSession";
 
-type Tab = "mine" | "leaderboard" | "challenges" | "records";
+// Rivals is only the people surface now: league standings live on /leaderboard.
+type Tab = "mine" | "challenges";
 const TAB_LABELS: Record<Tab, string> = {
   mine: "My rivals",
-  leaderboard: "Leaderboard",
   challenges: "Challenges",
-  records: "League records",
 };
 function time(value?: string | null) {
   return value
@@ -44,49 +37,160 @@ function statusLabel(status: Challenge["status"]) {
               : "Needs attention";
 }
 
+function NemesisBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-orange-700 ${className}`}
+    >
+      <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3" fill="none">
+        <circle cx="6" cy="6" r="4.4" stroke="currentColor" strokeWidth="1.4" />
+        <circle cx="6" cy="6" r="1.3" fill="currentColor" />
+      </svg>
+      NEMESIS
+    </span>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor">
+      <path d="M9.1 1.2 3.4 9h3.3l-.8 5.8L12.6 7H9.3l-.2-5.8Z" />
+    </svg>
+  );
+}
+
+/**
+ * Challenge readiness, not live presence: a rival is "Online" exactly when they
+ * have an active bot the viewer can play against.
+ */
+function ChallengeStatus({
+  online,
+  className = "",
+}: {
+  online: boolean;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 ${className}`}>
+      {online ? "Online" : "Offline"}
+      <span
+        aria-hidden="true"
+        className={`h-2 w-2 rounded-full ${online ? "bg-emerald-500" : "bg-zinc-300"}`}
+      />
+    </span>
+  );
+}
+
+function isOnline(rival: { has_active_bot?: boolean; bot_name: string | null }) {
+  return rival.has_active_bot ?? Boolean(rival.bot_name);
+}
+
+function Portrait({
+  name,
+  rank,
+  className,
+}: {
+  name: string;
+  rank?: number | null;
+  className: string;
+}) {
+  return (
+    <span className="relative inline-flex shrink-0">
+      <span
+        aria-hidden="true"
+        className="absolute -inset-1.5 rounded-full bg-[radial-gradient(circle_at_35%_30%,#e0ecff,transparent_70%)]"
+      />
+      <BotAvatar
+        name={name}
+        rank={rank ?? undefined}
+        circle
+        className={`relative ${className}`}
+      />
+    </span>
+  );
+}
+
 function RivalCard({
   rival,
   onOpen,
+  selected = false,
 }: {
   rival: Rival;
   onOpen: (username: string) => void;
+  selected?: boolean;
 }) {
   return (
-    <article className="flex min-h-44 flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:border-blue-300">
-      <div className="flex gap-3">
-        <BotAvatar name={rival.username} rank={rival.rank} />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate font-semibold text-zinc-950">
+    <article
+      className={`flex aspect-square w-full max-w-[16.25rem] flex-col justify-between rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
+    >
+      <div className="flex items-start gap-3.5">
+        <Portrait
+          name={rival.username}
+          rank={rival.rank}
+          className="h-24 w-24"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2
+              className="min-w-0 max-w-full truncate text-lg font-bold tracking-tight text-zinc-950"
+              title={rival.username}
+            >
               {rival.username}
             </h2>
-            {rival.is_nemesis && (
-              <span className="rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-orange-700">
-                NEMESIS
-              </span>
-            )}
+            {rival.is_nemesis && <NemesisBadge />}
           </div>
-          <p className="truncate text-sm text-zinc-500">{rival.bot_name}</p>
-          <p className="mt-2 font-semibold text-zinc-900">
-            {rival.elo_rating.toLocaleString()}{" "}
-            <span className="text-xs font-medium text-zinc-500">Elo</span>
+          <p
+            className="truncate text-sm text-zinc-500"
+            title={rival.bot_name ?? undefined}
+          >
+            {rival.bot_name ?? "No active bot"}
           </p>
-          <p className="mt-1 text-sm text-zinc-600">
-            {rival.direct_record.wins} W · {rival.direct_record.losses} L
-            {rival.direct_record.draws > 0
-              ? ` · ${rival.direct_record.draws} D`
-              : ""}
+          <p className="mt-3 text-xl font-bold leading-none tabular-nums text-zinc-950">
+            {rival.elo_rating.toLocaleString()}
+          </p>
+          <p className="mt-1 text-[0.65rem] font-bold tracking-[0.14em] text-zinc-500">
+            ELO
+          </p>
+          <p className="mt-3 text-base font-semibold tabular-nums text-zinc-900">
+            {rival.direct_record.wins} – {rival.direct_record.losses}
+          </p>
+          <p className="text-xs text-zinc-500">vs you</p>
+          <p className="mt-1.5 text-xs font-medium text-zinc-600">
+            <ChallengeStatus online={isOnline(rival)} />
           </p>
         </div>
       </div>
       <button
         type="button"
         onClick={() => onOpen(rival.username)}
-        className="mt-auto w-full rounded-lg border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600"
+        className={`mt-4 w-full rounded-xl border px-3 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${selected ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
       >
         View rival
       </button>
     </article>
+  );
+}
+
+function RivalGrid({
+  items,
+  onOpen,
+  selected,
+}: {
+  items: Rival[];
+  onOpen: (username: string) => void;
+  selected?: string | null;
+}) {
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(13.75rem,16.25rem))] justify-center gap-4 sm:justify-start">
+      {items.map((rival) => (
+        <RivalCard
+          key={rival.username}
+          rival={rival}
+          onOpen={onOpen}
+          selected={selected === rival.username}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -96,12 +200,15 @@ function ChallengeRow({
   onOpen,
   viewer,
   highlighted,
+  portraits,
 }: {
   challenge: Challenge;
   onRecap: (id: string) => void;
   onOpen?: (challenge: Challenge) => void;
   viewer?: string;
   highlighted?: boolean;
+  /** The overlay history shows both faces; the flat list stays text-only. */
+  portraits?: boolean;
 }) {
   const outcome =
     challenge.status !== "completed"
@@ -134,8 +241,23 @@ function ChallengeRow({
               ? "="
               : "…"}
       </span>
+      {portraits && (
+        <span className="hidden items-center gap-1 sm:flex">
+          <BotAvatar
+            name={challenge.challenger_username}
+            className="h-7 w-7"
+            circle
+          />
+          <span className="text-[10px] font-semibold text-zinc-400">vs</span>
+          <BotAvatar
+            name={challenge.challenged_username}
+            className="h-7 w-7"
+            circle
+          />
+        </span>
+      )}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-zinc-800">
+        <p className="text-sm font-bold tracking-wide text-zinc-800 uppercase">
           {outcome === "win"
             ? "Win"
             : outcome === "loss"
@@ -428,7 +550,7 @@ function RivalOverlay({
         aria-modal="true"
         aria-labelledby="rival-title"
         tabIndex={-1}
-        className="relative max-h-[100dvh] w-full max-w-2xl overflow-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
+        className="relative max-h-[100dvh] w-full max-w-2xl overflow-auto rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {/* Exactly one of loading, error, or detail is on screen. A failed
@@ -492,146 +614,159 @@ function RivalOverlay({
                 {error}
               </p>
             )}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex gap-4">
-                <BotAvatar
-                  name={detail.rival.username}
-                  rank={detail.rival.rank ?? undefined}
-                  className="h-20 w-20 text-4xl"
-                />
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1
-                      id="rival-title"
-                      className="text-3xl font-bold tracking-tight"
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close rival"
+              className="absolute right-3 top-3 grid h-10 w-10 place-items-center rounded-lg text-xl text-zinc-500 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-blue-600"
+            >
+              ×
+            </button>
+            <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:text-left">
+              <Portrait
+                name={detail.rival.username}
+                rank={detail.rival.rank}
+                className="h-28 w-28 sm:h-32 sm:w-32"
+              />
+              <div className="min-w-0 w-full flex-1">
+                <div className="flex flex-wrap items-center justify-center gap-2 pr-10 sm:justify-start">
+                  <h1
+                    id="rival-title"
+                    className="min-w-0 max-w-full truncate text-3xl font-bold tracking-tight"
+                    title={detail.rival.username}
+                  >
+                    {detail.rival.username}
+                  </h1>
+                  {detail.is_nemesis && <NemesisBadge className="text-[11px]" />}
+                </div>
+                <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm text-zinc-600 sm:justify-start">
+                  <span
+                    className="max-w-full truncate"
+                    title={detail.rival.bot_name ?? undefined}
+                  >
+                    {detail.rival.bot_name ?? "No active bot"}
+                  </span>
+                  <span aria-hidden="true" className="text-zinc-300">
+                    •
+                  </span>
+                  <ChallengeStatus online={detail.rival.has_active_bot} />
+                </p>
+                {detail.is_nemesis && detail.nemesis_explanation && (
+                  <p className="mt-1.5 text-sm text-orange-800">
+                    {detail.nemesis_explanation}
+                  </p>
+                )}
+                <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                  <div className="min-w-0 text-center">
+                    <p className="text-sm font-semibold text-blue-700">You</p>
+                    <p className="text-4xl font-bold leading-none tabular-nums text-blue-700 sm:text-5xl">
+                      {detail.direct_record.wins}
+                    </p>
+                  </div>
+                  <p
+                    aria-hidden="true"
+                    className="pb-1 text-3xl font-light text-zinc-400"
+                  >
+                    –
+                  </p>
+                  <div className="min-w-0 text-center">
+                    <p
+                      className="truncate text-sm font-semibold text-zinc-700"
+                      title={detail.rival.username}
                     >
                       {detail.rival.username}
-                    </h1>
-                    {detail.is_nemesis && (
-                      <span className="rounded-full border border-orange-300 bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-700">
-                        NEMESIS
-                      </span>
-                    )}
+                    </p>
+                    <p className="text-4xl font-bold leading-none tabular-nums text-zinc-950 sm:text-5xl">
+                      {detail.direct_record.losses}
+                    </p>
                   </div>
-                  <p className="mt-1 text-zinc-600">
-                    {detail.rival.bot_name ?? "No active bot"} ·{" "}
-                    {detail.rival.elo_rating.toLocaleString()} Elo
-                  </p>
                 </div>
+                {detail.direct_record.draws > 0 && (
+                  <p className="mt-1.5 text-center text-xs text-zinc-500">
+                    {detail.direct_record.draws} drawn
+                  </p>
+                )}
+                <div className="mt-5 flex gap-2">
+                  {status === "pending" && incoming ? (
+                    <>
+                      <button
+                        disabled={busy}
+                        onClick={() => void action("accept")}
+                        className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => void action("decline")}
+                        className="rounded-xl border border-zinc-300 px-4 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+                    </>
+                  ) : status === "pending" ? (
+                    <button
+                      disabled={busy}
+                      onClick={() => void action("cancel")}
+                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed"
+                    >
+                      Pending · Cancel
+                    </button>
+                  ) : status && status !== "completed" ? (
+                    <button
+                      disabled
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 font-semibold text-zinc-600 disabled:cursor-not-allowed"
+                    >
+                      {statusLabel(status)}
+                    </button>
+                  ) : (
+                    <button
+                      disabled={
+                        busy ||
+                        !detail.viewer.has_active_bot ||
+                        !detail.rival.has_active_bot
+                      }
+                      onClick={() => setConfirmCreate(true)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {busy ? (
+                        "Starting…"
+                      ) : (
+                        <>
+                          <BoltIcon />
+                          <span className="min-w-0 truncate">
+                            Challenge {detail.rival.username}
+                            {status === "completed" ? " again" : ""}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {!detail.viewer.has_active_bot && (
+                  <p className="mt-2 text-xs text-zinc-500">
+                    Submit an active bot to start a direct challenge.
+                  </p>
+                )}
+                {detail.viewer.has_active_bot &&
+                  !detail.rival.has_active_bot && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      You can view this rival now. Challenges unlock when they
+                      submit an active bot.
+                    </p>
+                  )}
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close rival"
-                className="rounded-lg px-3 py-2 text-xl text-zinc-500 hover:bg-zinc-100"
-              >
-                ×
-              </button>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 p-4 text-center">
-              <div>
-                <strong className="block text-2xl text-blue-700">
-                  {detail.direct_record.wins}
-                </strong>
-                <span className="text-xs text-zinc-500">You</span>
-              </div>
-              <div>
-                <strong className="block text-2xl">
-                  {detail.direct_record.draws}
-                </strong>
-                <span className="text-xs text-zinc-500">Draws</span>
-              </div>
-              <div>
-                <strong className="block text-2xl">
-                  {detail.direct_record.losses}
-                </strong>
-                <span className="text-xs text-zinc-500">
-                  {detail.rival.username}
-                </span>
-              </div>
-            </div>
-            {detail.is_nemesis && detail.nemesis_explanation && (
-              <p className="mt-3 text-sm text-orange-800">
-                {detail.nemesis_explanation}
-              </p>
-            )}
-            <div className="mt-5 flex gap-2">
-              {status === "pending" && incoming ? (
-                <>
-                  <button
-                    disabled={busy}
-                    onClick={() => void action("accept")}
-                    className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => void action("decline")}
-                    className="rounded-xl border border-zinc-300 px-4 py-3 font-semibold"
-                  >
-                    Decline
-                  </button>
-                </>
-              ) : status === "pending" ? (
-                <button
-                  disabled={busy}
-                  onClick={() => void action("cancel")}
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 font-semibold text-zinc-700 disabled:cursor-not-allowed"
-                >
-                  Pending · Cancel
-                </button>
-              ) : status === "queued" || status === "running" ? (
-                <button
-                  disabled
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 font-semibold text-zinc-600 disabled:cursor-not-allowed"
-                >
-                  {statusLabel(status)}
-                </button>
-              ) : status && status !== "completed" ? (
-                <button
-                  disabled
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 font-semibold text-zinc-600"
-                >
-                  {statusLabel(status)}
-                </button>
-              ) : (
-                <button
-                  disabled={
-                    busy ||
-                    !detail.viewer.has_active_bot ||
-                    !detail.rival.has_active_bot
-                  }
-                  onClick={() => setConfirmCreate(true)}
-                  className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy
-                    ? "Starting…"
-                    : status === "completed"
-                      ? "Challenge again"
-                      : "Challenge"}
-                </button>
-              )}
-            </div>
-            {!detail.viewer.has_active_bot && (
-              <p className="mt-2 text-xs text-zinc-500">
-                Submit an active bot to start a direct challenge.
-              </p>
-            )}
-            {detail.viewer.has_active_bot && !detail.rival.has_active_bot && (
-              <p className="mt-2 text-xs text-zinc-500">
-                You can view this rival now. Challenges unlock when they submit
-                an active bot.
-              </p>
-            )}
-            <section className="mt-6">
-              <div className="flex items-baseline justify-between">
+            {/* Nothing follows the history: the overlay is identity, one
+                action, and a bounded head-to-head list. */}
+            <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200">
+              <div className="flex items-baseline justify-between gap-3 border-b border-zinc-200 px-4 py-3">
                 <h2 className="font-semibold">Recent head-to-head</h2>
-                <span className="text-xs text-zinc-500">
+                <span className="shrink-0 text-xs text-zinc-500">
                   Direct challenges only
                 </span>
               </div>
-              <ul className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-zinc-200">
+              <ul className="max-h-72 overflow-y-auto">
                 {detail.history.items.length ? (
                   detail.history.items.map((challenge) => (
                     <ChallengeRow
@@ -640,6 +775,7 @@ function RivalOverlay({
                       onRecap={onRecap}
                       viewer={viewer}
                       highlighted={challenge.challenge_id === highlightedId}
+                      portraits
                     />
                   ))
                 ) : (
@@ -647,16 +783,18 @@ function RivalOverlay({
                     No completed direct challenges yet.
                   </li>
                 )}
+                {next && (
+                  <li className="border-t border-zinc-100 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => void more()}
+                      className="text-sm font-semibold text-blue-700 hover:underline"
+                    >
+                      Load more history
+                    </button>
+                  </li>
+                )}
               </ul>
-              {next && (
-                <button
-                  type="button"
-                  onClick={() => void more()}
-                  className="mt-3 text-sm font-semibold text-blue-700"
-                >
-                  Load more history
-                </button>
-              )}
             </section>
             {confirmCreate && (
               <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-zinc-950/25 p-5">
@@ -703,103 +841,6 @@ function RivalOverlay({
   );
 }
 
-function Records({
-  people,
-  viewer,
-  open,
-}: {
-  people: Rival[];
-  viewer?: string;
-  open: (username: string) => void;
-}) {
-  const [a, setA] = useState(viewer ?? "");
-  const [b, setB] = useState("");
-  const [compare, setCompare] = useState<Compare | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    if (!a || !b || a === b) {
-      setCompare(null);
-      setError("");
-      return;
-    }
-    setError("");
-    void rivalsApi
-      .compare(a, b)
-      .then((result) => {
-        if (!cancelled) setCompare(result);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [a, b]);
-  const names = Array.from(
-    new Set([viewer, ...people.map((item) => item.username)].filter(Boolean)),
-  ) as string[];
-  return (
-    <section className="max-w-3xl">
-      <p className="mb-5 text-zinc-600">
-        Compare completed direct challenges. Official round-robin meetings are
-        never included.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[a, b].map((value, index) => (
-          <label key={index} className="text-sm font-medium">
-            {index ? "Player B" : "Player A"}
-            <input
-              list={`players-${index}`}
-              value={value}
-              onChange={(event) =>
-                index ? setB(event.target.value) : setA(event.target.value)
-              }
-              placeholder="Search a player"
-              className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2.5 outline-none focus:border-blue-600"
-            />
-            <datalist id={`players-${index}`}>
-              {names.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          </label>
-        ))}
-      </div>
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      {compare && (
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5">
-          <h2 className="font-semibold">Direct challenge record</h2>
-          <p className="mt-3 text-3xl font-bold">
-            <span className="text-blue-700">
-              {compare.direct_record.player_a_wins}
-            </span>{" "}
-            <span className="text-zinc-400">-</span>{" "}
-            {compare.direct_record.player_b_wins}
-          </p>
-          <p className="mt-1 text-sm text-zinc-500">
-            {compare.direct_record.draws} draws · {compare.direct_record.played}{" "}
-            completed challenges
-          </p>
-          {viewer && (a === viewer || b === viewer) && (
-            <button
-              type="button"
-              onClick={() => open(a === viewer ? b : a)}
-              className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Challenge
-            </button>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
 export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
   const { session, loaded } = useSession();
   const workspaceGeneration = useRef(0);
@@ -810,6 +851,8 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
   const recapWasPushed = useRef(false);
   const [tab, setTab] = useState<Tab>(initialTab);
   const [items, setItems] = useState<Rival[]>([]);
+  // The API only offers suggestions when "mine" comes back empty and unfiltered.
+  const [suggested, setSuggested] = useState<Rival[]>([]);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
@@ -908,12 +951,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     recapWasPushed.current = Boolean(state?.rivalsRecap);
     const fromUrl = new URLSearchParams(window.location.search);
     const rawTab = fromUrl.get("tab");
-    if (
-      rawTab === "leaderboard" ||
-      rawTab === "challenges" ||
-      rawTab === "records"
-    )
-      setTab(rawTab);
+    if (rawTab === "challenges") setTab(rawTab);
     setSelected(fromUrl.get("rival"));
     const result = fromUrl.get("result");
     const challenge = fromUrl.get("challenge") ?? result;
@@ -948,19 +986,14 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
       params.delete("challenge");
       params.delete("result");
       const rawTab = params.get("tab");
-      setTab(
-        rawTab === "leaderboard" ||
-          rawTab === "challenges" ||
-          rawTab === "records"
-          ? rawTab
-          : initialTab,
-      );
+      setTab(rawTab === "challenges" ? rawTab : initialTab);
       setQuery("");
       const href = `${window.location.pathname}${params.size ? `?${params}` : ""}`;
       history.replaceState({}, "", href);
     }
     setStateOwner(viewer ?? null);
     setItems([]);
+    setSuggested([]);
     setChallenges([]);
     setSelected(null);
     setRecap(null);
@@ -1003,7 +1036,9 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     const generation = workspaceGeneration.current;
     let cancelled = false;
     const stale = () => cancelled || generation !== workspaceGeneration.current;
-    const source = tab === "leaderboard" ? "leaderboard" : "mine";
+    // Unsearched, the list is the people you have actually played. A search
+    // widens to every cohort candidate so new rivals stay discoverable.
+    const source = query ? "leaderboard" : "mine";
     setError("");
     if (tab === "challenges") {
       setBusy(true);
@@ -1026,27 +1061,6 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
         cancelled = true;
       };
     }
-    if (tab === "records") {
-      setBusy(true);
-      void Promise.all([rivalsApi.list("mine"), rivalsApi.list("leaderboard")])
-        .then(([mine, leaderboard]) => {
-          if (stale()) return;
-          const unique = new Map<string, Rival>();
-          [...mine.items, ...leaderboard.items].forEach((rival) =>
-            unique.set(rival.username, rival),
-          );
-          setItems([...unique.values()]);
-          setBusy(false);
-        })
-        .catch((reason) => {
-          if (stale()) return;
-          setError(reason.message);
-          setBusy(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
     setBusy(true);
     const timer = window.setTimeout(
       () => {
@@ -1055,6 +1069,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
           .then((data) => {
             if (stale()) return;
             setItems(data.items);
+            setSuggested(data.suggested_items ?? []);
             setBusy(false);
           })
           .catch((reason) => {
@@ -1091,64 +1106,52 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     );
   }
   return (
-    <main className="min-h-[calc(100vh-4.5rem)] bg-[radial-gradient(circle_at_12%_0%,#e7efff,transparent_30%),linear-gradient(180deg,#fafbff,#fff)]">
+    <main className="min-h-[calc(100vh-4.5rem)] bg-[#f6f8fc]">
       <div className="mx-auto max-w-[90rem] px-5 py-10 sm:px-8 sm:py-14">
-        <div className="max-w-2xl">
-          <p className="text-xs font-bold tracking-[0.18em] text-blue-700">
-            PLAYFUL PRACTICE ARENA
-          </p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight text-zinc-950 sm:text-5xl">
-            Choose a rival
-          </h1>
-          <p className="mt-3 text-zinc-600">
-            Practice with a focused, asynchronous heads-up challenge. Every
-            matchup uses play chips and leaves public Elo unchanged.
-          </p>
+        {/* The title leads. No eyebrow, no explainer: the search field is the
+            next thing a participant needs. */}
+        <h1 className="text-4xl font-bold tracking-tight text-zinc-950 sm:text-5xl">
+          Choose a rival
+        </h1>
+        <label className="mt-6 block max-w-md">
+          <span className="sr-only">Search players or bots</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => {
+              setError("");
+              // A search is always a search for people, so it answers on the
+              // rivals list rather than silently filtering nothing.
+              if (event.target.value && tab !== "mine") choose("mine");
+              setQuery(event.target.value);
+            }}
+            placeholder="Search player or bot"
+            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
+        <div className="mt-6 border-b border-zinc-200">
+          <nav aria-label="Rivals sections">
+            <div role="tablist" className="flex gap-1">
+              {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === key}
+                  onClick={() => choose(key)}
+                  className={`relative px-4 py-3 text-sm font-semibold ${tab === key ? "text-blue-700" : "text-zinc-600 hover:text-zinc-950"}`}
+                >
+                  {TAB_LABELS[key]}
+                  {tab === key && (
+                    <span className="absolute inset-x-4 bottom-[-1px] h-0.5 bg-blue-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </nav>
         </div>
-        <div className="mt-8 border-b border-zinc-200">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-medium text-zinc-500 sm:hidden">
-              Scroll for more
-            </span>
-            <nav
-              aria-label="Rivals sections, scroll for more"
-              tabIndex={0}
-              className="min-w-0 flex-1 overflow-x-auto scroll-smooth"
-            >
-              <div role="tablist" className="flex min-w-max gap-1">
-                {(Object.keys(TAB_LABELS) as Tab[]).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === key}
-                    onClick={() => choose(key)}
-                    className={`relative px-4 py-3 text-sm font-semibold ${tab === key ? "text-blue-700" : "text-zinc-600 hover:text-zinc-950"}`}
-                  >
-                    {TAB_LABELS[key]}
-                    {tab === key && (
-                      <span className="absolute inset-x-4 bottom-[-1px] h-0.5 bg-blue-600" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </nav>
-          </div>
-        </div>
-        {(tab === "mine" || tab === "leaderboard") && (
+        {tab === "mine" && (
           <>
-            <label className="mt-6 block max-w-md">
-              <span className="sr-only">Search players or bots</span>
-              <input
-                value={query}
-                onChange={(event) => {
-                  setError("");
-                  setQuery(event.target.value);
-                }}
-                placeholder="Search player or bot"
-                className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-            </label>
             {accountChanged || error ? (
               <p
                 role="alert"
@@ -1159,14 +1162,23 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
             ) : busy ? (
               <p className="mt-8 text-sm text-zinc-500">Loading rivals…</p>
             ) : items.length ? (
-              <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((rival) => (
-                  <RivalCard key={rival.username} rival={rival} onOpen={open} />
-                ))}
+              <div className="mt-7">
+                <RivalGrid items={items} onOpen={open} selected={selected} />
               </div>
+            ) : suggested.length ? (
+              <section className="mt-7">
+                <h2 className="text-xl font-bold tracking-tight text-zinc-950">
+                  Suggested
+                </h2>
+                <div className="mt-4">
+                  <RivalGrid items={suggested} onOpen={open} selected={selected} />
+                </div>
+              </section>
             ) : (
               <p className="mt-8 rounded-xl border border-zinc-200 bg-white p-5 text-zinc-600">
-                No rivals match that search yet.
+                {query
+                  ? "No rivals match that search yet."
+                  : "No rivals yet. Search for a player to start a direct challenge."}
               </p>
             )}
           </>
@@ -1203,11 +1215,6 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
               </ul>
             )}
           </section>
-        )}
-        {tab === "records" && (
-          <div className="mt-7">
-            <Records key={viewer} people={items} viewer={viewer} open={open} />
-          </div>
         )}
       </div>
       {!accountChanged && selected && (

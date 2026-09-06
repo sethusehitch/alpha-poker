@@ -60,6 +60,57 @@ def test_seeded_leaderboard_rivals_have_viewable_details(tmp_path):
             assert detail.json()["rival"]["username"] == rival["username"]
 
 
+def test_empty_my_rivals_exposes_elo_nearest_suggestions(tmp_path):
+    """A new player gets useful choices without mixing suggestions into their history."""
+    with TestClient(create_app(Settings(
+        tmp_path,
+        tmp_path / "db.sqlite3",
+        tmp_path / "uploads",
+        tmp_path / "artifacts",
+        seed_demo_data=True,
+        auth_required=True,
+    ))) as client:
+        registration = client.post(
+            "/v1/auth/register", json={"username": "newcomer", "password": "correct horse"}
+        )
+        headers = {"Authorization": f"Bearer {registration.json()['token']}"}
+
+        mine = client.get("/v1/rivals?source=mine", headers=headers)
+        assert mine.status_code == 200
+        payload = mine.json()
+        assert payload["items"] == []
+        assert payload["suggested_for_elo"] == 1200
+        assert [item["username"] for item in payload["suggested_items"]] == ["jules", "theo", "sam"]
+        assert all(item["direct_record"]["played"] == 0 for item in payload["suggested_items"])
+
+        explicit = client.get("/v1/rivals?source=suggested&limit=3", headers=headers).json()
+        assert [item["username"] for item in explicit["items"]] == ["jules", "theo", "sam"]
+
+
+def test_suggestions_use_viewer_latest_official_elo(tmp_path):
+    with TestClient(create_app(Settings(
+        tmp_path,
+        tmp_path / "db.sqlite3",
+        tmp_path / "uploads",
+        tmp_path / "artifacts",
+        seed_demo_data=True,
+        auth_required=True,
+    ))) as client:
+        registration = client.post(
+            "/v1/auth/register", json={"username": "rankedviewer", "password": "correct horse"}
+        )
+        headers = {"Authorization": f"Bearer {registration.json()['token']}"}
+        client.app.state.db.execute(
+            "INSERT INTO leaderboard(run_id,rank,username,bot_name,bb_per_100,ci_low,ci_high,hands,"
+            "submission_id,elo_rating,matchup_wins,matchup_losses,matchup_draws) "
+            "VALUES('run_demo',6,'rankedviewer','RankedBot',0,0,0,100,NULL,1250,0,0,0)"
+        )
+
+        payload = client.get("/v1/rivals?source=mine", headers=headers).json()
+        assert payload["suggested_for_elo"] == 1250
+        assert [item["username"] for item in payload["suggested_items"]] == ["maya", "theo", "jules"]
+
+
 def participant(client, username: str, action: str = "call") -> dict[str, str]:
     registration = client.post(
         "/v1/auth/register", json={"username": username, "password": "correct horse"}

@@ -215,7 +215,7 @@ test("removes the starter preview scaffolding", async () => {
     "utf8",
   );
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
-  assert.match(packageJson, /vinext dev --port 3001/);
+  assert.match(packageJson, /vinext dev --port 3002/);
 });
 
 test("leaderboard constrains untrusted names at the UI boundary", async () => {

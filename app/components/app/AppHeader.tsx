@@ -46,25 +46,25 @@ type AppNavItem = {
 // "Rivals" can never disagree about which surface the participant is on.
 const APP_NAV: AppNavItem[] = [
   {
-    label: "My Bot",
-    href: "/my-bot",
-    isActive: (path) => path.startsWith("/my-bot"),
-  },
-  {
     label: "Getting Started",
     href: "/#instructions",
     isActive: () => false,
+  },
+  {
+    label: "Leaderboard",
+    href: "/leaderboard",
+    isActive: (path) => path.startsWith("/leaderboard"),
+  },
+  {
+    label: "My Bot",
+    href: "/my-bot",
+    isActive: (path) => path.startsWith("/my-bot"),
   },
   {
     label: "Rivals",
     href: "/rivals",
     icon: <PeopleIcon />,
     isActive: (path) => path.startsWith("/rivals") || path.startsWith("/hands/"),
-  },
-  {
-    label: "Leaderboard",
-    href: "/rivals?tab=leaderboard",
-    isActive: () => false,
   },
 ];
 

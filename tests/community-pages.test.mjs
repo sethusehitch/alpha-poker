@@ -42,7 +42,7 @@ test("/feature-requests renders the community header, hero, and offline-safe lis
   assert.match(body, /aria-current="page"[^>]*>Top/);
   assert.match(body, /aria-label="Filter feature requests"/);
   assert.match(body, /Suggest a feature/);
-  assert.match(body, /Log in to vote and suggest features\./);
+  assert.doesNotMatch(body, /Log in to vote and suggest features\./);
   assert.match(body, /How ideas work/);
   assert.match(body, /Use the feedback button in the corner/);
 
@@ -52,6 +52,20 @@ test("/feature-requests renders the community header, hero, and offline-safe lis
   assert.match(body, /Couldn.t load ideas\./);
   assert.doesNotMatch(body, /api_unavailable/);
   assert.doesNotMatch(body, /"error":\s*\{/);
+});
+
+test("authenticated-only copy waits until the session check completes", async () => {
+  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+  assert.match(source, /sessionLoaded && !session/);
+});
+
+test("unknown routes provide a useful path back to the arena", async () => {
+  const response = await render("/definitely-not-a-page");
+  assert.equal(response.status, 404);
+  const body = await response.text();
+  assert.match(body, /That page isn.t in the deck\./);
+  assert.match(body, /Back to Alpha Poker/);
+  assert.match(body, /aria-label="Alpha Poker home"/);
 });
 
 test("/feature-requests?tab=new and ?tab=planned deep-link to the right tab", async () => {
@@ -126,6 +140,16 @@ test("global feedback widget and account chip mount on every community page", as
     assert.match(body, /aria-label="Send feedback"/, `${path} is missing the feedback FAB`);
     assert.match(body, /data-testid="account-trigger"/, `${path} is missing the account chip`);
   }
+});
+
+test("account dialog clears private registration fields whenever it closes", async () => {
+  const source = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /resetAuthForm = useCallback\(\(\) => \{[\s\S]*setInviteCode\(""\)/);
+  assert.match(source, /closeDialog = useCallback\(\(\) => \{[\s\S]*resetAuthForm\(\)[\s\S]*setOpen\(false\)/);
+  assert.doesNotMatch(source, /aria-label="Close" onClick=\{\(\) => setOpen\(false\)\}/);
+  assert.match(source, /onMouseDown=\{closeDialog\}/);
+  assert.match(source, /if \(event\.key === "Escape"\) closeDialog\(\)/);
 });
 
 test("status chip supports exactly the six-stage lifecycle", async () => {

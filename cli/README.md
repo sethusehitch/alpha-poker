@@ -19,7 +19,9 @@ The local API defaults to `http://localhost:8000/v1`. Override it with
 `--api-url` or `ALPHA_POKER_API_URL`.
 
 `register` and `login` save a revocable session token in
-`~/.config/alpha-poker/credentials.json` with mode `0600`. Tokens are scoped to
+`${XDG_CONFIG_HOME:-~/.config}/alpha-poker/credentials.json` with mode `0600`.
+Set `ALPHA_POKER_CONFIG` to an exact file path when you need a fully isolated
+profile. Tokens are scoped to
 the API URL and are never included in bot ZIPs. Use `alpha-poker whoami` to
 check the account and `alpha-poker logout` to revoke the current token.
 If the league uses a cohort code, add `--invite-code CODE` when registering.

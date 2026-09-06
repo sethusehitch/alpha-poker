@@ -412,7 +412,7 @@ export function FeatureRequestList({
   initialNextCursor: string | null;
   initialError: boolean;
 }) {
-  const { session } = useSession();
+  const { session, loaded: sessionLoaded } = useSession();
   const [activeTab, setActiveTab] = useState<FeatureTab>(tab);
   const [items, setItems] = useState<FeatureRequest[]>(initialItems);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
@@ -637,7 +637,7 @@ export function FeatureRequestList({
               Suggest a feature
             </button>
           </div>
-          {!session && <p className="mt-3 text-[0.8125rem] text-zinc-500">Log in to vote and suggest features.</p>}
+          {sessionLoaded && !session && <p className="mt-3 text-[0.8125rem] text-zinc-500">Log in to vote and suggest features.</p>}
 
           <div className="mt-6">
           {retrying ? (

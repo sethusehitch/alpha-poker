@@ -590,10 +590,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/v1/training/sessions", status_code=201)
     def training_create(body: TrainingCreate, request: Request, authorization: str | None = Header(None)):
         username = mutation_username(authorization, body.username)
-        # Keep the published leader package protected from pruning between its
-        # selection and the durable training-session insert.
-        with app.state.league_execution_lock:
-            result = create_session(db, username, body.hand_limit, body.client_schema_version)
+        # The published leader package is always protected by
+        # prune_submission_packages, so training setup must not wait behind a
+        # potentially long official round robin.
+        result = create_session(db, username, body.hand_limit, body.client_schema_version)
         forwarded_scheme = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
         scheme = "wss" if request.url.scheme == "https" or forwarded_scheme == "https" else "ws"
         result["websocket_url"] = f"{scheme}://{request.url.netloc}/v1/training/ws?session_id={result['session_id']}&token={result['training_token']}"

@@ -9,9 +9,11 @@ export type LeaderboardEntry = {
   elo_rating?: number;
   matchup_wins?: number;
   matchup_losses?: number;
+  matchup_draws?: number;
   rating?: number;
   wins?: number;
   losses?: number;
+  draws?: number;
   bb_per_100?: number;
   confidence_95?: [number, number];
   hands?: number;
@@ -73,10 +75,17 @@ function losses(entry: LeaderboardEntry) {
   return entry.matchup_losses ?? entry.losses ?? 0;
 }
 
+function draws(entry: LeaderboardEntry) {
+  return entry.matchup_draws ?? entry.draws ?? 0;
+}
+
 function recordLabel(entry: LeaderboardEntry) {
   const winCount = wins(entry);
   const lossCount = losses(entry);
-  return `${winCount} ${winCount === 1 ? "win" : "wins"}, ${lossCount} ${lossCount === 1 ? "loss" : "losses"}`;
+  const drawCount = draws(entry);
+  return `${winCount} ${winCount === 1 ? "win" : "wins"}, ${lossCount} ${lossCount === 1 ? "loss" : "losses"}${
+    drawCount > 0 ? `, ${drawCount} ${drawCount === 1 ? "draw" : "draws"}` : ""
+  }`;
 }
 
 function rankBadgeClass(rank: number) {
@@ -190,6 +199,7 @@ function Pedestal({ entry }: { entry: LeaderboardEntry }) {
         <p className="mt-[1.5cqi] text-[clamp(0.54rem,2.8cqi,0.72rem)] leading-tight tabular-nums text-[#707782]">
           <span className="text-[#08A34A]">{wins(entry)} {wins(entry) === 1 ? "win" : "wins"}</span>,{" "}
           <span className="text-[#F04452]">{losses(entry)} {losses(entry) === 1 ? "loss" : "losses"}</span>
+          {draws(entry) > 0 ? <>, <span>{draws(entry)} {draws(entry) === 1 ? "draw" : "draws"}</span></> : null}
         </p>
       </div>
     </li>
@@ -270,7 +280,7 @@ function StandingsTable({ entries }: { entries: LeaderboardEntry[] }) {
               <td className="truncate pr-[1cqi] text-[#525862]" title={entry.username}>{displayName(entry.username, PLAYER_NAME_DISPLAY_LENGTH)}</td>
               <td className="whitespace-nowrap pr-[clamp(10px,2.4cqi,15px)] text-right font-semibold text-[#17191D] tabular-nums">{eloRating(entry).toLocaleString()}</td>
               <td className="whitespace-nowrap pl-[clamp(10px,2.4cqi,15px)] pr-[clamp(12px,4.5cqi,28px)] text-right text-[#525862] tabular-nums min-[480px]:border-l min-[480px]:border-[#F0F2F4]" aria-label={recordLabel(entry)}>
-                {wins(entry)}-{losses(entry)}
+                {draws(entry) > 0 ? `${wins(entry)}W ${losses(entry)}L ${draws(entry)}D` : `${wins(entry)}-${losses(entry)}`}
               </td>
             </tr>
           ))}

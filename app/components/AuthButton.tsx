@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { emit, on } from "./uiBus";
 
 const USERNAME_CHIP_DISPLAY_LENGTH = 16;
@@ -54,6 +54,21 @@ export function AuthButton() {
   const [busy, setBusy] = useState(false);
   const [accountStatus, setAccountStatus] = useState<AccountStatus | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  const resetAuthForm = useCallback(() => {
+    setRegistering(false);
+    setUsername("");
+    setPassword("");
+    setConfirmation("");
+    setInviteCode("");
+    setError("");
+  }, []);
+
+  const closeDialog = useCallback(() => {
+    resetAuthForm();
+    setOpen(false);
+  }, [resetAuthForm]);
 
   useEffect(() => {
     fetch("/browser-api/auth/me")
@@ -65,7 +80,8 @@ export function AuthButton() {
           emit("session-changed", { username: result.username, isOperator: Boolean(result.is_operator) });
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setSessionChecked(true));
   }, []);
 
   useEffect(() => on("open-account", () => setOpen(true)), []);
@@ -78,11 +94,11 @@ export function AuthButton() {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeDialog();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [open, closeDialog]);
 
   useEffect(() => {
     if (!open || !session) return;
@@ -121,9 +137,7 @@ export function AuthButton() {
       if (!response.ok) throw new Error(result.error?.message ?? "Could not log in");
       const next = { username: result.username };
       setSession(next);
-      setOpen(false);
-      setPassword("");
-      setConfirmation("");
+      closeDialog();
       const me = await fetch("/browser-api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       emit("session-changed", { username: result.username, isOperator: Boolean(me?.is_operator) });
     } catch (reason) {
@@ -138,7 +152,7 @@ export function AuthButton() {
       await fetch("/browser-api/auth/logout", { method: "POST" }).catch(() => undefined);
     }
     setSession(null);
-    setOpen(false);
+    closeDialog();
     emit("session-changed", { username: null, isOperator: false });
   }
 
@@ -162,13 +176,15 @@ export function AuthButton() {
             </span>
             <ChevronDownIcon />
           </>
-        ) : (
+        ) : sessionChecked ? (
           <span>Log in</span>
+        ) : (
+          <span>Account</span>
         )}
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-5" onMouseDown={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 px-5" onMouseDown={closeDialog}>
           <div
             role="dialog"
             aria-modal="true"
@@ -183,7 +199,7 @@ export function AuthButton() {
                     <h2 id="account-title" className="text-xl font-bold text-zinc-900">Your bot</h2>
                     <p className="mt-1 text-sm text-zinc-500">Logged in as <strong>{session.username}</strong></p>
                   </div>
-                  <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="text-xl leading-none text-zinc-500">×</button>
+                  <button type="button" aria-label="Close" onClick={closeDialog} className="text-xl leading-none text-zinc-500">×</button>
                 </div>
                 <div className="mt-5 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                   {statusBusy && !accountStatus ? (
@@ -210,6 +226,7 @@ export function AuthButton() {
                           <p className="font-semibold text-zinc-950">Rank #{accountStatus.result.rank} · {accountStatus.result.elo_rating.toLocaleString()} Elo</p>
                           <p className="mt-1 text-sm text-zinc-600">
                             {recordLabel(accountStatus.result.record.wins, "win", "wins")}, {recordLabel(accountStatus.result.record.losses, "loss", "losses")}
+                            {accountStatus.result.record.draws > 0 ? `, ${recordLabel(accountStatus.result.record.draws, "draw", "draws")}` : ""}
                           </p>
                           <a className="mt-3 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-800" href={`/browser-api/runs/${encodeURIComponent(accountStatus.result.id)}/artifacts`} download>
                             Download official hand logs
@@ -233,7 +250,7 @@ export function AuthButton() {
                     <h2 id="account-title" className="text-xl font-bold text-zinc-900">{registering ? "Create account" : "Log in"}</h2>
                     <p className="mt-1 text-sm text-zinc-500">Use the same account in the Alpha Poker CLI.</p>
                   </div>
-                  <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="text-xl leading-none text-zinc-500">×</button>
+                  <button type="button" aria-label="Close" onClick={closeDialog} className="text-xl leading-none text-zinc-500">×</button>
                 </div>
                 <form onSubmit={submit} className="mt-6 space-y-4">
                   <label className="block text-sm font-medium text-zinc-800">
@@ -262,7 +279,13 @@ export function AuthButton() {
                     {busy ? "Working…" : registering ? "Create account" : "Log in"}
                   </button>
                 </form>
-                <button type="button" onClick={() => { setRegistering(!registering); setError(""); }} className="mt-4 w-full text-sm font-medium text-blue-700">
+                <button type="button" onClick={() => {
+                  setRegistering(!registering);
+                  setPassword("");
+                  setConfirmation("");
+                  setInviteCode("");
+                  setError("");
+                }} className="mt-4 w-full text-sm font-medium text-blue-700">
                   {registering ? "Already have an account? Log in" : "New here? Create an account"}
                 </button>
               </>

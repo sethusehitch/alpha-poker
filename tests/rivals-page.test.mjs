@@ -47,6 +47,18 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /history\.pushState/);
   assert.match(workspace, /Confirm challenge/);
   assert.match(workspace, /setConfirmCreate\(true\)/);
+  assert.match(workspace, />\s*Challenge\s*</);
+  assert.match(workspace, /Create a bot first to send a challenge\./);
+  assert.match(workspace, /aria-disabled=\{!canChallenge\}/);
+  assert.match(workspace, /viewerHasActiveBot=\{viewerHasActiveBot\}/);
+  assert.match(
+    workspace,
+    /startWithConfirmation=\{challengeTarget === selected\}/,
+  );
+  assert.match(
+    workspace,
+    /const challengeIntent = useRef\(startWithConfirmation\)/,
+  );
   assert.match(workspace, /viewer=\{viewer\}/);
   assert.match(workspace, /outcome === "draw"/);
   assert.match(workspace, /challenge\.recap_url/);
@@ -70,25 +82,40 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /emit\("open-account"/);
   assert.match(workspace, /workspaceGeneration/);
   assert.match(workspace, /useRef<string \| null \| undefined>\(undefined\)/);
-  assert.match(workspace, /sessionOwner\.current !== undefined && sessionOwner\.current !== nextOwner/);
+  assert.match(
+    workspace,
+    /sessionOwner\.current !== undefined && sessionOwner\.current !== nextOwner/,
+  );
   assert.match(workspace, /if \(!loaded\) return;/);
   assert.match(workspace, /if \(changedOwner\) \{[\s\S]*setQuery\(""\);/);
   assert.match(workspace, /rawTab === "challenges" \? rawTab : initialTab/);
   assert.doesNotMatch(workspace, /<Records key=\{viewer\}/);
   assert.match(workspace, /let cancelled = false/);
-  assert.match(workspace, /const stale = \(\) => cancelled \|\| generation !== workspaceGeneration\.current/);
+  assert.match(
+    workspace,
+    /const stale = \(\) => cancelled \|\| generation !== workspaceGeneration\.current/,
+  );
   assert.match(workspace, /return \(\) => \{\s*cancelled = true;/);
   assert.match(
     workspace,
-    /generation !== workspaceGeneration\.current \|\| requestUrl !== window\.location\.href/,
+    /generation !== workspaceGeneration\.current \|\|\s*requestUrl !== window\.location\.href/,
   );
   assert.match(workspace, /rivalsOverlay: pushed === "overlay"/);
   assert.match(workspace, /rivalsRecap: pushed === "recap"/);
-  assert.match(workspace, /overlayWasPushed\.current = Boolean\(state\?\.rivalsOverlay\)/);
+  assert.match(
+    workspace,
+    /overlayWasPushed\.current = Boolean\(state\?\.rivalsOverlay\)/,
+  );
   assert.match(workspace, /let cancelled = false/);
   assert.match(workspace, /on\("close-panels", \(\) => \{/);
-  assert.match(workspace, /emit\("rivals-dialog-changed", \{ open: Boolean\(selected \|\| recap\) \}\)/);
-  assert.match(workspace, /return \(\) => emit\("rivals-dialog-changed", \{ open: false \}\)/);
+  assert.match(
+    workspace,
+    /emit\("rivals-dialog-changed", \{ open: Boolean\(selected \|\| recap\) \}\)/,
+  );
+  assert.match(
+    workspace,
+    /return \(\) => emit\("rivals-dialog-changed", \{ open: false \}\)/,
+  );
   assert.match(workspace, /workspaceGeneration\.current \+= 1;/);
   assert.match(workspace, /history\.replaceState\(\{\}, "", href\)/);
   assert.match(api, /Idempotency-Key/);
@@ -109,7 +136,10 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(header, /notificationGeneration/);
   assert.match(header, /generation !== notificationGeneration\.current/);
   assert.match(header, /challenge\.status === "completed"/);
-  assert.match(header, /challenge\.challenged_username === session\?\.username/);
+  assert.match(
+    header,
+    /challenge\.challenged_username === session\?\.username/,
+  );
   assert.match(header, /challenge\.status === "failed"/);
   assert.match(header, /params\.set\("tab", "challenges"\)/);
   assert.match(header, /notificationDialogRef/);
@@ -126,7 +156,10 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(header, /on\("close-panels", closeTransientPanels\)/);
   assert.match(feedback, /emit\("close-panels", \{\}\)/);
   assert.match(feedback, /on\("rivals-dialog-changed", \(\{ open \}\) => \{/);
-  assert.match(feedback, /setRivalsDialogOpen\(open\);\s*if \(open\) setOpen\(false\);/);
+  assert.match(
+    feedback,
+    /setRivalsDialogOpen\(open\);\s*if \(open\) setOpen\(false\);/,
+  );
   assert.match(feedback, /accountOpen \|\| suggestOpen \|\| rivalsDialogOpen/);
   assert.match(proxy, /Idempotency-Key/);
   assert.match(api, /history\?limit=20/);
@@ -148,7 +181,10 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
       new URL("../app/components/rivals/RivalsWorkspace.tsx", import.meta.url),
       "utf8",
     ),
-    readFile(new URL("../app/components/BotAvatar.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/components/BotAvatar.tsx", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   // A failed first load used to stack "Rival not found" on top of the
@@ -162,16 +198,16 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
     /if \(request === detailRequest\.current\) setLoading\(false\);/,
   );
   assert.match(workspace, /Could not open this rival/);
-  assert.match(workspace, /onClick=\{\(\) => void load\(\)\}[\s\S]{0,320}Retry/);
+  assert.match(
+    workspace,
+    /onClick=\{\(\) => void load\(\)\}[\s\S]{0,320}Retry/,
+  );
   assert.match(
     workspace,
     /Could not open this rival[\s\S]*?Retry[\s\S]*?>\s*Close\s*</,
   );
   // The action-level banner still renders, but only alongside a loaded rival.
-  assert.match(
-    workspace,
-    /\) : \(\s*<>\s*\{error && \(\s*<p\s*role="alert"/,
-  );
+  assert.match(workspace, /\) : \(\s*<>\s*\{error && \(\s*<p\s*role="alert"/);
   // The API contract keeps this history direct-only without extra UI copy.
   assert.doesNotMatch(workspace, /Direct challenges only/);
   assert.match(workspace, /No completed direct challenges yet\./);
@@ -188,7 +224,10 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
   assert.match(workspace, /h-1 w-7 rounded-full bg-zinc-600/);
   assert.match(workspace, /mt-6 flex min-h-0 flex-1 flex-col overflow-hidden/);
   assert.match(workspace, /circle/);
-  assert.match(workspace, /direct_record\.wins\} – \{rival\.direct_record\.losses/);
+  assert.match(
+    workspace,
+    /direct_record\.wins\} – \{rival\.direct_record\.losses/,
+  );
   assert.match(workspace, />\s*Suggested\s*</);
 
   // The sprite crop lives in one shared component now.

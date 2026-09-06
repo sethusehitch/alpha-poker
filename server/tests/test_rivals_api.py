@@ -79,6 +79,7 @@ def test_empty_my_rivals_exposes_elo_nearest_suggestions(tmp_path):
         assert mine.status_code == 200
         payload = mine.json()
         assert payload["items"] == []
+        assert payload["viewer"] == {"has_active_bot": False}
         assert payload["suggested_for_elo"] == 1200
         assert [item["username"] for item in payload["suggested_items"]] == ["jules", "theo", "sam"]
         assert all(item["direct_record"]["played"] == 0 for item in payload["suggested_items"])
@@ -156,7 +157,9 @@ def test_auth_bot_requirements_idempotency_and_transitions(tmp_path):
         assert missing_opponent.status_code == 409
         assert missing_opponent.json()["error"]["code"] == "opponent_bot_required"
         bob = participant(client, "bob", "fold")
-        assert client.get("/v1/rivals", headers=alice).status_code == 200
+        rivals = client.get("/v1/rivals", headers=alice)
+        assert rivals.status_code == 200
+        assert rivals.json()["viewer"] == {"has_active_bot": True}
         assert client.get("/v1/rivals").status_code == 401
 
         self_challenge = client.post("/v1/challenges", headers=alice, json={"opponent_username": "alice"})

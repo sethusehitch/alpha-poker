@@ -42,7 +42,12 @@ function NemesisBadge({ className = "" }: { className?: string }) {
     <span
       className={`inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-orange-700 ${className}`}
     >
-      <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3" fill="none">
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 12 12"
+        className="h-3 w-3"
+        fill="none"
+      >
         <circle cx="6" cy="6" r="4.4" stroke="currentColor" strokeWidth="1.4" />
         <circle cx="6" cy="6" r="1.3" fill="currentColor" />
       </svg>
@@ -53,7 +58,12 @@ function NemesisBadge({ className = "" }: { className?: string }) {
 
 function BoltIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-4 w-4"
+      fill="currentColor"
+    >
       <path d="M9.1 1.2 3.4 9h3.3l-.8 5.8L12.6 7H9.3l-.2-5.8Z" />
     </svg>
   );
@@ -81,7 +91,10 @@ function ChallengeStatus({
   );
 }
 
-function isOnline(rival: { has_active_bot?: boolean; bot_name: string | null }) {
+function isOnline(rival: {
+  has_active_bot?: boolean;
+  bot_name: string | null;
+}) {
   return rival.has_active_bot ?? Boolean(rival.bot_name);
 }
 
@@ -113,12 +126,23 @@ function Portrait({
 function RivalCard({
   rival,
   onOpen,
+  onChallenge,
+  viewerHasActiveBot,
   selected = false,
 }: {
   rival: Rival;
   onOpen: (username: string) => void;
+  onChallenge: (username: string) => void;
+  viewerHasActiveBot: boolean;
   selected?: boolean;
 }) {
+  const rivalHasActiveBot = isOnline(rival);
+  const canChallenge = viewerHasActiveBot && rivalHasActiveBot;
+  const challengeHint = !viewerHasActiveBot
+    ? "Create a bot first to send a challenge."
+    : !rivalHasActiveBot
+      ? "This rival needs an active bot first."
+      : "";
   return (
     <article
       className={`flex h-[18.5rem] min-h-0 w-full max-w-[20.5625rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
@@ -164,13 +188,38 @@ function RivalCard({
           </p>
         </div>
       </div>
-      <button
-        type="button"
-        onClick={() => onOpen(rival.username)}
-        className={`mt-3 w-full shrink-0 rounded-xl border px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${selected ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
-      >
-        View rival
-      </button>
+      <div className="mt-3 flex shrink-0 flex-col gap-2">
+        <div className="group relative">
+          <button
+            type="button"
+            aria-disabled={!canChallenge}
+            aria-describedby={
+              !canChallenge ? `challenge-hint-${rival.username}` : undefined
+            }
+            onClick={() => canChallenge && onChallenge(rival.username)}
+            className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${canChallenge ? "bg-blue-600 hover:bg-blue-700" : "cursor-not-allowed bg-zinc-300 text-zinc-600"}`}
+          >
+            <BoltIcon />
+            Challenge
+          </button>
+          {!canChallenge && (
+            <span
+              id={`challenge-hint-${rival.username}`}
+              role="tooltip"
+              className="pointer-events-none absolute bottom-[calc(100%+0.5rem)] left-1/2 z-10 w-max max-w-[15rem] -translate-x-1/2 rounded-lg bg-zinc-950 px-3 py-2 text-center text-xs font-medium leading-4 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+            >
+              {challengeHint}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onOpen(rival.username)}
+          className={`w-full rounded-xl border px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${selected ? "border-blue-600 text-blue-700 hover:bg-blue-50" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
+        >
+          View rival
+        </button>
+      </div>
     </article>
   );
 }
@@ -178,10 +227,14 @@ function RivalCard({
 function RivalGrid({
   items,
   onOpen,
+  onChallenge,
+  viewerHasActiveBot,
   selected,
 }: {
   items: Rival[];
   onOpen: (username: string) => void;
+  onChallenge: (username: string) => void;
+  viewerHasActiveBot: boolean;
   selected?: string | null;
 }) {
   return (
@@ -191,6 +244,8 @@ function RivalGrid({
           key={rival.username}
           rival={rival}
           onOpen={onOpen}
+          onChallenge={onChallenge}
+          viewerHasActiveBot={viewerHasActiveBot}
           selected={selected === rival.username}
         />
       ))}
@@ -408,12 +463,14 @@ function RivalOverlay({
   onRecap,
   viewer,
   highlightedId,
+  startWithConfirmation = false,
 }: {
   username: string;
   onClose: () => void;
   onRecap: (id: string) => void;
   viewer?: string;
   highlightedId?: string | null;
+  startWithConfirmation?: boolean;
 }) {
   const [detail, setDetail] = useState<RivalDetail | null>(null);
   const [error, setError] = useState("");
@@ -424,6 +481,7 @@ function RivalOverlay({
   const panel = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<Element | null>(null);
   const detailRequest = useRef(0);
+  const challengeIntent = useRef(startWithConfirmation);
   const load = useCallback(async () => {
     const request = ++detailRequest.current;
     setError("");
@@ -433,6 +491,16 @@ function RivalOverlay({
       if (request !== detailRequest.current) return;
       setDetail(result);
       setNext(result.history.next_cursor);
+      if (challengeIntent.current) {
+        challengeIntent.current = false;
+        if (
+          result.viewer.has_active_bot &&
+          result.rival.has_active_bot &&
+          !result.current_challenge
+        ) {
+          setConfirmCreate(true);
+        }
+      }
     } catch (reason) {
       if (request !== detailRequest.current) return;
       setError(
@@ -588,7 +656,10 @@ function RivalOverlay({
             >
               !
             </span>
-            <h1 id="rival-title" className="mt-4 text-xl font-bold text-zinc-950">
+            <h1
+              id="rival-title"
+              className="mt-4 text-xl font-bold text-zinc-950"
+            >
               Could not open this rival
             </h1>
             <p className="mt-2 max-w-sm text-sm leading-6 text-zinc-600">
@@ -646,7 +717,9 @@ function RivalOverlay({
                   >
                     {detail.rival.username}
                   </h1>
-                  {detail.is_nemesis && <NemesisBadge className="text-[11px]" />}
+                  {detail.is_nemesis && (
+                    <NemesisBadge className="text-[11px]" />
+                  )}
                 </div>
                 <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm text-zinc-600 sm:translate-x-3 sm:justify-start">
                   <span
@@ -864,6 +937,8 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [challengeTarget, setChallengeTarget] = useState<string | null>(null);
+  const [viewerHasActiveBot, setViewerHasActiveBot] = useState(false);
   const [recap, setRecap] = useState<string | null>(null);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const viewer = session?.username;
@@ -889,8 +964,9 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
       : history.pushState(state, "", href);
     return true;
   };
-  const open = (username: string) => {
+  const open = (username: string, requestChallenge = false) => {
     setSelected(username);
+    setChallengeTarget(requestChallenge ? username : null);
     setRecap(null);
     const params = new URLSearchParams(window.location.search);
     params.set("rival", username);
@@ -901,6 +977,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
   const openChallenge = (challenge: Challenge) => {
     if (!challenge.opponent_username) return;
     setSelected(challenge.opponent_username);
+    setChallengeTarget(null);
     const params = new URLSearchParams(window.location.search);
     params.set("rival", challenge.opponent_username);
     if (challenge.status === "completed" && challenge.recap_url) {
@@ -934,6 +1011,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
   };
   const close = () => {
     setSelected(null);
+    setChallengeTarget(null);
     setRecap(null);
     if (overlayWasPushed.current) {
       overlayWasPushed.current = false;
@@ -960,6 +1038,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     const rawTab = fromUrl.get("tab");
     if (rawTab === "challenges") setTab(rawTab);
     setSelected(fromUrl.get("rival"));
+    setChallengeTarget(null);
     const result = fromUrl.get("result");
     const challenge = fromUrl.get("challenge") ?? result;
     if (!result) setRecap(null);
@@ -967,7 +1046,11 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
       void rivalsApi
         .challenge(challenge)
         .then((found) => {
-          if (generation !== workspaceGeneration.current || requestUrl !== window.location.href) return;
+          if (
+            generation !== workspaceGeneration.current ||
+            requestUrl !== window.location.href
+          )
+            return;
           if (found.opponent_username) setSelected(found.opponent_username);
           if (result && found.recap_url) setRecap(found.challenge_id);
         })
@@ -1001,8 +1084,10 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     setStateOwner(viewer ?? null);
     setItems([]);
     setSuggested([]);
+    setViewerHasActiveBot(false);
     setChallenges([]);
     setSelected(null);
+    setChallengeTarget(null);
     setRecap(null);
     setError("");
     setBusy(Boolean(viewer));
@@ -1024,6 +1109,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
       overlayWasPushed.current = false;
       recapWasPushed.current = false;
       setSelected(null);
+      setChallengeTarget(null);
       setRecap(null);
       const params = new URLSearchParams(window.location.search);
       params.delete("rival");
@@ -1077,6 +1163,9 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
             if (stale()) return;
             setItems(data.items);
             setSuggested(data.suggested_items ?? []);
+            // Keep the UI safe during a rolling deploy where an older API may
+            // briefly omit viewer readiness.
+            setViewerHasActiveBot(data.viewer?.has_active_bot ?? false);
             setBusy(false);
           })
           .catch((reason) => {
@@ -1170,7 +1259,13 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
               <p className="mt-8 text-sm text-zinc-500">Loading rivals…</p>
             ) : items.length ? (
               <div className="mt-7">
-                <RivalGrid items={items} onOpen={open} selected={selected} />
+                <RivalGrid
+                  items={items}
+                  onOpen={open}
+                  onChallenge={(username) => open(username, true)}
+                  viewerHasActiveBot={viewerHasActiveBot}
+                  selected={selected}
+                />
               </div>
             ) : suggested.length ? (
               <section className="mt-7">
@@ -1178,7 +1273,13 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
                   Suggested
                 </h2>
                 <div className="mt-4">
-                  <RivalGrid items={suggested} onOpen={open} selected={selected} />
+                  <RivalGrid
+                    items={suggested}
+                    onOpen={open}
+                    onChallenge={(username) => open(username, true)}
+                    viewerHasActiveBot={viewerHasActiveBot}
+                    selected={selected}
+                  />
                 </div>
               </section>
             ) : (
@@ -1226,12 +1327,13 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
       </div>
       {!accountChanged && selected && (
         <RivalOverlay
-          key={`${viewer ?? "signed-out"}:${selected}`}
+          key={`${viewer ?? "signed-out"}:${selected}:${challengeTarget === selected ? "challenge" : "view"}`}
           username={selected}
           onClose={close}
           onRecap={openRecap}
           viewer={viewer}
           highlightedId={recap}
+          startWithConfirmation={challengeTarget === selected}
         />
       )}{" "}
       {!accountChanged && recap && (

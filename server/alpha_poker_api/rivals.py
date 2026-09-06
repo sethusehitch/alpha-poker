@@ -297,7 +297,11 @@ def register_rival_routes(
             except ValueError as exc:
                 raise HTTPException(400, {"code": "cursor_invalid", "message": "Rival cursor is invalid"}) from exc
         page = entries[offset:offset + limit]
-        response = {"items": page, "next_cursor": str(offset + limit) if offset + limit < len(entries) else None}
+        response = {
+            "items": page,
+            "next_cursor": str(offset + limit) if offset + limit < len(entries) else None,
+            "viewer": {"has_active_bot": bool(_active_bot(db, username))},
+        }
         if source == "mine" and not needle and not entries:
             viewer_standing = _latest_standing(db, username)
             viewer_elo = int(viewer_standing["elo_rating"]) if viewer_standing else 1200

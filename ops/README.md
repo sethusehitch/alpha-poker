@@ -108,11 +108,11 @@ Local production-shaped stack:
 ./ops/down.sh
 ```
 
-AWS Lightsail with the `hitch-personal` profile:
+AWS Lightsail with an AWS CLI profile:
 
 ```bash
-AWS_PROFILE=hitch-personal ./ops/aws/apply-infra.sh
-AWS_PROFILE=hitch-personal ./ops/aws/deploy.sh
+AWS_PROFILE=your-profile ./ops/aws/apply-infra.sh
+AWS_PROFILE=your-profile ./ops/aws/deploy.sh
 ```
 
 `apply-infra.sh` provisions or reconciles the 4 GB host, static IP, firewall,

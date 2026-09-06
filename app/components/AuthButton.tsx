@@ -1,6 +1,33 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { emit, on } from "./uiBus";
+
+const USERNAME_CHIP_DISPLAY_LENGTH = 16;
+
+function displayUsername(value: string) {
+  const points = Array.from(value);
+  return points.length > USERNAME_CHIP_DISPLAY_LENGTH
+    ? `${points.slice(0, USERNAME_CHIP_DISPLAY_LENGTH - 1).join("")}…`
+    : value;
+}
+
+function PersonIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-zinc-500" fill="none">
+      <circle cx="8" cy="5.25" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2.75 13.25c0-2.9 2.35-4.75 5.25-4.75s5.25 1.85 5.25 4.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 14 14" className="h-3.5 w-3.5 shrink-0 text-zinc-400" fill="none">
+      <path d="M3.5 5.25 7 8.75l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 type Session = { username: string };
 type AccountStatus = {
@@ -33,10 +60,20 @@ export function AuthButton() {
       .then(async (response) => {
         if (!response.ok) return;
         const result = await response.json();
-        if (typeof result.username === "string") setSession({ username: result.username });
+        if (typeof result.username === "string") {
+          setSession({ username: result.username });
+          emit("session-changed", { username: result.username, isOperator: Boolean(result.is_operator) });
+        }
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => on("open-account", () => setOpen(true)), []);
+
+  useEffect(() => {
+    emit("account-dialog-changed", { open });
+    if (open) emit("close-panels", {});
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -87,6 +124,8 @@ export function AuthButton() {
       setOpen(false);
       setPassword("");
       setConfirmation("");
+      const me = await fetch("/browser-api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      emit("session-changed", { username: result.username, isOperator: Boolean(me?.is_operator) });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not log in");
     } finally {
@@ -100,16 +139,32 @@ export function AuthButton() {
     }
     setSession(null);
     setOpen(false);
+    emit("session-changed", { username: null, isOperator: false });
   }
 
   return (
     <>
       <button
         type="button"
+        data-testid="account-trigger"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen(true)}
-        className="rounded-[5px] px-2.5 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 min-[380px]:gap-2 min-[380px]:px-3.5"
       >
-        {session?.username ?? "Log in"}
+        <PersonIcon />
+        {session ? (
+          <>
+            {/* Narrower cap below 380px so the lockup, menu toggle, and chip
+                all fit a 320px header row without wrapping. */}
+            <span className="max-w-[4.5rem] truncate min-[380px]:max-w-[6.5rem] sm:max-w-[9rem]" title={session.username}>
+              {displayUsername(session.username)}
+            </span>
+            <ChevronDownIcon />
+          </>
+        ) : (
+          <span>Log in</span>
+        )}
       </button>
 
       {open && (

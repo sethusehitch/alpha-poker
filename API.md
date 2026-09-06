@@ -17,6 +17,7 @@ accounts gate joining, submissions, training, and other mutations.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | Process health check |
+| `GET` | `/v1/config` | Public, unauthenticated: whether hosted auth is required |
 | `POST` | `/v1/auth/register` | Create an account and session |
 | `POST` | `/v1/auth/login` | Create a session for an account |
 | `GET` | `/v1/auth/me` | Resolve the current bearer session |
@@ -42,6 +43,14 @@ accounts gate joining, submissions, training, and other mutations.
 | `DELETE` | `/v1/training/sessions/{session_id}` | Stop a training session |
 | `GET` | `/v1/training/sessions/{session_id}/artifacts` | Download training logs |
 | `WS` | `/v1/training/ws` | Play training hands against the frozen leader |
+| `GET` | `/v1/feature-requests` | Public, paginated list of community feature requests |
+| `POST` | `/v1/feature-requests` | Create a feature request (authenticated) |
+| `POST` | `/v1/feature-requests/{id}/vote` | Cast, switch, or clear one vote (authenticated) |
+| `PATCH` | `/v1/feature-requests/{id}` | Change lifecycle status (operator-only) |
+| `POST` | `/v1/feature-requests/{id}/hide` | Hide or restore a request (operator-only) |
+| `POST` | `/v1/feature-requests/{id}/promote` | Create a GitHub issue from a request (operator token) |
+| `POST` | `/v1/feedback` | Submit feedback (authentication optional) |
+| `GET` | `/v1/github/issues` | Public, cached `/contribute` summary of open issues and PRs |
 
 ## Submit a bot
 
@@ -204,6 +213,127 @@ The supported CLI implements this protocol:
 ```bash
 alpha-poker train ./my-bot --hands 100
 ```
+
+## Community: feature requests, feedback, and contribute
+
+`/v1/feature-requests`, `/v1/feedback`, and `/v1/github/issues` back the
+`/feature-requests`, `/contribute`, and global feedback surfaces. They reuse
+the existing accounts, sessions, and error envelope; no new database or
+service is introduced.
+
+### Feature requests
+
+Reading the list is public. Creating a request and voting require the same
+authenticated bearer session as everything else under `/v1`; when
+`ALPHA_POKER_AUTH_REQUIRED` is unset (local solo dev), those feature routes
+fall back to a fixed `local` pseudo-user. Feedback may be sent anonymously.
+
+```bash
+curl http://localhost:8000/v1/feature-requests?tab=top
+
+curl -X POST http://localhost:8000/v1/feature-requests \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer YOUR_TOKEN' \
+  -d '{"title":"Watch a hand replay","details":"Step through any finished hand."}'
+
+curl -X POST http://localhost:8000/v1/feature-requests/feat_abc123/vote \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer YOUR_TOKEN' \
+  -d '{"value": 1}'
+```
+
+`tab` is one of `top` (score, then newest), `new` (newest first), or `planned`
+(only `planned`, `in_progress`, and `shipped` requests, planned first). An
+unrecognized `tab` value falls back to `top`. Pagination is a numeric-offset
+`cursor`; the response's `next_cursor` is `null` once exhausted. `value` is
+`1`, `-1`, or `0` to upvote, downvote, or clear a viewer's own vote; voting the
+same direction again is idempotent, and each request/user pair holds at most
+one vote (enforced by a unique constraint, replaced inside one transaction).
+
+Every request has exactly one of six lifecycle statuses:
+
+`submitted` → `under_review` → `planned` → `in_progress` → `shipped`, with
+`declined` reachable from any state. New requests always start `submitted`.
+Any value read back from storage that is not one of these six (for example, a
+status written by a future release) renders as `submitted` rather than a raw
+string, so old or forward-incompatible data never breaks the list.
+
+Status changes (`PATCH .../{id}`) and hiding (`POST .../{id}/hide`) require an
+operator: an authenticated user whose normalized username is listed in
+`ALPHA_POKER_OPERATOR_USERNAMES`. An allowlisted name is reserved and can only
+be registered by supplying the server-side operator token directly to the API;
+the browser never receives that token. Hiding is a soft delete (`hidden=1`); a
+hidden request drops out of the public list immediately and can be restored
+with `{"hidden": false}`.
+
+`POST .../{id}/promote` creates a GitHub issue from an approved request. It
+requires both an authenticated session and the exact `ALPHA_POKER_OPERATOR_TOKEN`
+value in `X-Alpha-Operator` — the same operator-token gate as `/v1/admin/runs`
+— and is idempotent: once a request has a stored `github_issue_number`, later
+calls return `{"already_promoted": true}` with the original issue instead of
+creating a duplicate. A durable in-progress marker prevents a retry after an
+ambiguous upstream failure from creating a second issue; that state requires
+operator reconciliation. It returns `503 github_not_configured` if the server has
+no `GITHUB_TOKEN`. The token itself is never returned to any client and never
+reaches the browser; there is no browser-side route for promotion at all.
+
+Feature-request titles (4–80 characters) and details (≤500 characters) are
+rejected outright if they contain C0/C1 control characters, and are otherwise
+stripped of bidi-override/isolate and zero-width formatting characters before
+storage, mirroring the leaderboard's existing untrusted-text handling.
+Duplicate titles (case-insensitive) return `409 duplicate_request`.
+
+### Feedback
+
+```bash
+curl -X POST http://localhost:8000/v1/feedback \
+  -H 'content-type: application/json' \
+  -d '{"type":"idea","message":"Bot vs. bot practice matches would help.","path":"/feature-requests"}'
+```
+
+`type` is `bug`, `idea`, or `other`. `message` is 3–500 characters after
+trimming. `path` is stored with its query string and hash stripped. The
+username, when present, is always taken from the authenticated session and
+never from the request body. Anonymous feedback is accepted and limited by
+client IP. The server stores only a coarse browser/device category such as
+`Safari/mobile`, never a full user-agent string or fingerprint. Feedback is
+automatically deleted after 90 days by default; configure 1–365 days with
+`ALPHA_POKER_FEEDBACK_RETENTION_DAYS`.
+
+### Contribute / GitHub cache
+
+`GET /v1/github/issues` returns a cached summary (`good_first_issues`,
+`open_issue_count`, `open_pr_count`, `fetched_at`, `stale`) for the
+`sethusehitch/alpha-poker` repository, fetched server-side only. Responses are
+cached in SQLite for 10 minutes; a fresh fetch failure serves the last-known
+cache with `"stale": true` rather than failing the page, and only returns
+`503 api_unavailable` when there is no cache at all yet. An optional
+server-only `GITHUB_TOKEN` (prefer a fine-grained token restricted to this
+repository with only Issues: write permission)
+raises GitHub's rate limit for this fetch and is required for promotion; the
+page works without it against GitHub's public, unauthenticated endpoints. The
+token is read only from the server process environment and is never sent to
+the browser or embedded in any response.
+
+### Rate limits
+
+An in-process, single-instance, fixed-window limiter (`ALPHA_POKER_*` is not
+needed to configure it; it is conservative and not user-configurable) applies
+per authenticated username, or per client IP when unauthenticated:
+
+| Route | Limit |
+| --- | --- |
+| `POST /v1/feature-requests` | 5 per 10 minutes |
+| `POST /v1/feature-requests/{id}/vote` | 60 per minute |
+| `POST /v1/feedback` | 5 per 10 minutes |
+| `POST /v1/auth/register` | 8 per 10 minutes per client IP |
+| `POST /v1/auth/login` | 20 per 5 minutes per client IP |
+| Failed login for one username | 10 per 15 minutes across client IPs |
+
+Exceeding a limit returns `429 rate_limited`. Because state is an in-memory
+dict, this only makes sense for the single-container Lightsail deployment this
+app already runs behind; a multi-instance deployment would need a shared
+limiter backend instead.
 
 ## Errors
 

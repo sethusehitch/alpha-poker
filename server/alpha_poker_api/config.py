@@ -20,6 +20,9 @@ class Settings:
     retained_artifact_runs: int = 30
     invite_code: str | None = None
     operator_token: str | None = None
+    operator_usernames: frozenset[str] = frozenset()
+    github_token: str | None = None
+    feedback_retention_days: int = 90
 
     def __post_init__(self) -> None:
         if not 2 <= self.auto_run_hand_count <= 100_000 or self.auto_run_hand_count % 2:
@@ -30,6 +33,8 @@ class Settings:
             raise ValueError("ALPHA_POKER_RETAINED_HAND_RUNS must be from 1 to 20")
         if not self.retained_hand_runs <= self.retained_artifact_runs <= 500:
             raise ValueError("ALPHA_POKER_RETAINED_ARTIFACT_RUNS must be at least the hand-run retention and at most 500")
+        if not 1 <= self.feedback_retention_days <= 365:
+            raise ValueError("ALPHA_POKER_FEEDBACK_RETENTION_DAYS must be from 1 to 365")
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -48,6 +53,13 @@ class Settings:
             retained_artifact_runs=int(os.environ.get("ALPHA_POKER_RETAINED_ARTIFACT_RUNS", "30")),
             invite_code=os.environ.get("ALPHA_POKER_INVITE_CODE") or None,
             operator_token=os.environ.get("ALPHA_POKER_OPERATOR_TOKEN") or None,
+            operator_usernames=frozenset(
+                name.strip().lower()
+                for name in os.environ.get("ALPHA_POKER_OPERATOR_USERNAMES", "").split(",")
+                if name.strip()
+            ),
+            github_token=os.environ.get("GITHUB_TOKEN") or None,
+            feedback_retention_days=int(os.environ.get("ALPHA_POKER_FEEDBACK_RETENTION_DAYS", "90")),
         )
 
     def ensure_dirs(self) -> None:

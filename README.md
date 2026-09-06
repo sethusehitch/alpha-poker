@@ -21,6 +21,11 @@ The prototype has one league with username and password accounts. Each participa
 - Isolated bot subprocesses with resource and capability limits
 - Persistent league queue recovery, bounded hand logs, artifacts, and upload ZIPs
 - Docker and Caddy single-box configuration
+- `/feature-requests` community idea board with voting and a six-stage
+  lifecycle (`submitted` → `under_review` → `planned` → `in_progress` →
+  `shipped`, or `declined`)
+- Global feedback widget and a `/contribute` page backed by live, cached
+  GitHub issue and pull-request data
 
 ## Run locally
 
@@ -66,6 +71,12 @@ a local mode-`0600` file, never in the bot package.
 Set `ALPHA_POKER_INVITE_CODE` on the server to require a shared cohort code for
 new accounts, then register with `--invite-code CODE`.
 Set `ALPHA_POKER_OPERATOR_TOKEN` to enable operator-triggered manual league runs.
+Set `ALPHA_POKER_OPERATOR_USERNAMES` to a comma-separated list of accounts
+allowed to moderate feature requests (change status, hide/restore) and to
+promote an approved one to a GitHub issue with `ALPHA_POKER_OPERATOR_TOKEN`.
+Set an optional server-only `GITHUB_TOKEN` to raise `/contribute`'s GitHub
+rate limit and enable promotion; it is read only on the server and never sent
+to the browser. See [`API.md`](API.md) for the full community API surface.
 
 ## Run an official local league
 
@@ -111,6 +122,19 @@ npm run qa
 This runs the frontend build, rendered HTML checks, container configuration checks, lint, backend and engine tests, CLI tests, compile checks, and a deterministic starter-kit rebuild.
 
 Browser and full live API, upload, league, training, artifact, and container smoke tests are documented in `QA.md`.
+
+## Open source and community
+
+Alpha Poker is released under the [MIT License](LICENSE). Start with
+[CONTRIBUTING.md](CONTRIBUTING.md), follow the
+[Code of Conduct](CODE_OF_CONDUCT.md), and report vulnerabilities privately as
+described in [SECURITY.md](SECURITY.md). Public bugs and larger feature ideas
+belong in GitHub Issues; quick product feedback and community voting are also
+available at `/feature-requests` and from the feedback button on every page.
+
+Every change to `main` goes through a pull request, the `qa` check, resolved
+review conversations, and a maintainer-controlled merge. Force pushes and
+branch deletion are disabled.
 
 ## Deferred intentionally
 

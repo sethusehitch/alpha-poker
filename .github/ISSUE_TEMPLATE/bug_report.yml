@@ -1,0 +1,32 @@
+name: Bug report
+description: Tell us about something that is not working.
+title: "[Bug]: "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Alpha Poker. Never include passwords, invite codes, tokens, or private hand logs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      placeholder: "1. Open...\n2. Click...\n3. See..."
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser or environment
+      placeholder: Safari, Chrome, macOS, Docker, or CLI version
+  - type: textarea
+    id: extra
+    attributes:
+      label: Safe screenshots or extra context
+      description: Remove usernames, tokens, and private logs before attaching anything.

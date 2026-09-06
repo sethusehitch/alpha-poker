@@ -85,7 +85,7 @@ def test_register_login_me_and_revoke(tmp_path):
         assert session_row["token_hash"] != token
 
         assert client.get("/v1/auth/me", headers={"Authorization": f"Bearer {token}"}).json() == {
-            "username": "maya_1"
+            "username": "maya_1", "is_operator": False
         }
         assert client.post(
             "/v1/auth/login", json={"username": "maya_1", "password": "wrong password"}
@@ -185,6 +185,84 @@ def test_optional_invite_code_gates_registration(tmp_path):
         assert rejected.json()["error"]["code"] == "invite_invalid"
         body["invite_code"] = "cohort-only"
         assert client.post("/v1/auth/register", json=body).status_code == 201
+
+
+def test_allowlisted_operator_name_requires_server_operator_token(tmp_path):
+    settings = Settings(
+        tmp_path,
+        tmp_path / "db.sqlite3",
+        tmp_path / "uploads",
+        tmp_path / "artifacts",
+        seed_demo_data=False,
+        auth_required=True,
+        operator_token="operator-secret",
+        operator_usernames=frozenset({"captain"}),
+    )
+    with TestClient(create_app(settings)) as client:
+        body = {"username": "captain", "password": "correct horse"}
+        blocked = client.post("/v1/auth/register", json=body)
+        assert blocked.status_code == 403
+        assert blocked.json()["error"]["code"] == "operator_required"
+        created = client.post(
+            "/v1/auth/register",
+            headers={"X-Alpha-Operator": "operator-secret"},
+            json=body,
+        )
+        assert created.status_code == 201
+        token = created.json()["token"]
+        assert client.get(
+            "/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+        ).json()["is_operator"] is True
+
+
+def test_registration_and_login_are_rate_limited_by_client_ip(tmp_path):
+    with auth_client(tmp_path) as client:
+        register_body = {"username": "same_name", "password": "correct horse"}
+        for attempt in range(8):
+            response = client.post(
+                "/v1/auth/register",
+                headers={"X-Forwarded-For": "203.0.113.10"},
+                json={**register_body, "username": f"student_{attempt}"},
+            )
+            assert response.status_code == 201
+        limited = client.post(
+            "/v1/auth/register",
+            headers={"X-Forwarded-For": "203.0.113.10"},
+            json={**register_body, "username": "student_9"},
+        )
+        assert limited.status_code == 429
+
+        for attempt in range(20):
+            response = client.post(
+                "/v1/auth/login",
+                headers={"X-Forwarded-For": "203.0.113.11"},
+                json={"username": f"nobody_{attempt}", "password": "wrong password"},
+            )
+            assert response.status_code == 401
+        limited = client.post(
+            "/v1/auth/login",
+            headers={"X-Forwarded-For": "203.0.113.11"},
+            json={"username": "another_nobody", "password": "wrong password"},
+        )
+        assert limited.status_code == 429
+
+
+def test_failed_login_is_rate_limited_per_account_across_client_ips(tmp_path):
+    with auth_client(tmp_path) as client:
+        for attempt in range(10):
+            response = client.post(
+                "/v1/auth/login",
+                headers={"X-Forwarded-For": f"198.51.100.{attempt + 1}"},
+                json={"username": "known_student", "password": "wrong password"},
+            )
+            assert response.status_code == 401
+        limited = client.post(
+            "/v1/auth/login",
+            headers={"X-Forwarded-For": "198.51.100.250"},
+            json={"username": "known_student", "password": "wrong password"},
+        )
+        assert limited.status_code == 429
+        assert limited.json()["error"]["code"] == "rate_limited"
 
 
 def test_training_resources_and_manual_runs_enforce_authentication(tmp_path):

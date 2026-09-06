@@ -110,7 +110,8 @@ test("renders working account entry and hero links to real sections", async () =
   const response = await render();
   const html = await response.text();
 
-  assert.match(html, /<button[^>]*>Log in<\/button>/);
+  assert.match(html, /data-testid="account-trigger"/);
+  assert.match(html, /<span>Log in<\/span>/);
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>\s*Log in/);
   assert.match(html, /href="#instructions"/);
   assert.match(html, /href="#leaderboard"/);

@@ -14,10 +14,14 @@ Verified:
 
 - Production vinext build succeeds.
 - Ten rendered-page tests pass.
+- Twenty-one community-surface tests pass, covering `/feature-requests`,
+  `/contribute`, the six-stage lifecycle, anonymous feedback, responsive and
+  accessible controls, exact GitHub URL validation, draft recovery, and
+  deterministic server/browser date rendering.
 - Four single-box container configuration tests pass.
-- ESLint passes.
-- 63 poker engine, auth, queue, isolation, retention, migration, and FastAPI
-  tests pass.
+- ESLint passes with zero warnings.
+- 107 poker engine, auth, queue, isolation, retention, migration, community, and
+  FastAPI tests pass.
 - Thirteen CLI tests pass.
 - Python compilation passes for the CLI, benchmark, starter kit, and server.
 - The public starter ZIP rebuild is byte-deterministic and contains the bot
@@ -42,14 +46,9 @@ Verified:
 - A real API test accepts 20 active bot packages, completes all 190 mirrored
   pairings, and returns a 20-row leaderboard with contiguous ranks and correct
   per-player hand totals.
-- Production dependency audit reports zero known vulnerabilities with
-  `npm audit --omit=dev`.
-
-The full audit reports 19 non-critical findings in the local build and preview
-toolchain, including the pre-1.0 vinext stack. Those packages are not exposed by
-the FastAPI bot runner, but vinext is still present in the preview container.
-Upgrading it requires a framework migration and a fresh browser and container
-regression pass before any public deployment.
+- Both the production-only and complete dependency audits report zero known
+  vulnerabilities. The Vinext, Vite, Wrangler, and Cloudflare packages were
+  upgraded and the unused Drizzle/D1 starter scaffolding was removed.
 
 Two upstream deprecation warnings remain in FastAPI's current Starlette test
 client dependencies. They do not affect runtime behavior.
@@ -125,6 +124,69 @@ Additional tests cover:
 - Duplicate deals reverse seats while retaining the same deck.
 - Confidence intervals cluster each mirrored pair together.
 
+## Community surfaces: feature requests, feedback, and contribute
+
+Backend (FastAPI/SQLite) test coverage for `/v1/feature-requests`,
+`/v1/feedback`, `/v1/github/issues`, and `/v1/config`:
+
+- Reading the feature-request list and submitting feedback are public;
+  creating and voting require the same authenticated session as the rest of
+  the API. Signed-in feedback is attributed to the account and signed-out
+  feedback is stored anonymously.
+- A new feature request always starts `submitted`; status updates accept all
+  six lifecycle values (`submitted`, `under_review`, `planned`, `in_progress`,
+  `shipped`, `declined`); a status value that is not one of these six (for
+  example, written by a hypothetically newer release) is served back as
+  `submitted` rather than a raw string.
+- The Top, New, and Planned tabs sort correctly, an unrecognized `tab` value
+  falls back to Top, and Planned includes exactly `planned`, `in_progress`,
+  and `shipped` requests, ordered planned-first.
+- Voting is idempotent per request/user pair: upvote, switch to downvote, and
+  clear all update the score correctly and are reflected in both the voter's
+  and an anonymous viewer's view of `my_vote`.
+- Title and details are rejected outright on C0/C1 control characters and
+  otherwise stripped of bidi-override and zero-width formatting before
+  storage; duplicate titles are rejected with `409 duplicate_request`.
+- Status changes and hide/restore are operator-username-gated and return
+  `403` for a non-operator; promotion to a GitHub issue additionally requires
+  the exact operator token, is idempotent (a second promotion call returns the
+  original issue instead of creating a duplicate), and returns
+  `503 github_not_configured` without a server-side `GITHUB_TOKEN`.
+- The GitHub issue/PR summary is cached in SQLite for 10 minutes, a fetch
+  failure with an existing cache serves it with `"stale": true`, and a fetch
+  failure with no cache returns `503 api_unavailable`. Issue URLs returned to
+  the client are always rebuilt from the configured repository, never trusted
+  from the upstream API response.
+- Per-account/IP rate limits on feature-request creation, voting, feedback,
+  registration, and login return `429 rate_limited` once exceeded. Failed
+  login attempts are also limited by normalized account across source IPs.
+- `GET /v1/config` is public and unauthenticated, and reports
+  `auth_required` truthfully for both local and hosted configurations.
+- Re-running schema initialization against an already-migrated database
+  preserves existing feature requests and votes without data loss.
+
+Frontend (rendered-HTML/static-contract) coverage:
+
+- `/feature-requests` and `/contribute` render their hero, tabs, GitHub-outage
+  fallback copy, and accessibility landmarks with no FastAPI instance
+  reachable, and never leak a raw `error.code` or status string.
+- Deep-linking `?tab=new` and `?tab=planned` selects the right tab.
+- Neither page renders any excluded content: `bb/100`, confidence intervals,
+  Discord links, or feature-request comment counts.
+- `StatusChip` implements exactly the six lifecycle statuses (no `open` or
+  `not_planned` remnants) and falls back unknown values to `submitted`.
+- The feedback widget accepts signed-out submissions with explicit anonymous
+  copy. Its unsent draft survives full-page navigation in tab-scoped
+  `sessionStorage`, clears after success, and never uses `localStorage`.
+- Feature-request dates use a fixed UTC formatter so SSR and browser hydration
+  match in every client time zone.
+- No browser-facing `/browser-api/*` route accepts, forwards, or otherwise
+  handles the operator token or `GITHUB_TOKEN`; there is no browser route for
+  promotion.
+- The feedback FAB and the account chip mount on `/`, `/feature-requests`, and
+  `/contribute`; the shared header stays 72px and is sticky only on the two
+  community pages.
+
 ## Automatic upload-to-league behavior
 
 An accepted upload queues a league automatically once two active bots exist.
@@ -153,9 +215,10 @@ after a restart, cancellation, and automatic two-player league completion.
 
 ## Containers
 
-Both updated production images were built in a 4 GB Colima VM. The exact
-topology was smoke-tested with direct Docker containers because this Mac does
-not currently have the Docker Compose v2 CLI plugin. Verified through Caddy:
+All three production images were built in a 4 GB Colima VM. The exact Compose
+topology was started from scratch with an isolated project, health-gated, and
+smoke-tested through Caddy. Caddy's configuration is baked into its image so
+the stack does not depend on a host bind mount. Verified through Caddy:
 
 - Homepage
 - Health endpoint
@@ -170,8 +233,7 @@ not currently have the Docker Compose v2 CLI plugin. Verified through Caddy:
 - Run summary and five-file artifact download
 - Public Swagger/OpenAPI routing
 
-`./ops/up.sh` is ready for a machine with Compose v2 and reports the missing
-dependency clearly on this Mac.
+The isolated QA stack and its named test volume were removed after the pass.
 
 ## Hosted AWS verification
 

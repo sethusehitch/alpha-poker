@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an improvement that is larger than a quick feedback note.
+title: "[Feature]: "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Focus on the user need before proposing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would a good solution feel like?
+    validations:
+      required: true
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who would this help most?
+      options:
+        - Bot builders
+        - Cohort organizers
+        - Contributors
+        - Everyone
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or examples

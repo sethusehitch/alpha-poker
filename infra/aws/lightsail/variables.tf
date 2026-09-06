@@ -1,7 +1,7 @@
 variable "aws_profile" {
   description = "Local AWS CLI profile used by Terraform."
   type        = string
-  default     = "hitch-personal"
+  default     = "default"
 }
 
 variable "aws_region" {

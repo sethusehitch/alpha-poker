@@ -33,7 +33,12 @@ test("server-renders the Alpha Poker landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>Alpha Poker/i);
   assert.match(html, /Build a poker bot\./);
-  assert.match(html, /text-\[2rem\].*sm:text-\[clamp\(3\.35rem,6\.2vw,6\.5rem\)\]/);
+  // The mobile headline scales with the viewport so both written lines stay on
+  // one line each instead of stacking into four words-per-line rows.
+  assert.match(
+    html,
+    /text-\[clamp\(1\.75rem,8\.6vw,2\.75rem\)\].*sm:text-\[clamp\(3\.35rem,6\.2vw,6\.5rem\)\]/,
+  );
   assert.match(html, /<span class="block whitespace-nowrap">Build a poker bot\.<\/span>/);
   assert.match(html, /<span class="block whitespace-nowrap">\s*Prove it.{1,2}s the best\./);
   assert.match(html, /Prove it.{1,2}s the best\./);
@@ -121,14 +126,16 @@ test("renders working account entry and hero links to real sections", async () =
   assert.match(html, /href="#leaderboard"/);
 });
 
-test("account result copy pluralizes wins, losses, and draws", async () => {
-  const source = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
+test("bot record copy lives on /my-bot and pluralizes draws", async () => {
+  const source = await readFile(
+    new URL("../app/components/mybot/MyBotWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(source, /count === 1 \? singular : plural/);
-  assert.match(source, /recordLabel\(accountStatus\.result\.record\.wins, "win", "wins"\)/);
-  assert.match(source, /recordLabel\(accountStatus\.result\.record\.losses, "loss", "losses"\)/);
-  assert.match(source, /recordLabel\(accountStatus\.result\.record\.draws, "draw", "draws"\)/);
-  assert.doesNotMatch(source, /record\.wins\} wins/);
+  // The record reads as a compact W–L tile, so the only prose count left is
+  // the draws footnote and it must not render "1 draws".
+  assert.match(source, /record\.draws === 1 \? "draw" : "draws"/);
+  assert.doesNotMatch(source, /record\.draws\} draws/);
   assert.doesNotMatch(source, /losss/);
 });
 
@@ -156,13 +163,46 @@ test("instructions download the kit and hand the complete workflow to a coding a
   assert.doesNotMatch(html, /font-mono text-sm leading-6 text-zinc-700/);
 });
 
-test("account UI exposes truthful participant status and log downloads", async () => {
-  const source = await readFile(new URL("app/components/AuthButton.tsx", templateRoot), "utf8");
-  assert.match(source, /browser-api\/account\/status/);
-  assert.match(source, /Download validation log/);
-  assert.match(source, /Download official hand logs/);
-  assert.match(source, /Provided by your cohort organizer/);
-  assert.doesNotMatch(source, /if required/);
+test("bot status and log downloads live on /my-bot, not the account dialog", async () => {
+  const [auth, myBot] = await Promise.all([
+    readFile(new URL("app/components/AuthButton.tsx", templateRoot), "utf8"),
+    readFile(new URL("app/components/mybot/MyBotWorkspace.tsx", templateRoot), "utf8"),
+  ]);
+
+  assert.match(myBot, /browser-api\/account\/status/);
+  assert.match(myBot, /Validation log/);
+  assert.match(myBot, /Latest result logs/);
+  assert.match(myBot, /participant_message/);
+
+  // The dialog is identity and sign-out only now.
+  assert.doesNotMatch(auth, /browser-api\/account\/status/);
+  assert.doesNotMatch(auth, /validation log/i);
+  assert.doesNotMatch(auth, /hand logs/i);
+  assert.match(auth, /Log out/);
+  assert.match(auth, /Provided by your cohort organizer/);
+  assert.doesNotMatch(auth, /if required/);
+});
+
+test("the account dialog stays inside short viewports", async () => {
+  const source = await readFile(
+    new URL("app/components/AuthButton.tsx", templateRoot),
+    "utf8",
+  );
+
+  // The scroll container is the overlay, so the register form cannot push its
+  // submit button past the bottom of a short screen.
+  assert.match(source, /fixed inset-0 z-50 overflow-y-auto overscroll-contain/);
+  assert.match(source, /flex min-h-full items-center justify-center/);
+  assert.match(source, /max-h-\[calc\(100dvh-3rem\)\][^"]*overflow-y-auto/);
+});
+
+test("private-league registration makes the invite requirement visible", async () => {
+  const auth = await readFile(
+    new URL("../app/components/AuthButton.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(auth, /Invite code[\s\S]{0,100}\(required\)/);
+  assert.match(auth, /Provided by your cohort organizer\. Ask them if you do not have one\./);
 });
 
 test("removes the starter preview scaffolding", async () => {
@@ -175,7 +215,7 @@ test("removes the starter preview scaffolding", async () => {
     "utf8",
   );
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
-  assert.match(packageJson, /vinext dev --port 3001/);
+  assert.match(packageJson, /vinext dev --port 3002/);
 });
 
 test("leaderboard constrains untrusted names at the UI boundary", async () => {

@@ -38,8 +38,10 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
       ),
     ]);
   assert.match(workspace, /My rivals/);
-  assert.match(workspace, /League records/);
-  assert.match(workspace, /Direct challenges only/);
+  assert.match(workspace, /challenges: "Challenges"/);
+  assert.doesNotMatch(workspace, /League records/);
+  assert.doesNotMatch(workspace, /leaderboard: "Leaderboard"/);
+  assert.doesNotMatch(workspace, /Direct challenges only/);
   assert.match(workspace, /event\.key === "Escape"/);
   assert.match(workspace, /document\.body\.style\.overflow = "hidden"/);
   assert.match(workspace, /history\.pushState/);
@@ -48,7 +50,7 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /viewer=\{viewer\}/);
   assert.match(workspace, /outcome === "draw"/);
   assert.match(workspace, /challenge\.recap_url/);
-  assert.match(workspace, /robot-avatars\.png/);
+  assert.match(workspace, /<BotAvatar/);
   assert.match(workspace, /direct_record\.draws > 0/);
   assert.match(workspace, /const result = fromUrl\.get\("result"\)/);
   assert.match(workspace, /fromUrl\.get\("challenge"\) \?\? result/);
@@ -58,15 +60,11 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   );
   assert.match(workspace, /onOpen=\{openChallenge\}/);
   assert.match(workspace, /challenge\.opponent_username/);
-  assert.match(workspace, /status === "queued" \|\| status === "running"/);
   assert.match(workspace, /window\.setInterval\(\(\) => void load\(\), 5000\)/);
-  assert.match(
-    workspace,
-    /Promise\.all\(\[rivalsApi\.list\("mine"\), rivalsApi\.list\("leaderboard"\)\]\)/,
-  );
+  assert.match(workspace, /suggested_items/);
+  assert.match(workspace, /setSuggested\(data\.suggested_items \?\? \[\]\)/);
   assert.match(workspace, /dateStyle: "medium",\s*timeStyle: "short"/);
   assert.doesNotMatch(workspace, /timeZone: "UTC"/);
-  assert.match(workspace, /Scroll for more/);
   assert.match(workspace, /highlightedId=\{recap\}/);
   assert.match(workspace, /z-50 flex items-end/);
   assert.match(workspace, /emit\("open-account"/);
@@ -75,8 +73,8 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /sessionOwner\.current !== undefined && sessionOwner\.current !== nextOwner/);
   assert.match(workspace, /if \(!loaded\) return;/);
   assert.match(workspace, /if \(changedOwner\) \{[\s\S]*setQuery\(""\);/);
-  assert.match(workspace, /\? rawTab\s*:\s*initialTab/);
-  assert.match(workspace, /<Records key=\{viewer\}/);
+  assert.match(workspace, /rawTab === "challenges" \? rawTab : initialTab/);
+  assert.doesNotMatch(workspace, /<Records key=\{viewer\}/);
   assert.match(workspace, /let cancelled = false/);
   assert.match(workspace, /const stale = \(\) => cancelled \|\| generation !== workspaceGeneration\.current/);
   assert.match(workspace, /return \(\) => \{\s*cancelled = true;/);
@@ -104,6 +102,7 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(header, /params\.set\("challenge", challenge\.challenge_id\)/);
   assert.match(header, /AuthButton/);
   assert.match(header, /#instructions/);
+  assert.match(header, /currentPath/);
   assert.match(header, /if \(!session\) \{/);
   assert.match(header, /setNotes\(\[\]\)/);
   assert.match(header, /setUnread\(0\)/);
@@ -141,4 +140,58 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /hand\.winner \? \(/);
   assert.match(workspace, /Hand \{hand\.hand_number\} tied/);
   assert.match(handProxy, /hands\/\$\{encodeURIComponent\(hand_id\)\}/);
+});
+
+test("the rival overlay shows exactly one of loading, error, or detail", async () => {
+  const [workspace, avatar] = await Promise.all([
+    readFile(
+      new URL("../app/components/rivals/RivalsWorkspace.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/components/BotAvatar.tsx", import.meta.url), "utf8"),
+  ]);
+
+  // A failed first load used to stack "Rival not found" on top of the
+  // "Loading rival…" placeholder.
+  assert.match(workspace, /\{!detail && loading \? \(/);
+  assert.match(workspace, /\) : !detail \? \(/);
+  assert.match(workspace, /const \[loading, setLoading\] = useState\(true\)/);
+  assert.match(workspace, /setLoading\(true\);/);
+  assert.match(
+    workspace,
+    /if \(request === detailRequest\.current\) setLoading\(false\);/,
+  );
+  assert.match(workspace, /Could not open this rival/);
+  assert.match(workspace, /onClick=\{\(\) => void load\(\)\}[\s\S]{0,320}Retry/);
+  assert.match(
+    workspace,
+    /Could not open this rival[\s\S]*?Retry[\s\S]*?>\s*Close\s*</,
+  );
+  // The action-level banner still renders, but only alongside a loaded rival.
+  assert.match(
+    workspace,
+    /\) : \(\s*<>\s*\{error && \(\s*<p\s*role="alert"/,
+  );
+  // The API contract keeps this history direct-only without extra UI copy.
+  assert.doesNotMatch(workspace, /Direct challenges only/);
+  assert.match(workspace, /No completed direct challenges yet\./);
+  assert.match(
+    workspace,
+    /Challenges unlock when they\s+submit an active bot\./,
+  );
+  assert.match(workspace, /h-\[18\.5rem\]/);
+  assert.match(workspace, /max-w-\[20\.5625rem\]/);
+  assert.match(workspace, /min-h-0 flex-1 items-start[^\n]*overflow-hidden/);
+  assert.match(workspace, /className="h-28 w-28"/);
+  assert.match(workspace, /h-\[92dvh\]/);
+  assert.match(workspace, /sm:h-\[calc\(100dvh-2rem\)\]/);
+  assert.match(workspace, /h-1 w-7 rounded-full bg-zinc-600/);
+  assert.match(workspace, /mt-6 flex min-h-0 flex-1 flex-col overflow-hidden/);
+  assert.match(workspace, /circle/);
+  assert.match(workspace, /direct_record\.wins\} – \{rival\.direct_record\.losses/);
+  assert.match(workspace, />\s*Suggested\s*</);
+
+  // The sprite crop lives in one shared component now.
+  assert.match(avatar, /robot-avatars\.png/);
+  assert.doesNotMatch(workspace, /robot-avatars\.png/);
 });

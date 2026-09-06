@@ -19,7 +19,7 @@ export default async function HandPage({
       : "/rivals";
   return (
     <>
-      <AppHeader />
+      <AppHeader currentPath="/hands/" />
       <main className="mx-auto min-h-[calc(100vh-4.5rem)] max-w-3xl px-5 py-12 sm:px-8">
         <a href={back} className="text-sm font-semibold text-blue-700">
           ← Back to Rivals

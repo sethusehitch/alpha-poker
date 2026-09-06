@@ -6,12 +6,23 @@ export type DirectRecord = {
 };
 export type Rival = {
   username: string;
-  bot_name: string;
+  // A player advertised only by the leaderboard has no uploaded package, so the
+  // API answers with a null bot name and rank while the profile stays viewable.
+  bot_name: string | null;
   elo_rating: number;
-  rank: number;
+  rank: number | null;
+  // Availability is derived from the active bot, not from live presence.
+  has_active_bot?: boolean;
   last_activity_at?: string | null;
   direct_record: DirectRecord;
   is_nemesis?: boolean;
+};
+export type RivalsList = {
+  items: Rival[];
+  next_cursor: string | null;
+  // Returned only when "mine" is empty and unfiltered, so the page is never bare.
+  suggested_items?: Rival[];
+  suggested_for_elo?: number;
 };
 export type Challenge = {
   challenge_id: string;
@@ -42,7 +53,13 @@ export type Challenge = {
   artifacts_url?: string | null;
 };
 export type RivalDetail = {
-  rival: Omit<Rival, "direct_record" | "is_nemesis">;
+  // A rival advertised only by the seeded leaderboard has no uploaded package,
+  // so bot_name and rank come back null while the profile is still viewable.
+  rival: Omit<Rival, "direct_record" | "is_nemesis" | "bot_name" | "rank"> & {
+    bot_name: string | null;
+    rank: number | null;
+    has_active_bot: boolean;
+  };
   viewer: { has_active_bot: boolean };
   direct_record: DirectRecord;
   is_nemesis: boolean;
@@ -61,6 +78,24 @@ export type Compare = {
   };
   items: Challenge[];
   next_cursor: string | null;
+};
+export type LeaderboardStanding = {
+  rank: number;
+  username: string;
+  bot_name: string;
+  elo_rating?: number;
+  matchup_wins?: number;
+  matchup_losses?: number;
+  matchup_draws?: number;
+};
+export type LeaderboardStandings = {
+  run_id: string | null;
+  updated_at: string | null;
+  entries: LeaderboardStanding[];
+  // The API answers with the first five ranks, plus the caller's own row only
+  // when their rank falls outside that window.
+  top_entries?: LeaderboardStanding[];
+  viewer_entry?: LeaderboardStanding | null;
 };
 export type Notification = {
   notification_id: string;
@@ -91,10 +126,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const rivalsApi = {
-  list: (source: "mine" | "leaderboard", q = "") =>
-    request<{ items: Rival[]; next_cursor: string | null }>(
-      `rivals?source=${source}&q=${encodeURIComponent(q)}`,
-    ),
+  list: (source: "mine" | "leaderboard" | "suggested", q = "") =>
+    request<RivalsList>(`rivals?source=${source}&q=${encodeURIComponent(q)}`),
+  // Proxied so the signed-in cookie reaches the API and `viewer_entry` comes
+  // back for players ranked outside the top five.
+  leaderboard: () => request<LeaderboardStandings>("leaderboard"),
   detail: (username: string) =>
     request<RivalDetail>(`rivals/${encodeURIComponent(username)}`),
   history: (username: string, cursor?: string | null) =>

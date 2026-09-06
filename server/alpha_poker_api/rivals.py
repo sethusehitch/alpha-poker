@@ -219,7 +219,7 @@ def register_rival_routes(
 
     @app.get("/v1/rivals")
     def rivals_list(
-        source: Literal["mine", "leaderboard"] = "leaderboard",
+        source: Literal["mine", "leaderboard", "suggested"] = "leaderboard",
         q: str = Query(default="", max_length=80),
         cursor: str | None = None,
         limit: int = Query(default=20, ge=1, le=50),
@@ -228,6 +228,13 @@ def register_rival_routes(
     ):
         username = caller(authorization, x_alpha_username)
         names: set[str]
+        latest = db.one(
+            "SELECT id FROM runs WHERE status='completed' AND official=1 "
+            "ORDER BY completed_at DESC,requested_at DESC LIMIT 1"
+        )
+        standings = db.all("SELECT username FROM leaderboard WHERE run_id=?", (latest["id"],)) if latest else []
+        candidate_names = {row["username"] for row in standings}
+        candidate_names.update(row["username"] for row in db.all("SELECT DISTINCT username FROM submissions WHERE active=1"))
         if source == "mine":
             rows = db.all(
                 "SELECT challenger_username,challenged_username,MAX(updated_at) AS last_activity_at "
@@ -241,12 +248,7 @@ def register_rival_routes(
                 activity[opponent] = max(activity.get(opponent, ""), row["last_activity_at"])
             names = set(activity)
         else:
-            latest = db.one(
-                "SELECT id FROM runs WHERE status='completed' AND official=1 ORDER BY completed_at DESC,requested_at DESC LIMIT 1"
-            )
-            standings = db.all("SELECT username FROM leaderboard WHERE run_id=?", (latest["id"],)) if latest else []
-            names = {row["username"] for row in standings}
-            names.update(row["username"] for row in db.all("SELECT DISTINCT username FROM submissions WHERE active=1"))
+            names = set(candidate_names)
             activity = {}
         names.discard(username)
         needle = q.strip().lower()
@@ -264,6 +266,7 @@ def register_rival_routes(
                 "bot_name": bot_name,
                 "elo_rating": int(standing["elo_rating"]) if standing else 1200,
                 "rank": int(standing["rank"]) if standing else None,
+                "has_active_bot": bool(bot),
                 "last_activity_at": activity.get(name),
                 "direct_record": {
                     "wins": record["player_a_wins"], "losses": record["player_b_wins"],
@@ -273,6 +276,18 @@ def register_rival_routes(
             })
         if source == "mine":
             entries.sort(key=lambda item: (str(item["last_activity_at"] or ""), item["username"]), reverse=True)
+        elif source == "suggested":
+            viewer_standing = _latest_standing(db, username)
+            viewer_elo = int(viewer_standing["elo_rating"]) if viewer_standing else 1200
+            entries.sort(
+                key=lambda item: (
+                    abs(int(item["elo_rating"]) - viewer_elo),
+                    not bool(item["has_active_bot"]),
+                    item["rank"] is None,
+                    item["rank"] or 10**9,
+                    item["username"],
+                )
+            )
         else:
             entries.sort(key=lambda item: (item["rank"] is None, item["rank"] or 10**9, item["username"]))
         offset = 0
@@ -282,7 +297,40 @@ def register_rival_routes(
             except ValueError as exc:
                 raise HTTPException(400, {"code": "cursor_invalid", "message": "Rival cursor is invalid"}) from exc
         page = entries[offset:offset + limit]
-        return {"items": page, "next_cursor": str(offset + limit) if offset + limit < len(entries) else None}
+        response = {"items": page, "next_cursor": str(offset + limit) if offset + limit < len(entries) else None}
+        if source == "mine" and not needle and not entries:
+            viewer_standing = _latest_standing(db, username)
+            viewer_elo = int(viewer_standing["elo_rating"]) if viewer_standing else 1200
+            suggested = []
+            for name in candidate_names - {username}:
+                bot = _active_bot(db, name)
+                standing = _latest_standing(db, name)
+                record = _record(db, username, name)
+                suggested.append({
+                    "username": name,
+                    "bot_name": bot["bot_name"] if bot else (standing["bot_name"] if standing else None),
+                    "elo_rating": int(standing["elo_rating"]) if standing else 1200,
+                    "rank": int(standing["rank"]) if standing else None,
+                    "has_active_bot": bool(bot),
+                    "last_activity_at": None,
+                    "direct_record": {
+                        "wins": record["player_a_wins"], "losses": record["player_b_wins"],
+                        "draws": record["draws"], "played": record["played"],
+                    },
+                    "is_nemesis": False,
+                })
+            suggested.sort(
+                key=lambda item: (
+                    abs(int(item["elo_rating"]) - viewer_elo),
+                    not bool(item["has_active_bot"]),
+                    item["rank"] is None,
+                    item["rank"] or 10**9,
+                    item["username"],
+                )
+            )
+            response["suggested_items"] = suggested[:3]
+            response["suggested_for_elo"] = viewer_elo
+        return response
 
     @app.get("/v1/rivals/{rival_username}")
     def rival_detail(
@@ -293,11 +341,19 @@ def register_rival_routes(
         username = caller(authorization, x_alpha_username)
         if rival_username == username:
             raise HTTPException(400, {"code": "self_rival", "message": "Choose another player"})
-        if not db.one("SELECT 1 FROM users WHERE username=?", (rival_username,)) and not _active_bot(db, rival_username):
+        standing = _latest_standing(db, rival_username)
+        # The prototype database includes a seeded public leaderboard before
+        # those demo players have login accounts or uploaded packages. A rival
+        # advertised by the leaderboard must still have a viewable profile;
+        # challenge creation separately requires both players' active bots.
+        if (
+            not db.one("SELECT 1 FROM users WHERE username=?", (rival_username,))
+            and not _active_bot(db, rival_username)
+            and not standing
+        ):
             raise HTTPException(404, {"code": "rival_not_found", "message": "Rival not found"})
         bot = _active_bot(db, rival_username)
         viewer_bot = _active_bot(db, username)
-        standing = _latest_standing(db, rival_username)
         record = _record(db, username, rival_username)
         nemesis = _nemesis(db, username)
         current = db.one(

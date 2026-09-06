@@ -37,8 +37,30 @@ def test_public_league_leaderboard_and_results(client):
     assert board["entries"][0]["matchup_wins"] == 4
     assert board["entries"][0]["matchup_losses"] == 0
     assert board["entries"][0]["confidence_95"] == [4.1, 12.74]
+    assert board["top_entries"] == board["entries"][:5]
+    assert board["viewer_entry"] is None
     assert client.get("/v1/runs/run_demo").json()["reproducibility"]["seat_mirroring"] is True
     assert len(client.get("/v1/runs/run_demo/matchups").json()["matchups"]) == 3
+
+
+def test_leaderboard_exposes_top_five_and_authenticated_viewer(client):
+    registration = client.post(
+        "/v1/auth/register", json={"username": "sixthplace", "password": "correct horse"}
+    )
+    headers = {"Authorization": f"Bearer {registration.json()['token']}"}
+    client.app.state.db.execute(
+        "INSERT INTO leaderboard(run_id,rank,username,bot_name,bb_per_100,ci_low,ci_high,hands,"
+        "submission_id,elo_rating,matchup_wins,matchup_losses,matchup_draws) "
+        "VALUES('run_demo',6,'sixthplace','SixthBot',-9,-10,-8,100,NULL,1100,0,5,0)"
+    )
+
+    board = client.get("/v1/leaderboard", headers=headers).json()
+    assert [entry["rank"] for entry in board["top_entries"]] == [1, 2, 3, 4, 5]
+    assert board["viewer_entry"]["username"] == "sixthplace"
+    assert board["viewer_entry"]["rank"] == 6
+
+    public = client.get("/v1/leaderboard").json()
+    assert public["viewer_entry"] is None
 
 
 def test_public_standings_ignore_newer_nonofficial_runs(client):

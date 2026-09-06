@@ -12,15 +12,10 @@ export default async function RivalsPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const params = await searchParams;
-  const tab =
-    params.tab === "leaderboard" ||
-    params.tab === "challenges" ||
-    params.tab === "records"
-      ? params.tab
-      : "mine";
+  const tab = params.tab === "challenges" ? params.tab : "mine";
   return (
     <>
-      <AppHeader />
+      <AppHeader currentPath="/rivals" />
       <RivalsWorkspace initialTab={tab} />
     </>
   );

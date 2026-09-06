@@ -557,7 +557,7 @@ function RivalOverlay({
         aria-modal="true"
         aria-labelledby="rival-title"
         tabIndex={-1}
-        className="relative flex h-[92dvh] max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
+        className="relative flex h-[92dvh] max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {/* Exactly one of loading, error, or detail is on screen. A failed

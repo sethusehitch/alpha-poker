@@ -23,6 +23,12 @@ before continuing. Never silently reuse an older extracted copy.
   one active bot.
 - Check submission validation, league-run status, and the leaderboard.
 - Download official run artifacts and training hand logs.
+- Find classmates by player or bot name and explain their public Elo.
+- Send a 200-hand direct challenge after the participant chooses an opponent.
+- Check incoming requests and accept or decline after participant approval.
+- Wait for a rivalry match, report the winner and play-chip margin, and
+  download its recap evidence.
+- Read challenge notifications and mark them read after sharing the result.
 
 ## Agent-operated setup
 
@@ -48,6 +54,50 @@ result, a clear wait for another participant, or an actionable failure. Run
 and the newest official hand-log ZIP when available. The participant can see
 the same state by logging in on the website and opening their account.
 
+## Agent-operated rival flow
+
+Rival commands should normally use `--json` so results are reliable to parse.
+Present the useful facts conversationally instead of pasting raw JSON.
+
+1. Offer to find a classmate by username or bot name, list prior rivals, or
+   browse the leaderboard.
+2. Show the selected opponent's bot, Elo, and direct-challenge record. Ask the
+   participant whether they want to send the fixed 200-hand challenge.
+3. Only after approval, send the challenge with the CLI's `--yes` flag. The
+   CLI includes an idempotency key, and the server prevents duplicate open
+   challenges.
+4. Check requests with `rivals requests`. For an incoming request, explain the
+   two current bots before asking whether to accept or decline.
+5. Use `rivals status CHALLENGE_ID --wait --json` when the participant wants to
+   stay for the result. The wait is bounded. If it times out, explain that the
+   match remains safe on the server and can be checked later.
+6. On completion, use `rivals recap CHALLENGE_ID --output PATH --json`. Report
+   who won and by how many play chips, then offer to inspect selected hands and
+   help the participant form a strategy hypothesis.
+
+Useful commands for the coding agent:
+
+```text
+alpha-poker rivals list --source leaderboard --json
+alpha-poker rivals list --source mine --search maya --json
+alpha-poker rivals show maya --json
+alpha-poker rivals history maya --limit 20 --json
+alpha-poker rivals requests --status incoming --json
+alpha-poker rivals challenge maya --yes --json
+alpha-poker rivals accept CHALLENGE_ID --yes --json
+alpha-poker rivals decline CHALLENGE_ID --yes --json
+alpha-poker rivals cancel CHALLENGE_ID --yes --json
+alpha-poker rivals status CHALLENGE_ID --wait --json
+alpha-poker rivals recap CHALLENGE_ID --output ./rival-recaps --json
+alpha-poker notifications list --unread --json
+alpha-poker notifications read NOTIFICATION_ID --json
+```
+
+Direct rivalry challenges never change public Elo. Their history contains only
+explicit challenges, not the many pairings from official round robins. Do not
+promise that a challenge has started merely because it was sent: it remains
+pending until the recipient accepts, then moves through queued and running.
+
 ## Important behavior
 
 - Training keeps the participant's bot local and does not alter standings.
@@ -62,6 +112,8 @@ the same state by logging in on the website and opening their account.
   a server-side deadline; failures remain visible and a later accepted upload
   safely retries the queue.
 - Training and official-run artifacts contain the hand logs needed for review.
+- Rival challenges use current active bots at acceptance, produce their own
+  recap evidence, and do not affect the leaderboard.
 
 The bot input and action contract is in `API.md`. CLI details are in
 `cli/README.md`. The hosted REST API reference is available at

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from time import monotonic
 import zipfile
+import secrets
 
 from .engine_adapter import load_bot, validate_package
 from .ratings import BASE_RATING, calculate_round_robin_elo
@@ -30,6 +31,15 @@ def prune_submission_packages(db: Database) -> list[str]:
             (now_iso(),),
         )
     }
+    protected.update(
+        submission_id
+        for row in db.all(
+            "SELECT challenger_submission_id,challenged_submission_id FROM rival_challenges "
+            "WHERE status IN ('queued','running')"
+        )
+        for submission_id in (row["challenger_submission_id"], row["challenged_submission_id"])
+        if submission_id
+    )
     published_leader = db.one(
         "SELECT l.submission_id FROM leaderboard l JOIN runs r ON r.id=l.run_id "
         "WHERE r.status='completed' AND r.official=1 AND l.rank=1 "
@@ -200,6 +210,240 @@ def run_official_league(
         raise
 
 
+def _challenge_notification_payload(
+    challenge: dict,
+    recipient: str,
+    notification_type: str,
+) -> dict:
+    opponent = (
+        challenge["challenged_username"]
+        if recipient == challenge["challenger_username"]
+        else challenge["challenger_username"]
+    )
+    return {
+        "challenge_id": challenge["id"],
+        "opponent_username": opponent,
+        "winner_username": challenge.get("winner_username"),
+        "margin_play_chips": challenge.get("margin_play_chips"),
+        "status": challenge["status"],
+        "notification_type": notification_type,
+    }
+
+
+def _insert_challenge_notification(conn, challenge: dict, username: str, notification_type: str) -> None:
+    payload = _challenge_notification_payload(challenge, username, notification_type)
+    bot_names = {}
+    for role, submission_key in (
+        ("challenger", "challenger_submission_id"),
+        ("challenged", "challenged_submission_id"),
+    ):
+        submission = conn.execute(
+            "SELECT bot_name FROM submissions WHERE id=?", (challenge.get(submission_key),)
+        ).fetchone() if challenge.get(submission_key) else None
+        bot_names[role] = submission["bot_name"] if submission else None
+    payload["bot_names"] = bot_names
+    conn.execute(
+        "INSERT OR IGNORE INTO notifications(id,username,type,challenge_id,payload_json,created_at) "
+        "VALUES(?,?,?,?,?,?)",
+        (
+            f"ntf_{challenge['id']}_{username}_{notification_type}",
+            username,
+            notification_type,
+            challenge["id"],
+            json.dumps(payload),
+            now_iso(),
+        ),
+    )
+
+
+def finalize_rival_challenge(db: Database, challenge_id: str) -> bool:
+    """Finalize a stored completed rival run after a restart."""
+    challenge = db.one("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,))
+    if not challenge or not challenge["run_id"]:
+        return False
+    run = db.one("SELECT status FROM runs WHERE id=?", (challenge["run_id"],))
+    matchup = db.one("SELECT * FROM matchups WHERE run_id=?", (challenge["run_id"],))
+    if not run or run["status"] != "completed" or not matchup:
+        return False
+    # The stored per-hand profit is authoritative and avoids reconstructing a
+    # chip margin from a rounded bb/100 value.
+    total_a = 0
+    for row in db.all("SELECT record_json FROM hands WHERE run_id=?", (challenge["run_id"],)):
+        record = json.loads(row["record_json"])
+        profits = record.get("bot_profits", [0, 0])
+        total_a += int(profits[0])
+    winner = (
+        challenge["challenger_username"] if total_a > 0
+        else challenge["challenged_username"] if total_a < 0
+        else None
+    )
+    timestamp = now_iso()
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=?,"
+            "completed_at=COALESCE(completed_at,?),updated_at=?,error=NULL WHERE id=?",
+            (winner, abs(total_a), timestamp, timestamp, challenge_id),
+        )
+        completed = dict(conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone())
+        for username in (completed["challenger_username"], completed["challenged_username"]):
+            notification_type = "challenge_won" if winner == username else "challenge_lost"
+            if winner is None:
+                notification_type = "challenge_drawn"
+            _insert_challenge_notification(conn, completed, username, notification_type)
+    return True
+
+
+def recover_rival_challenges(db: Database) -> int:
+    """Restore interrupted work without duplicating a completed match."""
+    recovered = 0
+    for challenge in db.all("SELECT * FROM rival_challenges WHERE status='running'"):
+        if finalize_rival_challenge(db, challenge["id"]):
+            recovered += 1
+            continue
+        timestamp = now_iso()
+        if challenge["run_id"]:
+            db.execute(
+                "UPDATE runs SET status='failed',error=COALESCE(error,'Interrupted by API restart'),"
+                "completed_at=COALESCE(completed_at,?) WHERE id=? AND status!='completed'",
+                (timestamp, challenge["run_id"]),
+            )
+        db.execute(
+            "UPDATE rival_challenges SET status='queued',run_id=NULL,started_at=NULL,updated_at=? WHERE id=?",
+            (timestamp, challenge["id"]),
+        )
+        recovered += 1
+    return recovered
+
+
+def run_rival_challenge(db: Database, challenge_id: str, timeout_seconds: int = 900) -> bool:
+    """Atomically claim and execute one 200-hand, unranked direct challenge."""
+    from alpha_poker import play_match
+
+    timestamp = now_iso()
+    with db.connect() as conn:
+        cursor = conn.execute(
+            "UPDATE rival_challenges SET status='running',started_at=COALESCE(started_at,?),updated_at=? "
+            "WHERE id=? AND status='queued'",
+            (timestamp, timestamp, challenge_id),
+        )
+        if cursor.rowcount != 1:
+            return False
+    challenge = db.one("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,))
+    run_id = "run_rival_" + secrets.token_hex(8)
+    try:
+        left = db.one("SELECT * FROM submissions WHERE id=?", (challenge["challenger_submission_id"],))
+        right = db.one("SELECT * FROM submissions WHERE id=?", (challenge["challenged_submission_id"],))
+        if not left or not right:
+            raise RuntimeError("A snapshotted bot package is no longer available")
+        if not Path(left["package_path"]).exists() or not Path(right["package_path"]).exists():
+            raise RuntimeError("A snapshotted bot package is missing")
+        db.execute(
+            "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,started_at,"
+            "heartbeat_at,hand_count_per_pairing,total_matchups,completed_matchups) "
+            "VALUES(?,'running',0,'prototype-0.1','heads-up-v1',?,?,?,?,?,1,0)",
+            (run_id, challenge["seed"], challenge["accepted_at"] or timestamp, timestamp, timestamp, challenge["hand_count"]),
+        )
+        db.execute("UPDATE rival_challenges SET run_id=?,updated_at=? WHERE id=?", (run_id, now_iso(), challenge_id))
+        bots = (load_bot(Path(left["package_path"])), load_bot(Path(right["package_path"])))
+        try:
+            result = play_match(
+                bots,
+                pairs=max(1, int(challenge["hand_count"]) // 2),
+                seed=int(challenge["seed"]),
+                bot_names=(challenge["challenger_username"], challenge["challenged_username"]),
+                match_id=f"{run_id}_match_1",
+                timeout_seconds=0.25,
+            )
+        finally:
+            for bot in bots:
+                bot.close()
+        total_a = wins_a = wins_b = ties = 0
+        hand_rows = []
+        for hand_number, history in enumerate(result.hand_histories, start=1):
+            profits = history["bot_profits"]
+            total_a += int(profits[0])
+            if profits[0] > 0:
+                wins_a += 1
+            elif profits[1] > 0:
+                wins_b += 1
+            else:
+                ties += 1
+            winner = (
+                challenge["challenger_username"] if profits[0] > 0
+                else challenge["challenged_username"] if profits[1] > 0
+                else None
+            )
+            hand_id = history.get("hand_id", f"{run_id}_match_1_{hand_number}")
+            record = {
+                **history,
+                "id": hand_id,
+                "run_id": run_id,
+                "players": [challenge["challenger_username"], challenge["challenged_username"]],
+                "winner": winner,
+            }
+            hand_rows.append((
+                hand_id, run_id, hand_number,
+                challenge["challenger_username"], challenge["challenged_username"], winner,
+                int(history.get("pot", 0)), json.dumps(record), Database._to_phh({
+                    "id": hand_id,
+                    "players": record["players"],
+                    "board": history.get("board", []),
+                    "pot": history.get("pot", 0),
+                    "winner": winner,
+                    "blinds": history.get("blinds", {"small": 50, "big": 100}),
+                    "starting_stacks": history.get("starting_stacks", [10000, 10000]),
+                }),
+            ))
+        completed_at = now_iso()
+        winner_username = (
+            challenge["challenger_username"] if total_a > 0
+            else challenge["challenged_username"] if total_a < 0
+            else None
+        )
+        with db.connect() as conn:
+            conn.executemany("INSERT INTO hands VALUES(?,?,?,?,?,?,?,?,?)", hand_rows)
+            conn.execute(
+                "INSERT INTO matchups VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (f"{run_id}_match_1", run_id, challenge["challenger_username"], challenge["challenged_username"],
+                 result.hands, result.bb_per_100[0], result.confidence_95[0][0], result.confidence_95[0][1],
+                 wins_a, wins_b, ties),
+            )
+            conn.execute(
+                "UPDATE runs SET status='completed',heartbeat_at=?,completed_at=?,completed_matchups=1 WHERE id=?",
+                (completed_at, completed_at, run_id),
+            )
+            conn.execute(
+                "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=?,"
+                "completed_at=?,updated_at=?,error=NULL WHERE id=?",
+                (winner_username, abs(total_a), completed_at, completed_at, challenge_id),
+            )
+            completed = dict(conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone())
+            for username in (completed["challenger_username"], completed["challenged_username"]):
+                notification_type = "challenge_won" if winner_username == username else "challenge_lost"
+                if winner_username is None:
+                    notification_type = "challenge_drawn"
+                _insert_challenge_notification(conn, completed, username, notification_type)
+        return True
+    except Exception as exc:
+        failed_at = now_iso()
+        message = f"{type(exc).__name__}: {exc}"
+        with db.connect() as conn:
+            conn.execute(
+                "UPDATE runs SET status='failed',error=?,completed_at=? WHERE id=?",
+                (message, failed_at, run_id),
+            )
+            conn.execute(
+                "UPDATE rival_challenges SET status='failed',error=?,completed_at=?,updated_at=? WHERE id=?",
+                (message, failed_at, failed_at, challenge_id),
+            )
+            failed = conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone()
+            if failed:
+                failed = dict(failed)
+                for username in (failed["challenger_username"], failed["challenged_username"]):
+                    _insert_challenge_notification(conn, failed, username, "challenge_failed")
+        return False
+
+
 def build_run_artifact(db: Database, run_id: str) -> bytes:
     run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
     if not run:
@@ -222,6 +466,74 @@ def build_run_artifact(db: Database, run_id: str) -> bytes:
 
 
 def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> dict:
+    run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
+    if run and not bool(run["official"]):
+        challenge = db.one("SELECT * FROM rival_challenges WHERE run_id=?", (run_id,))
+        if challenge:
+            matchup = db.one("SELECT * FROM matchups WHERE run_id=?", (run_id,))
+            submission_names: dict[str, str | None] = {}
+            for username, submission_key in (
+                (challenge["challenger_username"], "challenger_submission_id"),
+                (challenge["challenged_username"], "challenged_submission_id"),
+            ):
+                submission = db.one(
+                    "SELECT bot_name FROM submissions WHERE id=?",
+                    (challenge[submission_key],),
+                ) if challenge[submission_key] else None
+                submission_names[username] = submission["bot_name"] if submission else None
+            winner = challenge["winner_username"]
+            margin = int(challenge["margin_play_chips"] or 0)
+            challenger = challenge["challenger_username"]
+            challenged = challenge["challenged_username"]
+            hands = int(matchup["hands"]) if matchup else int(challenge["hand_count"])
+            if winner:
+                loser = challenged if winner == challenger else challenger
+                overview = (
+                    f"{submission_names[winner] or winner} ({winner}) beat "
+                    f"{submission_names[loser] or loser} ({loser}) by {margin:,} play chips "
+                    f"across {hands} mirrored hands."
+                )
+            else:
+                overview = (
+                    f"{submission_names[challenger] or challenger} ({challenger}) and "
+                    f"{submission_names[challenged] or challenged} ({challenged}) drew "
+                    f"after {hands} mirrored hands."
+                )
+            return {
+                "run_id": run_id,
+                "challenge_id": challenge["id"],
+                "kind": "direct_rival_challenge",
+                "official": False,
+                "ranked": False,
+                "affects_elo": False,
+                "play_money_only": True,
+                "overview": overview,
+                "outcome": {
+                    "winner_username": winner,
+                    "is_draw": winner is None,
+                    "margin_play_chips": margin,
+                    "hands": hands,
+                },
+                "players": {
+                    challenger: {
+                        "bot_name": submission_names[challenger],
+                        "role": "challenger",
+                        "hands_won": int(matchup["wins_a"]) if matchup else None,
+                    },
+                    challenged: {
+                        "bot_name": submission_names[challenged],
+                        "role": "challenged",
+                        "hands_won": int(matchup["wins_b"]) if matchup else None,
+                    },
+                },
+                "methodology": {
+                    "format": "heads-up no-limit hold'em",
+                    "seat_mirroring": True,
+                    "duplicate_deal_pairs": hands // 2,
+                    "winner_metric": "aggregate_play_chip_profit",
+                    "ranking_effect": "Direct challenges do not change public Elo.",
+                },
+            }
     rows = rows if rows is not None else db.all(
         "SELECT * FROM hands WHERE run_id=? ORDER BY hand_number", (run_id,)
     )
@@ -325,7 +637,7 @@ def archive_and_prune(
     retained_artifact_runs: int,
 ) -> list[str]:
     completed = db.all(
-        "SELECT id FROM runs WHERE status='completed' ORDER BY completed_at DESC, requested_at DESC"
+        "SELECT id FROM runs WHERE status='completed' AND official=1 ORDER BY completed_at DESC, requested_at DESC"
     )
     removed: list[str] = []
     for row in completed[retained_hand_runs:]:

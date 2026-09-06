@@ -60,7 +60,11 @@ class CliTests(unittest.TestCase):
             readme = archive.read("README.md").decode("utf-8")
             self.assertIn("Hosted API:", workflow)
             self.assertIn("perform it for them", workflow)
+            self.assertIn("Agent-operated rival flow", workflow)
+            self.assertIn("rivals challenge maya --yes --json", workflow)
+            self.assertIn("Rival challenge API", archive.read("API.md").decode("utf-8"))
             self.assertIn("do not need to open a terminal", readme)
+            self.assertIn("Challenge a rival", readme)
             self.assertNotIn("alpha-poker submit .", readme)
 
     def test_credentials_are_scoped_by_api_and_written_private(self):

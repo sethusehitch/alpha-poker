@@ -38,6 +38,20 @@ accounts gate joining, submissions, training, and other mutations.
 | `GET` | `/v1/hands/{hand_id}` | Download one JSON hand record |
 | `GET` | `/v1/hands/{hand_id}/phh` | Download one Poker Hand History record |
 | `GET` | `/v1/runs/{run_id}/artifacts` | Download all run artifacts as ZIP |
+| `GET` | `/v1/rivals` | Discover the caller's rivals or current leaderboard participants |
+| `GET` | `/v1/rivals/{username}` | Rival summary, direct record, current challenge, and first history page |
+| `GET` | `/v1/rivals/{username}/history` | Paginated completed direct-challenge history |
+| `GET` | `/v1/rivalries/compare` | Read the direct-challenge record between two cohort players |
+| `POST` | `/v1/challenges` | Send one unranked 200-hand direct challenge |
+| `GET` | `/v1/challenges` | List incoming, running, or finished direct challenges |
+| `GET` | `/v1/challenges/{challenge_id}` | Read one challenge as a participant |
+| `POST` | `/v1/challenges/{challenge_id}/accept` | Accept and queue a challenge |
+| `POST` | `/v1/challenges/{challenge_id}/decline` | Decline an incoming challenge |
+| `POST` | `/v1/challenges/{challenge_id}/cancel` | Cancel a sent pending challenge |
+| `GET` | `/v1/challenges/{challenge_id}/recap` | Participant-only result and best-hand links |
+| `GET` | `/v1/notifications` | Paginated challenge notifications and unread count |
+| `POST` | `/v1/notifications/{notification_id}/read` | Mark one owned notification read |
+| `POST` | `/v1/notifications/read-all` | Mark all of the caller's notifications read |
 | `POST` | `/v1/training/sessions` | Open a session against the current leader |
 | `GET` | `/v1/training/sessions/{session_id}` | Inspect a training session |
 | `DELETE` | `/v1/training/sessions/{session_id}` | Stop a training session |
@@ -212,6 +226,55 @@ The supported CLI implements this protocol:
 
 ```bash
 alpha-poker train ./my-bot --hands 100
+```
+
+## Challenge a rival
+
+Rivals are asynchronous, unranked heads-up matches. Each accepted challenge
+plays exactly 200 deterministic hands as 100 mirrored deal pairs. The server
+snapshots both active bot versions when the challenged player accepts, queues
+the match, and determines the result from aggregate play-chip profit. Rival
+results never change public Elo.
+
+Create a challenge with an idempotency key so a retry cannot create a second
+open match:
+
+```bash
+curl -X POST http://localhost:8000/v1/challenges \
+  -H 'content-type: application/json' \
+  -H 'authorization: Bearer YOUR_TOKEN' \
+  -H 'idempotency-key: maya-v-theo-2026-09-05' \
+  -d '{"opponent_username":"theo"}'
+```
+
+The other participant accepts at
+`POST /v1/challenges/{challenge_id}/accept`. The same participant can decline
+while it is pending; the challenger can cancel it while pending. Poll the
+challenge until it becomes `completed`, `declined`, `cancelled`, or `failed`,
+then request its participant-only recap and artifact URL.
+
+`GET /v1/rivals/{username}/history` and `GET /v1/rivalries/compare` include
+completed direct challenges only. Official round-robin meetings are excluded.
+The `NEMESIS` relationship is also calculated only from direct challenges: it
+requires at least three completed meetings and selects the opponent responsible
+for the caller's most losses, breaking ties by meetings played and recency.
+
+Nonofficial run, hand, recap, and artifact data is limited to the two challenge
+participants. Official league runs and their published evidence remain public.
+Challenge notifications use immutable result facts captured at creation or
+completion, so an old message does not change after a later bot upload.
+
+The agent-friendly CLI exposes the full workflow without requiring the student
+to run terminal commands manually:
+
+```bash
+alpha-poker rivals list --source leaderboard
+alpha-poker rivals challenge theo --yes
+alpha-poker rivals requests --status incoming
+alpha-poker rivals accept ch_example --yes
+alpha-poker rivals status ch_example --wait
+alpha-poker rivals recap ch_example --output ./rival-recap
+alpha-poker notifications list --unread
 ```
 
 ## Community: feature requests, feedback, and contribute

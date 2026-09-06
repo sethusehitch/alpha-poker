@@ -88,3 +88,87 @@ An invalid action, exception, timeout, or oversized response forfeits the hand.
 The CLI handles REST and WebSocket communication. `bot.py` receives the same
 state and returns the same action in local validation, hosted competition, and
 training. Do not put transport code or platform tokens inside your bot.
+
+## Rival challenge API
+
+The coding agent should use the bundled `alpha-poker` CLI instead of writing
+transport code. This section documents the platform surface so an agent can
+understand responses and diagnose a problem. All endpoints below use the
+hosted `/v1` base URL and require the stored login session.
+
+### Discover rivals
+
+```text
+GET /rivals?source=mine|leaderboard&q=SEARCH
+GET /rivals/{username}
+GET /rivals/{username}/history?limit=20&cursor=CURSOR
+GET /rivalries/compare?player_a=maya&player_b=theo&limit=20
+```
+
+Rival summaries contain the player's username, active bot, public Elo, direct
+challenge record against the caller, current shared challenge when one is
+open, and whether that opponent is the caller's Nemesis. History and Nemesis
+are computed from direct challenges only. Official round-robin meetings are
+never included.
+
+### Create and manage a challenge
+
+```text
+POST /challenges
+GET  /challenges?status=incoming|running|finished
+GET  /challenges/{challenge_id}
+POST /challenges/{challenge_id}/accept
+POST /challenges/{challenge_id}/decline
+POST /challenges/{challenge_id}/cancel
+GET  /challenges/{challenge_id}/recap
+```
+
+Creation body:
+
+```json
+{"opponent_username":"maya"}
+```
+
+Creation and state-changing requests include an `Idempotency-Key` header.
+Every challenge is one 200-hand mirrored, play-money match. A pending request
+has not started. Acceptance snapshots both current active bots and moves the
+challenge into the server queue.
+
+Challenge states are:
+
+```text
+pending -> queued -> running -> completed
+pending -> declined
+pending -> cancelled
+queued or running -> failed
+```
+
+A completed challenge reports `winner_username` and the absolute
+`margin_play_chips`. The winner is based on aggregate play-chip profit over all
+hands, not the number of individual hands won. A direct challenge never changes
+either player's Elo.
+
+The server rejects self-challenges, participants without an active bot,
+duplicate open challenges between the same pair, and transitions attempted by
+the wrong user. Treat those errors as explanations for the participant, not as
+a reason to expose tokens or retry indefinitely.
+
+### Notifications
+
+```text
+GET  /notifications?unread=true&limit=20&cursor=CURSOR
+POST /notifications/{notification_id}/read
+POST /notifications/read-all
+```
+
+Notification types are `challenge_received`, `challenge_won`,
+`challenge_lost`, and `challenge_failed`. Display facts are snapshotted so an
+old message does not change after someone uploads a new bot. Read a
+notification only after its target challenge or recap opens successfully.
+
+### CLI JSON behavior
+
+All `alpha-poker rivals ...` and `alpha-poker notifications ...` leaf commands
+accept `--json`. They emit exactly one JSON object on stdout and send wait
+progress to stderr. No password, bearer token, invite code, or training
+capability is included in output or artifacts.

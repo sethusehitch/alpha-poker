@@ -4,7 +4,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("browser API proxy preserves Caddy's client address and safe user-agent context", async () => {
-  const source = await readFile(new URL("../app/browser-api/_proxy.ts", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/browser-api/_proxy.ts", import.meta.url),
+    "utf8",
+  );
   assert.match(source, /request\.headers\.get\("x-forwarded-for"\)/);
   assert.match(source, /headers\.set\("X-Forwarded-For"/);
   assert.match(source, /headers\.set\("User-Agent"/);
@@ -17,7 +20,9 @@ async function render(path) {
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }),
+    new Request(`http://localhost${path}`, {
+      headers: { accept: "text/html" },
+    }),
     {
       ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
     },
@@ -38,7 +43,9 @@ test("/feature-requests renders the community header, hero, and offline-safe lis
   assert.match(body, /Vote on ideas from the Alpha Poker community\./);
   assert.match(body, /What should we build next\?/);
   assert.match(body, /aria-label="Main"/);
-  assert.match(body, /aria-current="page"[^>]*>Feature requests/);
+  const headerMarkup = body.match(/<header[\s\S]*?<\/header>/)?.[0] ?? "";
+  assert.doesNotMatch(headerMarkup, /Feature requests/);
+  assert.doesNotMatch(headerMarkup, /Contribute/);
   assert.match(body, /aria-current="page"[^>]*>Top/);
   assert.match(body, /aria-label="Filter feature requests"/);
   assert.match(body, /Suggest a feature/);
@@ -55,7 +62,10 @@ test("/feature-requests renders the community header, hero, and offline-safe lis
 });
 
 test("authenticated-only copy waits until the session check completes", async () => {
-  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/FeatureRequestList.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(source, /sessionLoaded && !session/);
 });
 
@@ -77,20 +87,25 @@ test("/feature-requests?tab=new and ?tab=planned deep-link to the right tab", as
 });
 
 test("feature request dates hydrate identically across server and browser time zones", async () => {
-  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/FeatureRequestList.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(source, /timeZone: "UTC"/);
 
   const script = `process.stdout.write(new Intl.DateTimeFormat("en-US", {
     month: "short", day: "numeric", year: "numeric", timeZone: "UTC"
   }).format(new Date("2026-09-06T04:47:17.810787Z")))`;
-  const labels = ["UTC", "America/Los_Angeles", "Pacific/Kiritimati"].map((TZ) => {
-    const result = spawnSync(process.execPath, ["-e", script], {
-      encoding: "utf8",
-      env: { ...process.env, TZ },
-    });
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout;
-  });
+  const labels = ["UTC", "America/Los_Angeles", "Pacific/Kiritimati"].map(
+    (TZ) => {
+      const result = spawnSync(process.execPath, ["-e", script], {
+        encoding: "utf8",
+        env: { ...process.env, TZ },
+      });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout;
+    },
+  );
   assert.deepEqual(labels, ["Sep 6, 2026", "Sep 6, 2026", "Sep 6, 2026"]);
 });
 
@@ -108,7 +123,10 @@ test("/contribute renders the hero, four-step guide, and offline-safe issues car
   const body = await html("/contribute");
 
   assert.match(body, /<title>Contribute — Alpha Poker<\/title>/);
-  assert.match(body, /Pick an issue, improve the arena, and send a pull request\./);
+  assert.match(
+    body,
+    /Pick an issue, improve the arena, and send a pull request\./,
+  );
   assert.match(body, /OPEN SOURCE/);
   assert.match(body, /Help build Alpha Poker\./);
   assert.match(body, /Pick an issue/);
@@ -117,7 +135,10 @@ test("/contribute renders the hero, four-step guide, and offline-safe issues car
   assert.match(body, /Open a pull request/);
   assert.match(body, /Good first issues/);
   assert.match(body, /Before you start/);
-  assert.match(body, /You propose\. Maintainers review\. Nothing merges automatically\./);
+  assert.match(
+    body,
+    /You propose\. Maintainers review\. Nothing merges automatically\./,
+  );
   assert.match(body, /target="_blank" rel="noopener noreferrer"/);
   assert.match(body, /\(opens in a new tab\)/);
 
@@ -137,34 +158,75 @@ test("/contribute never shows decorative casino imagery or a Discord link", asyn
 test("global feedback widget and account chip mount on every community page", async () => {
   for (const path of ["/", "/feature-requests", "/contribute"]) {
     const body = await html(path);
-    assert.match(body, /aria-label="Send feedback"/, `${path} is missing the feedback FAB`);
-    assert.match(body, /data-testid="account-trigger"/, `${path} is missing the account chip`);
+    assert.match(
+      body,
+      /aria-label="Send feedback"/,
+      `${path} is missing the feedback FAB`,
+    );
+    assert.match(
+      body,
+      /data-testid="account-trigger"/,
+      `${path} is missing the account chip`,
+    );
   }
 });
 
 test("account dialog clears private registration fields whenever it closes", async () => {
-  const source = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/AuthButton.tsx", import.meta.url),
+    "utf8",
+  );
 
-  assert.match(source, /resetAuthForm = useCallback\(\(\) => \{[\s\S]*setInviteCode\(""\)/);
-  assert.match(source, /closeDialog = useCallback\(\(\) => \{[\s\S]*resetAuthForm\(\)[\s\S]*setOpen\(false\)/);
-  assert.doesNotMatch(source, /aria-label="Close" onClick=\{\(\) => setOpen\(false\)\}/);
+  assert.match(
+    source,
+    /resetAuthForm = useCallback\(\(\) => \{[\s\S]*setInviteCode\(""\)/,
+  );
+  assert.match(
+    source,
+    /closeDialog = useCallback\(\(\) => \{[\s\S]*resetAuthForm\(\)[\s\S]*setOpen\(false\)/,
+  );
+  assert.doesNotMatch(
+    source,
+    /aria-label="Close" onClick=\{\(\) => setOpen\(false\)\}/,
+  );
   assert.match(source, /onMouseDown=\{closeDialog\}/);
   assert.match(source, /if \(event\.key === "Escape"\) closeDialog\(\)/);
 });
 
 test("status chip supports exactly the six-stage lifecycle", async () => {
-  const source = await readFile(new URL("../app/components/StatusChip.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/StatusChip.tsx", import.meta.url),
+    "utf8",
+  );
 
-  for (const status of ["submitted", "under_review", "planned", "in_progress", "shipped", "declined"]) {
-    assert.match(source, new RegExp(status), `StatusChip is missing "${status}"`);
+  for (const status of [
+    "submitted",
+    "under_review",
+    "planned",
+    "in_progress",
+    "shipped",
+    "declined",
+  ]) {
+    assert.match(
+      source,
+      new RegExp(status),
+      `StatusChip is missing "${status}"`,
+    );
   }
   assert.doesNotMatch(source, /\bopen\b/);
   assert.doesNotMatch(source, /not_planned/);
-  assert.match(source, /"submitted"/, "unknown statuses must safely fall back to submitted");
+  assert.match(
+    source,
+    /"submitted"/,
+    "unknown statuses must safely fall back to submitted",
+  );
 });
 
 test("feedback accepts signed-out visitors and keeps optional username context", async () => {
-  const source = await readFile(new URL("../app/components/FeedbackWidget.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/FeedbackWidget.tsx", import.meta.url),
+    "utf8",
+  );
 
   // The API attaches the username server-side when a session cookie exists and
   // accepts the post without one, so the widget must not gate submission.
@@ -179,47 +241,79 @@ test("feedback accepts signed-out visitors and keeps optional username context",
 });
 
 test("feedback draft survives a full route navigation and clears after a successful send", async () => {
-  const source = await readFile(new URL("../app/components/FeedbackWidget.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/FeedbackWidget.tsx", import.meta.url),
+    "utf8",
+  );
 
   // Every navigation in this app is a full document load, so component state
   // alone loses the draft. sessionStorage is tab-scoped (unlike localStorage,
   // which would leak a draft to the next user of a shared machine).
-  assert.match(source, /"alpha-poker:feedback-draft"/, "draft key must be narrow and project-specific");
+  assert.match(
+    source,
+    /"alpha-poker:feedback-draft"/,
+    "draft key must be narrow and project-specific",
+  );
   assert.match(source, /window\.sessionStorage\.getItem\(DRAFT_STORAGE_KEY\)/);
   assert.match(source, /window\.sessionStorage\.setItem\(DRAFT_STORAGE_KEY/);
-  assert.match(source, /window\.sessionStorage\.removeItem\(DRAFT_STORAGE_KEY\)/);
+  assert.match(
+    source,
+    /window\.sessionStorage\.removeItem\(DRAFT_STORAGE_KEY\)/,
+  );
   assert.doesNotMatch(source, /window\.localStorage/);
 
   // Both the message and the selected type persist, and the draft is cleared
   // on success so the next visitor never sees the last one.
   assert.match(source, /JSON\.stringify\(draft\)/);
-  assert.match(source, /writeDraft\(\{ type, message \}\)|writeDraft\(message === "" \? null : \{ type, message \}\)/);
+  assert.match(
+    source,
+    /writeDraft\(\{ type, message \}\)|writeDraft\(message === "" \? null : \{ type, message \}\)/,
+  );
   assert.match(source, /setType\("idea"\);\s*\n\s*writeDraft\(null\);/);
 });
 
 test("mobile disclosure links sit inside a Main nav landmark", async () => {
-  const source = await readFile(new URL("../app/components/SiteHeader.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/SiteHeader.tsx", import.meta.url),
+    "utf8",
+  );
 
   // Below 1024px the centered nav is display:none and therefore absent from
   // the accessibility tree, so the disclosure panel has to carry the landmark.
   const panel = source.slice(source.indexOf("{menuOpen && ("));
-  assert.match(panel, /<nav aria-label="Main">/, "the mobile panel is missing the Main landmark");
+  assert.match(
+    panel,
+    /<nav aria-label="Main">/,
+    "the mobile panel is missing the Main landmark",
+  );
   assert.match(panel, /<ul>/, "the mobile nav links must be a real list");
 });
 
 test("only this repository's own issue URL is ever rendered as an href", async () => {
-  const safety = await readFile(new URL("../app/components/textSafety.ts", import.meta.url), "utf8");
-  const card = await readFile(new URL("../app/components/ContributeIssuesCard.tsx", import.meta.url), "utf8");
+  const safety = await readFile(
+    new URL("../app/components/textSafety.ts", import.meta.url),
+    "utf8",
+  );
+  const card = await readFile(
+    new URL("../app/components/ContributeIssuesCard.tsx", import.meta.url),
+    "utf8",
+  );
 
   // The owner/repo are pinned to a build-time constant that mirrors
   // GITHUB_OWNER/GITHUB_REPO in server/alpha_poker_api/github.py.
-  assert.match(safety, /GITHUB_REPO_URL = "https:\/\/github\.com\/sethusehitch\/alpha-poker"/);
+  assert.match(
+    safety,
+    /GITHUB_REPO_URL = "https:\/\/github\.com\/sethusehitch\/alpha-poker"/,
+  );
   assert.match(safety, /\$\{GITHUB_REPO_URL\}\/issues\/\$\{issueNumber\}/);
 
   // Validation is exact string equality against the URL this repo would build
   // for that issue number, so no wildcard owner/repo segment and no `pull`
   // path can slip through the way the old prefix regex allowed.
-  assert.match(safety, /return expected !== null && typeof value === "string" && value === expected;/);
+  assert.match(
+    safety,
+    /return expected !== null && typeof value === "string" && value === expected;/,
+  );
   assert.doesNotMatch(safety, /\[\^\/\]\+/);
   assert.doesNotMatch(safety, /issues\|pull/);
   assert.doesNotMatch(safety, /isSafeRepoUrl/);
@@ -237,7 +331,9 @@ function mainContent(body) {
 }
 
 function svgBodies(markup) {
-  return [...markup.matchAll(/<svg[^>]*>([\s\S]*?)<\/svg>/g)].map((match) => match[1]);
+  return [...markup.matchAll(/<svg[^>]*>([\s\S]*?)<\/svg>/g)].map(
+    (match) => match[1],
+  );
 }
 
 test("the feature-request toolbar shares the list column and is usable at narrow widths", async () => {
@@ -248,60 +344,125 @@ test("the feature-request toolbar shares the list column and is usable at narrow
   const gridIndex = body.indexOf("lg:grid-cols-[minmax(0,1fr)_20rem]");
   const tabsIndex = body.indexOf('aria-label="Filter feature requests"');
   assert.ok(gridIndex !== -1, "the two-column grid is missing");
-  assert.ok(tabsIndex > gridIndex, "the toolbar must sit inside the list column, not above the grid");
+  assert.ok(
+    tabsIndex > gridIndex,
+    "the toolbar must sit inside the list column, not above the grid",
+  );
 
   // 3-up full-width tabs with 40px touch targets below 640px, segmented
   // control above it; primary CTA full width below 640px.
-  assert.match(body, /aria-label="Filter feature requests" class="grid grid-cols-3[^"]*sm:inline-flex"/);
-  assert.match(body, /class="flex h-10 items-center justify-center[^"]*sm:h-9 sm:px-4[^"]*"[^>]*>Top</);
-  assert.match(body, /class="inline-flex h-11 w-full[^"]*sm:w-auto">Suggest a feature<\/button>/);
+  assert.match(
+    body,
+    /aria-label="Filter feature requests" class="grid grid-cols-3[^"]*sm:inline-flex"/,
+  );
+  assert.match(
+    body,
+    /class="flex h-10 items-center justify-center[^"]*sm:h-9 sm:px-4[^"]*"[^>]*>Top</,
+  );
+  assert.match(
+    body,
+    /class="inline-flex h-11 w-full[^"]*sm:w-auto">Suggest a feature<\/button>/,
+  );
 });
 
 test("every interactive control on the community surfaces has a cobalt focus ring", async () => {
   for (const path of ["/feature-requests", "/contribute"]) {
     const body = await html(path);
     const controls = mainContent(body).match(/<(?:a|button)\b[^>]*>/g) ?? [];
-    assert.ok(controls.length >= 4, `${path} rendered no interactive controls to check`);
+    assert.ok(
+      controls.length >= 4,
+      `${path} rendered no interactive controls to check`,
+    );
     for (const control of controls) {
-      assert.match(control, /focus-visible:outline-blue-600/, `${path}: missing focus ring on ${control}`);
+      assert.match(
+        control,
+        /focus-visible:outline-blue-600/,
+        `${path}: missing focus ring on ${control}`,
+      );
     }
 
     // Global chrome: nav links, the mobile toggle, the account chip, and the
     // feedback FAB all live outside <main>.
-    assert.match(body, /aria-label="Menu"[\s\S]{0,400}?focus-visible:outline-blue-600|focus-visible:outline-blue-600[^>]*aria-label="Menu"/);
-    assert.match(body, /data-testid="account-trigger"[\s\S]{0,400}?focus-visible:outline-blue-600/);
-    assert.match(body, /aria-label="Send feedback"[\s\S]{0,600}?focus-visible:outline-blue-600/);
+    assert.match(
+      body,
+      /aria-label="Menu"[\s\S]{0,400}?focus-visible:outline-blue-600|focus-visible:outline-blue-600[^>]*aria-label="Menu"/,
+    );
+    assert.match(
+      body,
+      /data-testid="account-trigger"[\s\S]{0,400}?focus-visible:outline-blue-600/,
+    );
+    assert.match(
+      body,
+      /aria-label="Send feedback"[\s\S]{0,600}?focus-visible:outline-blue-600/,
+    );
   }
 });
 
 test("the wordmark never wraps and the page clears the feedback FAB at 320px", async () => {
   for (const path of ["/feature-requests", "/contribute"]) {
     const body = await html(path);
-    assert.match(body, /class="whitespace-nowrap[^"]*">Alpha Poker<\/span>/, `${path}: the wordmark can wrap`);
+    assert.match(
+      body,
+      /class="whitespace-nowrap[^"]*">Alpha Poker<\/span>/,
+      `${path}: the wordmark can wrap`,
+    );
     // 96px of bottom padding below 640px keeps content clear of the 56px FAB.
-    assert.match(body, /max-w-\[76rem\][^"]*pb-24[^"]*sm:pb-20/, `${path}: page bottom padding does not clear the FAB`);
+    assert.match(
+      body,
+      /max-w-\[76rem\][^"]*pb-24[^"]*sm:pb-20/,
+      `${path}: page bottom padding does not clear the FAB`,
+    );
   }
 
-  const header = await readFile(new URL("../app/components/SiteHeader.tsx", import.meta.url), "utf8");
-  const chip = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
-  assert.match(header, /shrink-0 items-center gap-2 rounded-\[5px\]/, "the lockup must not shrink or re-gap");
-  assert.match(chip, /min-\[380px\]:px-3\.5/, "the account chip must tighten below 380px so the 320px row fits");
-  assert.match(chip, /max-w-\[4\.5rem\] truncate min-\[380px\]:max-w-\[6\.5rem\]/);
+  const header = await readFile(
+    new URL("../app/components/SiteHeader.tsx", import.meta.url),
+    "utf8",
+  );
+  const chip = await readFile(
+    new URL("../app/components/AuthButton.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    header,
+    /shrink-0 items-center gap-2 rounded-\[5px\]/,
+    "the lockup must not shrink or re-gap",
+  );
+  assert.match(
+    chip,
+    /min-\[380px\]:px-3\.5/,
+    "the account chip must tighten below 380px so the 320px row fits",
+  );
+  assert.match(
+    chip,
+    /max-w-\[4\.5rem\] truncate min-\[380px\]:max-w-\[6\.5rem\]/,
+  );
 });
 
 test("posted-row scrolling and list skeletons respect reduced motion and real geometry", async () => {
-  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/components/FeatureRequestList.tsx", import.meta.url),
+    "utf8",
+  );
 
   // Reduced motion jumps to the new row instead of animating the scroll.
   assert.match(source, /prefers-reduced-motion: reduce/);
-  assert.match(source, /behavior: prefersReducedMotion\(\) \? "auto" : "smooth"/);
+  assert.match(
+    source,
+    /behavior: prefersReducedMotion\(\) \? "auto" : "smooth"/,
+  );
 
   // The skeleton mirrors the row it replaces at both breakpoints: 48px
   // undivided vote rail and inline chip below 640px, 64px divided rail and
   // chip column above it.
-  const skeleton = source.slice(source.indexOf("function RowSkeleton()"), source.indexOf("const HOW_IDEAS_WORK"));
+  const skeleton = source.slice(
+    source.indexOf("function RowSkeleton()"),
+    source.indexOf("const HOW_IDEAS_WORK"),
+  );
   assert.match(skeleton, /w-12 shrink-0[^"]*sm:w-16 sm:border-r/);
-  assert.match(skeleton, /rounded-\[6px\] bg-zinc-100 motion-reduce:animate-none sm:hidden/);
+  assert.match(
+    skeleton,
+    /rounded-\[6px\] bg-zinc-100 motion-reduce:animate-none sm:hidden/,
+  );
   assert.match(skeleton, /hidden shrink-0 items-center pr-4 sm:flex sm:pr-5/);
   assert.match(skeleton, /h-10 w-10 items-center justify-center sm:h-9 sm:w-9/);
 });
@@ -346,46 +507,102 @@ test("feature request details use accessible desktop and modal mobile presentati
 });
 
 test("contribute skeleton rows mirror the issue rows they replace", async () => {
-  const source = await readFile(new URL("../app/components/ContributeIssuesCard.tsx", import.meta.url), "utf8");
-  const skeleton = source.slice(source.indexOf("{loading ? ("), source.indexOf(") : failed ?"));
+  const source = await readFile(
+    new URL("../app/components/ContributeIssuesCard.tsx", import.meta.url),
+    "utf8",
+  );
+  const skeleton = source.slice(
+    source.indexOf("{loading ? ("),
+    source.indexOf(") : failed ?"),
+  );
 
   assert.match(skeleton, /min-h-16 items-center gap-3 px-5 py-3\.5/);
-  assert.match(skeleton, /hidden shrink-0 gap-1\.5 md:flex/, "label blocks must be hidden below md, like the real labels");
-  assert.match(skeleton, /lg:block/, "the assignee block must be hidden below lg");
-  assert.match(skeleton, /sm:block/, "the comment-count block must be hidden below sm");
+  assert.match(
+    skeleton,
+    /hidden shrink-0 gap-1\.5 md:flex/,
+    "label blocks must be hidden below md, like the real labels",
+  );
+  assert.match(
+    skeleton,
+    /lg:block/,
+    "the assignee block must be hidden below lg",
+  );
+  assert.match(
+    skeleton,
+    /sm:block/,
+    "the comment-count block must be hidden below sm",
+  );
   assert.match(skeleton, /Loading issues…/);
 });
 
 test("step and rail icons are semantic and never duplicated", async () => {
   const contribute = await html("/contribute");
 
-  const steps = contribute.slice(contribute.indexOf("<ol"), contribute.indexOf("</ol>"));
+  const steps = contribute.slice(
+    contribute.indexOf("<ol"),
+    contribute.indexOf("</ol>"),
+  );
   const stepIcons = svgBodies(steps);
-  assert.equal(stepIcons.length, 4, "each of the four steps needs its own icon");
-  assert.equal(new Set(stepIcons).size, 4, "the four step icons must be distinct");
+  assert.equal(
+    stepIcons.length,
+    4,
+    "each of the four steps needs its own icon",
+  );
+  assert.equal(
+    new Set(stepIcons).size,
+    4,
+    "the four step icons must be distinct",
+  );
 
-  const rail = contribute.slice(contribute.indexOf("Before you start"), contribute.indexOf("Open CONTRIBUTING.md"));
+  const rail = contribute.slice(
+    contribute.indexOf("Before you start"),
+    contribute.indexOf("Open CONTRIBUTING.md"),
+  );
   const railIcons = svgBodies(rail);
-  assert.equal(railIcons.length, 3, "each Before you start item needs its own icon");
-  assert.equal(new Set(railIcons).size, 3, "the three rail icons must be distinct");
+  assert.equal(
+    railIcons.length,
+    3,
+    "each Before you start item needs its own icon",
+  );
+  assert.equal(
+    new Set(railIcons).size,
+    3,
+    "the three rail icons must be distinct",
+  );
 
   const requests = await html("/feature-requests");
-  const howItWorks = requests.slice(requests.indexOf("How ideas work"), requests.indexOf("Have a question?"));
+  const howItWorks = requests.slice(
+    requests.indexOf("How ideas work"),
+    requests.indexOf("Have a question?"),
+  );
   const howIcons = svgBodies(howItWorks);
-  assert.equal(new Set(howIcons).size, 3, "the three How ideas work icons must be distinct");
+  assert.equal(
+    new Set(howIcons).size,
+    3,
+    "the three How ideas work icons must be distinct",
+  );
   // The step number appears once, in the title — never again inside the well.
   assert.match(howItWorks, /rounded-full bg-blue-50 text-blue-600"><svg/);
   assert.doesNotMatch(howItWorks, /bg-blue-50 text-blue-600">1</);
-  assert.match(howItWorks, /<h3[^>]*>1(?:<!-- -->)?\.\s*(?:<!-- -->)?Suggest<\/h3>/);
+  assert.match(
+    howItWorks,
+    /<h3[^>]*>1(?:<!-- -->)?\.\s*(?:<!-- -->)?Suggest<\/h3>/,
+  );
 });
 
 test("promotion and the GitHub token never reach a browser-facing route", async () => {
-  const proxySource = await readFile(new URL("../app/browser-api/_proxy.ts", import.meta.url), "utf8");
+  const proxySource = await readFile(
+    new URL("../app/browser-api/_proxy.ts", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(proxySource, /x-alpha-operator/i);
   assert.doesNotMatch(proxySource, /GITHUB_TOKEN/);
 
   const idRouteSource = await readFile(
-    new URL("../app/browser-api/feature-requests/[id]/route.ts", import.meta.url),
+    new URL(
+      "../app/browser-api/feature-requests/[id]/route.ts",
+      import.meta.url,
+    ),
     "utf8",
   );
   assert.doesNotMatch(idRouteSource, /promote/);

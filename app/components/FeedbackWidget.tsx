@@ -88,6 +88,7 @@ export function FeedbackWidget() {
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  const [rivalsDialogOpen, setRivalsDialogOpen] = useState(false);
   const [type, setType] = useState<FeedbackType>("idea");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -108,6 +109,14 @@ export function FeedbackWidget() {
 
   useEffect(() => on("account-dialog-changed", ({ open }) => setAccountOpen(open)), []);
   useEffect(() => on("suggest-dialog-changed", ({ open }) => setSuggestOpen(open)), []);
+  useEffect(
+    () =>
+      on("rivals-dialog-changed", ({ open }) => {
+        setRivalsDialogOpen(open);
+        if (open) setOpen(false);
+      }),
+    [],
+  );
 
   useEffect(() => {
     return on("close-panels", () => setOpen(false));
@@ -155,6 +164,10 @@ export function FeedbackWidget() {
   // and the first client render identical while still surviving a full route
   // navigation.
   function openPanel() {
+    // Keep this non-modal panel from competing with account, navigation, or
+    // notification controls on compact screens. The event is synchronous, so
+    // opening immediately afterward keeps this panel open while peers close.
+    emit("close-panels", {});
     if (!restoredRef.current) {
       restoredRef.current = true;
       const draft = readDraft();
@@ -226,7 +239,7 @@ export function FeedbackWidget() {
   // username is attached server-side from the cookie when one exists; the
   // client never sends it.
   const disabled = messageLength < MESSAGE_MIN_LENGTH || sending || submitLocked;
-  const hidden = accountOpen || suggestOpen;
+  const hidden = accountOpen || suggestOpen || rivalsDialogOpen;
 
   return (
     <>

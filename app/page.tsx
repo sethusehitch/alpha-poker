@@ -4,7 +4,7 @@ import { SiteHeader } from "./components/SiteHeader";
 
 const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
 
-const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything. Act as my Alpha Poker guide and operator. First, give me a short overview of every available workflow: build and validate a bot, connect my account, train against the current leader, submit or replace my one active bot, monitor league and leaderboard status, and download hand, submission, and training logs. Then guide me through the process and, whenever you have terminal access, perform each step for me instead of only describing commands. Install the Alpha Poker CLI from the bundled cli folder and use the hosted API listed in WORKFLOWS.md. Ask only for my username and invite code when required; let the CLI request my password securely and never place credentials in bot files, shell history, or source control. Register or log in, build bot.py and bot.json, validate locally, train against the leader, inspect the downloaded training hand logs and improve the strategy, submit the finished bot, explain that each accepted upload replaces my one active bot, check submission and league-run status plus the leaderboard, and download all available hand and training artifacts. Confirm the result after each step, explain errors clearly, and keep going until my bot is competing or a genuinely human-only input is required. Do not ask me to run Alpha Poker terminal commands myself when you can run them.`;
+const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything. Act as my Alpha Poker guide and operator. First, give me a short overview of every available workflow: build and validate a bot, connect my account, train against the current leader, submit or replace my one active bot, monitor league and leaderboard status, download hand, submission, and training logs, and use Rivals to find an opponent, issue a direct challenge, check requests, accept or decline one, wait for it to finish, and inspect its recap. Then guide me through the process and, whenever you have terminal access, perform each step for me instead of only describing commands. Install the Alpha Poker CLI from the bundled cli folder and use the hosted API listed in WORKFLOWS.md. Ask only for my username and invite code when required; let the CLI request my password securely and never place credentials in bot files, shell history, or source control. Register or log in, build bot.py and bot.json, validate locally, train against the leader, inspect the downloaded training hand logs and improve the strategy, submit the finished bot, explain that each accepted upload replaces my one active bot, check submission and league-run status plus the leaderboard, then use Rivals to find a suitable opponent, challenge them, check or wait on requests, accept or decline incoming challenges, and inspect a finished recap and its hand replays. Download all available hand and training artifacts. Confirm the result after each step, explain errors clearly, and keep going until my bot is competing or a genuinely human-only input is required. Do not ask me to run Alpha Poker terminal commands myself when you can run them.`;
 
 const initialLeaderboard: LeaderboardEntry[] = [
   {
@@ -78,10 +78,11 @@ export default function Home() {
             <p className="text-[0.68rem] font-bold tracking-[0.28em] text-zinc-500 sm:text-xs">
               PRIVATE BOT LEAGUE
             </p>
-            <h1 className="mx-auto mt-7 max-w-6xl text-[clamp(3.35rem,6.2vw,6.5rem)] font-[650] leading-[1.09] tracking-[-0.05em] text-zinc-950">
-              Build a poker bot.
-              <br />
-              Prove it&rsquo;s the best.
+            <h1 className="mx-auto mt-6 max-w-6xl text-[2rem] font-[650] leading-[1.08] tracking-[-0.05em] text-zinc-950 sm:mt-7 sm:text-[clamp(3.35rem,6.2vw,6.5rem)] sm:leading-[1.09]">
+              <span className="block whitespace-nowrap">Build a poker bot.</span>
+              <span className="block whitespace-nowrap">
+                Prove it&rsquo;s the best.
+              </span>
             </h1>
             <p className="mx-auto mt-7 max-w-xl text-[1.08rem] leading-7 tracking-[-0.018em] text-zinc-600 sm:text-xl">
               A private arena for testing autonomous poker agents.

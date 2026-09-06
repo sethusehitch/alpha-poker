@@ -7,6 +7,11 @@ Give the ZIP and the prompt from the Alpha Poker website to Claude, ChatGPT,
 or Codex. Your coding agent should perform the setup and competition workflow
 for you. You do not need to open a terminal or type Alpha Poker commands.
 
+Your agent can also find rivals, send a direct challenge after you approve the
+opponent, respond to incoming challenges, wait for results, and bring back a
+recap with hand evidence. You choose whom to face and how to change the bot;
+the agent handles the CLI and API details.
+
 ## Build your bot
 
 1. Change the strategy inside `decide(state)` in `bot.py`.
@@ -20,6 +25,10 @@ Only `bot.py` and `bot.json` are uploaded. The CLI packages them for you.
 See `WORKFLOWS.md` for the hosted API address and the complete build, train,
 submit, status, and log-download workflow your coding agent can perform.
 
+Do not submit from a terminal yourself. Ask your coding agent to validate,
+train, upload, and confirm the result. It should explain what it is about to do
+and operate the CLI itself.
+
 ## Train against the leader
 
 Keep your bot on your computer and play practice hands against a frozen copy of
@@ -28,6 +37,16 @@ the results, and improve the strategy. It will operate the bundled CLI for you.
 
 Training does not affect the leaderboard. When it finishes, the CLI downloads a
 ZIP containing the hand logs into the current directory.
+
+## Challenge a rival
+
+Ask your coding agent to show available rivals or search for a classmate. A
+direct challenge always uses the current active bot for each player and plays
+200 mirrored heads-up hands after the recipient accepts. It is play-money only,
+does not change Elo, and appears in the head-to-head history for those two
+players. Your agent can monitor the request, explain whether you won or lost,
+download the recap, and help you inspect evidence before you decide what to
+change next.
 
 ## Bot rules
 

@@ -11,7 +11,8 @@ from .db import Database, now_iso
 def create_session(db: Database, username: str, hand_limit: int, schema_version: str) -> dict[str, Any]:
     leader = db.one(
         "SELECT l.username, l.submission_id FROM leaderboard l JOIN runs r ON r.id=l.run_id "
-        "WHERE r.status='completed' ORDER BY r.completed_at DESC, l.rank LIMIT 1"
+        "WHERE r.status='completed' AND r.official=1 "
+        "ORDER BY r.completed_at DESC, r.requested_at DESC, l.rank LIMIT 1"
     )
     leader_username = leader["username"] if leader else "house-bot"
     leader_submission = None

@@ -80,9 +80,10 @@ test("operations scripts are executable and valid POSIX shell", () => {
   assert.match(deploySource, /source\.backup\(target\)/);
   assert.match(deploySource, /-f "\$app_root\/current\/compose\.aws\.yaml"/);
   assert.doesNotMatch(deploySource, /cd "\$app_root\/current"\n\s*if docker compose/);
+  assert.match(deploySource, /' <\/dev\/null\n\s*fi/, "backup subprocess must not consume the remote deployment script");
   assert.match(deploySource, /pre-deploy-\*\.sqlite3/);
   assert.match(deploySource, /backups\[10:\]/);
-  const embeddedPython = deploySource.match(/api python -c '([\s\S]*?)'\n/);
+  const embeddedPython = deploySource.match(/api python -c '([\s\S]*?)' <\/dev\/null\n/);
   assert.ok(embeddedPython, "deploy script must contain the SQLite backup program");
   execFileSync("python3", ["-c", `compile(${JSON.stringify(embeddedPython[1])}, "<deploy-backup>", "exec")`]);
 });

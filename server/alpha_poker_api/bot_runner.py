@@ -7,6 +7,7 @@ not a replacement for a hardened container sandbox against hostile code.
 
 from __future__ import annotations
 
+import collections.abc  # Ensure the lazy stdlib submodule exists on Python 3.12.
 import io
 import json
 import os

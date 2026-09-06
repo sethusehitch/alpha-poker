@@ -311,7 +311,7 @@ test("feature request cards expose compact previews and open a live detail view"
 
   assert.match(source, /line-clamp-2 break-words text-\[1\.0625rem\]/, "titles must stay at two lines");
   assert.match(source, /mt-1 line-clamp-2 break-words text-\[0\.9375rem\]/, "descriptions must stay at two lines");
-  assert.match(source, /\{item\.details && \([\s\S]*Details <span aria-hidden="true">→<\/span>/, "requests with descriptions need a Details trigger");
+  assert.match(source, /\{item\.details && \([\s\S]*Details <span aria-hidden="true" className="ml-1">→<\/span>/, "requests with descriptions need a Details trigger");
   assert.match(source, /aria-label=\{`View details for \$\{item\.title\}`\}/);
   assert.match(source, /aria-expanded=\{selectedId === item\.id\}/);
   assert.match(source, /const selectedItem = selectedId \? visibleItems\.find/, "detail content must derive from live list state");
@@ -328,10 +328,13 @@ test("feature request details use accessible desktop and modal mobile presentati
   assert.doesNotMatch(source, /useId\(/, "detail labels must hydrate with page-stable ids");
   assert.match(source, /dialog\.showModal\(\)/, "the mobile sheet must make the page behind it inert");
   assert.match(source, /document\.body\.style\.overflow = "hidden"/, "the mobile sheet must block background scrolling");
+  assert.match(source, /h-\[min\(85dvh,46rem\)\]/, "the mobile sheet needs a definite dynamic-viewport scroll boundary");
+  assert.match(source, /safe-area-inset-bottom/, "the mobile sheet must clear the device safe area");
   assert.match(source, /onCancel=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*closeDetails\(\)/, "Escape must close the mobile dialog through its cancel event");
   assert.match(source, /event\.key === "Escape"[\s\S]*setSelectedId\(null\)/, "Escape must close desktop details");
   assert.match(source, /detailTriggerRefs\.current\.get\(triggerId\)\?\.focus\(\)/, "closing must restore trigger focus");
-  assert.match(source, /aria-label="Close feature request details"/);
+  assert.match(source, /aria-label=\{`Close details for \$\{item\.title\}`\}/);
+  assert.match(source, /document\.querySelector\('dialog\[open\], \[role="dialog"\]\[aria-modal="true"\]'\)/, "another active modal must own Escape");
   assert.match(source, /whitespace-pre-wrap break-words[^"]*\[overflow-wrap:anywhere\]/, "long detail content must wrap");
 });
 

@@ -165,13 +165,13 @@ function FeatureDetailsContent({
   onVote: (direction: "up" | "down") => void;
 }) {
   return (
-    <div className="flex max-h-full min-w-0 flex-col overflow-y-auto p-5 sm:p-6 lg:p-5">
+    <div className="flex h-full max-h-full min-w-0 flex-col overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 lg:p-5">
       <div className="flex items-start justify-between gap-4">
         <StatusChip status={item.status} />
         <button
           ref={closeButtonRef}
           type="button"
-          aria-label="Close feature request details"
+          aria-label={`Close details for ${item.title}`}
           onClick={onClose}
           className="-mr-1 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[5px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
         >
@@ -540,6 +540,7 @@ export function FeatureRequestList({
 
     function closeOnEscape(event: KeyboardEvent) {
       if (desktopQuery.matches && event.key === "Escape") {
+        if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return;
         event.preventDefault();
         setSelectedId(null);
       }
@@ -826,33 +827,38 @@ export function FeatureRequestList({
                           {item.details}
                         </p>
                       )}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[0.8125rem] text-zinc-500">
-                        <AuthorAvatar username={item.author} />
-                        <span className="truncate" title={item.author}>{displayText(item.author, USERNAME_DISPLAY_LENGTH)}</span>
-                        <span aria-hidden="true">·</span>
-                        <time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>
-                        {item.details && (
-                          <button
-                            ref={(node) => {
-                              if (node) detailTriggerRefs.current.set(item.id, node);
-                              else detailTriggerRefs.current.delete(item.id);
-                            }}
-                            type="button"
-                            aria-label={`View details for ${item.title}`}
-                            aria-expanded={selectedId === item.id}
-                            onClick={() => openDetails(item.id)}
-                            className="ml-auto rounded-[5px] font-semibold text-blue-700 transition-colors hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                          >
-                            Details <span aria-hidden="true">→</span>
-                          </button>
-                        )}
-                        <span className="sm:hidden">
+                      <div className="mt-2.5 flex flex-col gap-2 text-[0.8125rem] text-zinc-500 sm:flex-row sm:items-center">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5">
+                          <AuthorAvatar username={item.author} />
+                          <span className="truncate" title={item.author}>{displayText(item.author, USERNAME_DISPLAY_LENGTH)}</span>
+                          <span aria-hidden="true">·</span>
+                          <time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>
+                        </div>
+                        <div className="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
+                          {item.details && (
+                            <button
+                              ref={(node) => {
+                                if (node) detailTriggerRefs.current.set(item.id, node);
+                                else detailTriggerRefs.current.delete(item.id);
+                              }}
+                              type="button"
+                              aria-label={`View details for ${item.title}`}
+                              aria-controls="feature-request-details feature-request-details-mobile"
+                              aria-expanded={selectedId === item.id}
+                              onClick={() => openDetails(item.id)}
+                              className="inline-flex h-8 items-center rounded-[5px] px-1 font-semibold text-blue-700 transition-colors hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                            >
+                              Details <span aria-hidden="true" className="ml-1">→</span>
+                            </button>
+                          )}
+                          <span className="sm:hidden">
                           {isOperator ? (
                             <OperatorStatusMenu item={item} onChangeStatus={(status) => handleStatusChange(item, status)} onHide={() => handleHide(item)} />
                           ) : (
                             <StatusChip status={item.status} />
                           )}
-                        </span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="hidden shrink-0 items-center pr-4 sm:flex sm:pr-5">
@@ -905,13 +911,14 @@ export function FeatureRequestList({
       </div>
 
       <dialog
+        id="feature-request-details-mobile"
         ref={mobileDialogRef}
         aria-labelledby={DETAILS_MOBILE_TITLE_ID}
         onCancel={(event) => {
           event.preventDefault();
           closeDetails();
         }}
-        className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[min(85vh,46rem)] w-full max-w-none overflow-hidden rounded-t-[14px] border border-zinc-200 bg-white p-0 shadow-[0_-12px_40px_rgba(9,9,11,0.18)] backdrop:bg-zinc-950/45 lg:hidden"
+        className="fixed inset-x-0 bottom-0 top-auto m-0 h-[min(85dvh,46rem)] w-full max-w-none overflow-hidden rounded-t-[14px] border border-zinc-200 bg-white p-0 shadow-[0_-12px_40px_rgba(9,9,11,0.18)] backdrop:bg-zinc-950/45 lg:hidden"
       >
         {selectedItem && (
           <FeatureDetailsContent

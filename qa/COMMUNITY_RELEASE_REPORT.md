@@ -42,7 +42,7 @@ Date: September 5, 2026
 ## Verification completed before publication
 
 - Full local gate: production build, 10 landing-page render tests, 24 community
-  render/contract tests, 4 container configuration tests, ESLint, 108 backend
+  render/contract tests, 4 container configuration tests, ESLint, 109 backend
   tests, 17 CLI tests, Python compilation, and deterministic starter-kit build.
 - Dependency audit: zero known production or development vulnerabilities.
 - Isolated Compose gate: rebuilt Caddy, web, and API images; all services became

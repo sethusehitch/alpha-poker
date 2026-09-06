@@ -41,6 +41,18 @@ def test_public_league_leaderboard_and_results(client):
     assert len(client.get("/v1/runs/run_demo/matchups").json()["matchups"]) == 3
 
 
+def test_public_standings_ignore_newer_nonofficial_runs(client):
+    client.app.state.db.execute(
+        "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,completed_at,hand_count_per_pairing) "
+        "VALUES('run_archived','completed',0,'prototype-0.1','heads-up-v1',7,'2099-01-01T00:00:00Z','2099-01-01T00:01:00Z',2)"
+    )
+
+    assert client.get("/v1/league").json()["current_run"]["id"] == "run_demo"
+    assert client.get("/v1/leaderboard").json()["run_id"] == "run_demo"
+    assert client.get("/v1/matchups").json()["run_id"] == "run_demo"
+    assert {run["id"] for run in client.get("/v1/runs").json()["runs"]} == {"run_demo"}
+
+
 def test_hand_and_artifact_downloads(client):
     hand = client.get("/v1/hands/hand_demo_1")
     assert hand.json()["winner"] == "maya"

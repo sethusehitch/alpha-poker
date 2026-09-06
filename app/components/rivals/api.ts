@@ -20,6 +20,7 @@ export type Rival = {
 export type RivalsList = {
   items: Rival[];
   next_cursor: string | null;
+  viewer?: { has_active_bot: boolean };
   // Returned only when "mine" is empty and unfiltered, so the page is never bare.
   suggested_items?: Rival[];
   suggested_for_elo?: number;

@@ -293,11 +293,19 @@ def register_rival_routes(
         username = caller(authorization, x_alpha_username)
         if rival_username == username:
             raise HTTPException(400, {"code": "self_rival", "message": "Choose another player"})
-        if not db.one("SELECT 1 FROM users WHERE username=?", (rival_username,)) and not _active_bot(db, rival_username):
+        standing = _latest_standing(db, rival_username)
+        # The prototype database includes a seeded public leaderboard before
+        # those demo players have login accounts or uploaded packages. A rival
+        # advertised by the leaderboard must still have a viewable profile;
+        # challenge creation separately requires both players' active bots.
+        if (
+            not db.one("SELECT 1 FROM users WHERE username=?", (rival_username,))
+            and not _active_bot(db, rival_username)
+            and not standing
+        ):
             raise HTTPException(404, {"code": "rival_not_found", "message": "Rival not found"})
         bot = _active_bot(db, rival_username)
         viewer_bot = _active_bot(db, username)
-        standing = _latest_standing(db, rival_username)
         record = _record(db, username, rival_username)
         nemesis = _nemesis(db, username)
         current = db.one(

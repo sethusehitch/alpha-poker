@@ -42,7 +42,13 @@ export type Challenge = {
   artifacts_url?: string | null;
 };
 export type RivalDetail = {
-  rival: Omit<Rival, "direct_record" | "is_nemesis">;
+  // A rival advertised only by the seeded leaderboard has no uploaded package,
+  // so bot_name and rank come back null while the profile is still viewable.
+  rival: Omit<Rival, "direct_record" | "is_nemesis" | "bot_name" | "rank"> & {
+    bot_name: string | null;
+    rank: number | null;
+    has_active_bot: boolean;
+  };
   viewer: { has_active_bot: boolean };
   direct_record: DirectRecord;
   is_nemesis: boolean;

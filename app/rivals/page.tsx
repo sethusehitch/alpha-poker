@@ -20,7 +20,7 @@ export default async function RivalsPage({
       : "mine";
   return (
     <>
-      <AppHeader />
+      <AppHeader currentPath="/rivals" />
       <RivalsWorkspace initialTab={tab} />
     </>
   );

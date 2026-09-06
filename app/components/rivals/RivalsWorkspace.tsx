@@ -9,6 +9,7 @@ import {
   type Rival,
   type RivalDetail,
 } from "./api";
+import { BotAvatar } from "../BotAvatar";
 import { emit, on } from "../uiBus";
 import { useSession } from "../useSession";
 
@@ -43,40 +44,6 @@ function statusLabel(status: Challenge["status"]) {
               : "Needs attention";
 }
 
-function Robot({
-  name,
-  rank,
-  className = "",
-}: {
-  name: string;
-  rank?: number;
-  className?: string;
-}) {
-  const hash = Array.from(name).reduce(
-    (total, letter) => total + letter.codePointAt(0)!,
-    0,
-  );
-  const position = ["0% 43%", "50% 43%", "100% 43%"][
-    Math.abs((rank ?? hash) % 3)
-  ];
-  return (
-    <span
-      aria-hidden="true"
-      data-robot={name}
-      className={`relative grid h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-100 via-white to-violet-100 shadow-inner ring-1 ring-blue-100 ${className}`}
-    >
-      <span
-        className="absolute inset-0 bg-no-repeat"
-        style={{
-          backgroundImage: "url('/robot-avatars.png?v=poker-kids-1')",
-          backgroundPosition: position,
-          backgroundSize: "300% auto",
-        }}
-      />
-    </span>
-  );
-}
-
 function RivalCard({
   rival,
   onOpen,
@@ -87,7 +54,7 @@ function RivalCard({
   return (
     <article className="flex min-h-44 flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:border-blue-300">
       <div className="flex gap-3">
-        <Robot name={rival.username} rank={rival.rank} />
+        <BotAvatar name={rival.username} rank={rival.rank} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="truncate font-semibold text-zinc-950">
@@ -324,6 +291,7 @@ function RivalOverlay({
 }) {
   const [detail, setDetail] = useState<RivalDetail | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [next, setNext] = useState<string | null>(null);
   const [confirmCreate, setConfirmCreate] = useState(false);
@@ -333,6 +301,7 @@ function RivalOverlay({
   const load = useCallback(async () => {
     const request = ++detailRequest.current;
     setError("");
+    setLoading(true);
     try {
       const result = await rivalsApi.detail(username);
       if (request !== detailRequest.current) return;
@@ -343,6 +312,8 @@ function RivalOverlay({
       setError(
         reason instanceof Error ? reason.message : "Could not load this rival.",
       );
+    } finally {
+      if (request === detailRequest.current) setLoading(false);
     }
   }, [username]);
   useEffect(
@@ -375,7 +346,10 @@ function RivalOverlay({
     };
     window.addEventListener("keydown", key);
     window.setTimeout(
-      () => panel.current?.querySelector<HTMLElement>("button")?.focus(),
+      () =>
+        (
+          panel.current?.querySelector<HTMLElement>("button") ?? panel.current
+        )?.focus(),
       0,
     );
     return () => {
@@ -453,26 +427,76 @@ function RivalOverlay({
         role="dialog"
         aria-modal="true"
         aria-labelledby="rival-title"
+        tabIndex={-1}
         className="relative max-h-[100dvh] w-full max-w-2xl overflow-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        {error && (
-          <p
-            role="alert"
-            className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+        {/* Exactly one of loading, error, or detail is on screen. A failed
+            first load used to leave the skeleton copy underneath the alert,
+            which read as "Rival not found. Loading rival…". */}
+        {!detail && loading ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex min-h-72 flex-col items-center justify-center gap-4 py-10"
           >
-            {error}
-          </p>
-        )}
-        {!detail ? (
-          <p className="text-zinc-500">Loading rival…</p>
+            <span
+              aria-hidden="true"
+              className="h-9 w-9 rounded-full border-2 border-zinc-200 border-t-blue-600 motion-safe:animate-spin"
+            />
+            <p id="rival-title" className="text-sm text-zinc-500">
+              Loading rival…
+            </p>
+          </div>
+        ) : !detail ? (
+          <div
+            role="alert"
+            className="flex min-h-72 flex-col items-center justify-center px-4 py-10 text-center"
+          >
+            <span
+              aria-hidden="true"
+              className="grid h-12 w-12 place-items-center rounded-full bg-red-50 text-xl font-bold text-red-600"
+            >
+              !
+            </span>
+            <h1 id="rival-title" className="mt-4 text-xl font-bold text-zinc-950">
+              Could not open this rival
+            </h1>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-zinc-600">
+              {error || "Could not load this rival."}
+            </p>
+            <div className="mt-6 flex w-full max-w-xs flex-col gap-2 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         ) : (
           <>
+            {error && (
+              <p
+                role="alert"
+                className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+              >
+                {error}
+              </p>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div className="flex gap-4">
-                <Robot
+                <BotAvatar
                   name={detail.rival.username}
-                  rank={detail.rival.rank}
+                  rank={detail.rival.rank ?? undefined}
                   className="h-20 w-20 text-4xl"
                 />
                 <div>
@@ -490,7 +514,7 @@ function RivalOverlay({
                     )}
                   </div>
                   <p className="mt-1 text-zinc-600">
-                    {detail.rival.bot_name} ·{" "}
+                    {detail.rival.bot_name ?? "No active bot"} ·{" "}
                     {detail.rival.elo_rating.toLocaleString()} Elo
                   </p>
                 </div>
@@ -592,6 +616,12 @@ function RivalOverlay({
             {!detail.viewer.has_active_bot && (
               <p className="mt-2 text-xs text-zinc-500">
                 Submit an active bot to start a direct challenge.
+              </p>
+            )}
+            {detail.viewer.has_active_bot && !detail.rival.has_active_bot && (
+              <p className="mt-2 text-xs text-zinc-500">
+                You can view this rival now. Challenges unlock when they submit
+                an active bot.
               </p>
             )}
             <section className="mt-6">

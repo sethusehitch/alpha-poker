@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages, @next/next/no-location-assign-relative-destination */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AlphaPokerMark } from "../AlphaPokerMark";
 import { AuthButton } from "../AuthButton";
 import { rivalsApi, type Notification } from "../rivals/api";
@@ -35,6 +35,39 @@ function BellIcon() {
   );
 }
 
+type AppNavItem = {
+  label: string;
+  href: string;
+  icon?: ReactNode;
+  isActive: (path: string) => boolean;
+};
+
+// One nav model drives the desktop bar and the mobile sheet so "My Bot" and
+// "Rivals" can never disagree about which surface the participant is on.
+const APP_NAV: AppNavItem[] = [
+  {
+    label: "My Bot",
+    href: "/my-bot",
+    isActive: (path) => path.startsWith("/my-bot"),
+  },
+  {
+    label: "Getting Started",
+    href: "/#instructions",
+    isActive: () => false,
+  },
+  {
+    label: "Rivals",
+    href: "/rivals",
+    icon: <PeopleIcon />,
+    isActive: (path) => path.startsWith("/rivals") || path.startsWith("/hands/"),
+  },
+  {
+    label: "Leaderboard",
+    href: "/rivals?tab=leaderboard",
+    isActive: () => false,
+  },
+];
+
 function notificationTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -44,7 +77,7 @@ function notificationTime(value: string) {
   }).format(new Date(value));
 }
 
-export function AppHeader() {
+export function AppHeader({ currentPath }: { currentPath: string }) {
   const { session } = useSession();
   const [open, setOpen] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
@@ -265,42 +298,27 @@ export function AppHeader() {
         </a>
         <nav aria-label="App" className="hidden lg:block">
           <ul className="flex h-[4.5rem] items-center gap-1 text-sm font-medium whitespace-nowrap">
-            <li>
-              <button
-                type="button"
-                onClick={() => emit("open-account", {})}
-                className="inline-flex h-full items-center rounded px-3 text-zinc-600 hover:text-zinc-950"
-              >
-                My Bot
-              </button>
-            </li>
-            <li>
-              <a
-                href="/#instructions"
-                className="inline-flex h-full items-center rounded px-3 text-zinc-600 hover:text-zinc-950"
-              >
-                Training
-              </a>
-            </li>
-            <li className="relative">
-              <a
-                href="/rivals"
-                aria-current="page"
-                className="inline-flex h-full items-center gap-1.5 rounded px-3 text-blue-700"
-              >
-                <PeopleIcon />
-                Rivals
-              </a>
-              <span className="absolute inset-x-3 bottom-[-1px] h-0.5 bg-blue-600" />
-            </li>
-            <li>
-              <a
-                href="/rivals?tab=leaderboard"
-                className="inline-flex h-full items-center rounded px-3 text-zinc-600 hover:text-zinc-950"
-              >
-                Leaderboard
-              </a>
-            </li>
+            {APP_NAV.map((item) => {
+              const active = item.isActive(currentPath);
+              return (
+                <li key={item.href} className="relative">
+                  <a
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex h-full items-center gap-1.5 rounded px-3 focus-visible:outline-2 focus-visible:outline-blue-600 ${active ? "text-blue-700" : "text-zinc-600 hover:text-zinc-950"}`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </a>
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-3 bottom-[-1px] h-0.5 bg-blue-600"
+                    />
+                  )}
+                </li>
+              );
+            })}
             {session && (
               <li
                 ref={communityRef}
@@ -428,37 +446,20 @@ export function AppHeader() {
           className="absolute inset-x-0 top-full z-40 border-b border-zinc-200 bg-white px-5 py-2 shadow-lg lg:hidden"
         >
           <nav aria-label="App">
-            <button
-              type="button"
-              onClick={() => {
-                emit("open-account", {});
-                setAppMenuOpen(false);
-              }}
-              className="flex h-11 items-center rounded-lg px-3 text-sm font-semibold text-zinc-700"
-            >
-              My Bot
-            </button>
-            <a
-              href="/#instructions"
-              onClick={() => setAppMenuOpen(false)}
-              className="flex h-11 items-center rounded-lg px-3 text-sm font-semibold text-zinc-700"
-            >
-              Training
-            </a>
-            <a
-              href="/rivals"
-              onClick={() => setAppMenuOpen(false)}
-              className="flex h-11 items-center rounded-lg bg-blue-50 px-3 text-sm font-semibold text-blue-700"
-            >
-              Rivals
-            </a>
-            <a
-              href="/rivals?tab=leaderboard"
-              onClick={() => setAppMenuOpen(false)}
-              className="flex h-11 items-center rounded-lg px-3 text-sm font-semibold text-zinc-700"
-            >
-              Leaderboard
-            </a>
+            {APP_NAV.map((item) => {
+              const active = item.isActive(currentPath);
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setAppMenuOpen(false)}
+                  className={`flex h-11 items-center rounded-lg px-3 text-sm font-semibold ${active ? "bg-blue-50 text-blue-700" : "text-zinc-700"}`}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
             <div className="mt-1 border-t border-zinc-100 pt-1">
               <p className="px-3 py-2 text-xs font-bold tracking-wide text-zinc-500">
                 COMMUNITY

@@ -31,6 +31,53 @@ test("community navigation is signed-in-only and grouped in one menu", async () 
   assert.match(appHeader, /app-mobile-menu/);
   assert.match(appHeader, /if \(!session\)/);
   assert.match(appHeader, /ref=\{appMenuToggleRef\}/);
-  assert.match(appHeader, /id="app-mobile-menu"[\s\S]*?<button[\s\S]*?My Bot/);
+  assert.match(appHeader, /id="app-mobile-menu"[\s\S]*?APP_NAV\.map/);
   assert.doesNotMatch(appHeader, /href="\/account"/);
+});
+
+test("the app header points My Bot at a real route and renames Training", async () => {
+  const appHeader = await readFile(
+    new URL("../app/components/app/AppHeader.tsx", import.meta.url),
+    "utf8",
+  );
+
+  // "My Bot" used to open the account dialog; it is a page now.
+  assert.match(appHeader, /label: "My Bot",\s*href: "\/my-bot"/);
+  assert.doesNotMatch(appHeader, /emit\("open-account"/);
+  assert.match(appHeader, /label: "Getting Started",\s*href: "\/#instructions"/);
+  assert.doesNotMatch(appHeader, /Training/);
+  assert.match(appHeader, /label: "Rivals",\s*href: "\/rivals"/);
+  assert.match(appHeader, /label: "Leaderboard"/);
+
+  // Community stays in its own separated menu, not in APP_NAV.
+  const navModel = appHeader.match(/const APP_NAV[\s\S]*?\n\];/)?.[0] ?? "";
+  assert.doesNotMatch(navModel, /Community/);
+  assert.match(appHeader, /border-l border-zinc-200 pl-2/);
+
+  // One nav model, one source of truth for the active underline.
+  assert.match(appHeader, /export function AppHeader\(\{ currentPath \}/);
+  assert.match(
+    appHeader,
+    /isActive: \(path\) => path\.startsWith\("\/my-bot"\)/,
+  );
+  assert.match(
+    appHeader,
+    /isActive: \(path\) =>\s*path\.startsWith\("\/rivals"\) \|\| path\.startsWith\("\/hands\/"\)/,
+  );
+  assert.doesNotMatch(appHeader, /aria-current="page"\s*$/m);
+  assert.match(appHeader, /const active = item\.isActive\(currentPath\)/);
+});
+
+test("every app surface tells the header which route it is on", async () => {
+  const [rivals, hands, myBot] = await Promise.all([
+    readFile(new URL("../app/rivals/page.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../app/hands/[hand_id]/page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/my-bot/page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(rivals, /<AppHeader currentPath="\/rivals" \/>/);
+  assert.match(hands, /<AppHeader currentPath="\/hands\/" \/>/);
+  assert.match(myBot, /<AppHeader currentPath="\/my-bot" \/>/);
 });

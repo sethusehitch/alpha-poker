@@ -36,6 +36,30 @@ def auth_client(tmp_path):
     )))
 
 
+def test_seeded_leaderboard_rivals_have_viewable_details(tmp_path):
+    """Every player returned by the demo leaderboard can be opened in Rivals."""
+    with TestClient(create_app(Settings(
+        tmp_path,
+        tmp_path / "db.sqlite3",
+        tmp_path / "uploads",
+        tmp_path / "artifacts",
+        seed_demo_data=True,
+        auth_required=True,
+    ))) as client:
+        registration = client.post(
+            "/v1/auth/register",
+            json={"username": "previewer", "password": "correct horse"},
+        )
+        headers = {"Authorization": f"Bearer {registration.json()['token']}"}
+        rivals = client.get("/v1/rivals?source=leaderboard", headers=headers)
+        assert rivals.status_code == 200
+        assert rivals.json()["items"]
+        for rival in rivals.json()["items"]:
+            detail = client.get(f"/v1/rivals/{rival['username']}", headers=headers)
+            assert detail.status_code == 200
+            assert detail.json()["rival"]["username"] == rival["username"]
+
+
 def participant(client, username: str, action: str = "call") -> dict[str, str]:
     registration = client.post(
         "/v1/auth/register", json={"username": username, "password": "correct horse"}

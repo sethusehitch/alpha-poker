@@ -48,7 +48,7 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /viewer=\{viewer\}/);
   assert.match(workspace, /outcome === "draw"/);
   assert.match(workspace, /challenge\.recap_url/);
-  assert.match(workspace, /robot-avatars\.png/);
+  assert.match(workspace, /<BotAvatar/);
   assert.match(workspace, /direct_record\.draws > 0/);
   assert.match(workspace, /const result = fromUrl\.get\("result"\)/);
   assert.match(workspace, /fromUrl\.get\("challenge"\) \?\? result/);
@@ -104,6 +104,7 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(header, /params\.set\("challenge", challenge\.challenge_id\)/);
   assert.match(header, /AuthButton/);
   assert.match(header, /#instructions/);
+  assert.match(header, /currentPath/);
   assert.match(header, /if \(!session\) \{/);
   assert.match(header, /setNotes\(\[\]\)/);
   assert.match(header, /setUnread\(0\)/);
@@ -141,4 +142,47 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /hand\.winner \? \(/);
   assert.match(workspace, /Hand \{hand\.hand_number\} tied/);
   assert.match(handProxy, /hands\/\$\{encodeURIComponent\(hand_id\)\}/);
+});
+
+test("the rival overlay shows exactly one of loading, error, or detail", async () => {
+  const [workspace, avatar] = await Promise.all([
+    readFile(
+      new URL("../app/components/rivals/RivalsWorkspace.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(new URL("../app/components/BotAvatar.tsx", import.meta.url), "utf8"),
+  ]);
+
+  // A failed first load used to stack "Rival not found" on top of the
+  // "Loading rival…" placeholder.
+  assert.match(workspace, /\{!detail && loading \? \(/);
+  assert.match(workspace, /\) : !detail \? \(/);
+  assert.match(workspace, /const \[loading, setLoading\] = useState\(true\)/);
+  assert.match(workspace, /setLoading\(true\);/);
+  assert.match(
+    workspace,
+    /if \(request === detailRequest\.current\) setLoading\(false\);/,
+  );
+  assert.match(workspace, /Could not open this rival/);
+  assert.match(workspace, /onClick=\{\(\) => void load\(\)\}[\s\S]{0,320}Retry/);
+  assert.match(
+    workspace,
+    /Could not open this rival[\s\S]*?Retry[\s\S]*?>\s*Close\s*</,
+  );
+  // The action-level banner still renders, but only alongside a loaded rival.
+  assert.match(
+    workspace,
+    /\) : \(\s*<>\s*\{error && \(\s*<p\s*role="alert"/,
+  );
+  // Head-to-head history stays direct-challenge only.
+  assert.match(workspace, /Direct challenges only/);
+  assert.match(workspace, /No completed direct challenges yet\./);
+  assert.match(
+    workspace,
+    /Challenges unlock when they submit\s+an active bot\./,
+  );
+
+  // The sprite crop lives in one shared component now.
+  assert.match(avatar, /robot-avatars\.png/);
+  assert.doesNotMatch(workspace, /robot-avatars\.png/);
 });

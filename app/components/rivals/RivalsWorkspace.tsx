@@ -121,10 +121,10 @@ function RivalCard({
 }) {
   return (
     <article
-      className={`flex aspect-square min-h-0 w-full max-w-[18.6875rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
+      className={`flex h-[16.8125rem] min-h-0 w-full max-w-[20.5625rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
     >
-      {/* min-h-0 + overflow-hidden keep the square literal: a long bot name or
-          a five-digit Elo clips instead of stretching the card past 1:1. */}
+      {/* min-h-0 + overflow-hidden keep long names or five-digit Elo values
+          from stretching the card beyond its fixed compact height. */}
       <div className="flex min-h-0 flex-1 items-start gap-3.5 overflow-hidden">
         <div className="mt-1.5 shrink-0">
           <Portrait
@@ -185,7 +185,7 @@ function RivalGrid({
   selected?: string | null;
 }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(17.25rem,18.6875rem))] justify-center gap-4 sm:justify-start">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(17.25rem,20.5625rem))] justify-center gap-4 sm:justify-start">
       {items.map((rival) => (
         <RivalCard
           key={rival.username}

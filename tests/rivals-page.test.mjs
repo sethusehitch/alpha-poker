@@ -179,7 +179,8 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
     workspace,
     /Challenges unlock when they\s+submit an active bot\./,
   );
-  assert.match(workspace, /aspect-square/);
+  assert.match(workspace, /h-\[16\.8125rem\]/);
+  assert.match(workspace, /max-w-\[20\.5625rem\]/);
   assert.match(workspace, /min-h-0 flex-1 items-start[^\n]*overflow-hidden/);
   assert.match(workspace, /className="h-28 w-28"/);
   assert.match(workspace, /h-\[92dvh\]/);

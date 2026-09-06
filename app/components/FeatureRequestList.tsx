@@ -34,6 +34,8 @@ const OPERATOR_STATUS_ORDER: FeatureStatus[] = [
 ];
 
 const VOTE_ERROR_COPY = "Couldn't save your vote.";
+const DETAILS_DESKTOP_TITLE_ID = "feature-request-details-desktop-title";
+const DETAILS_MOBILE_TITLE_ID = "feature-request-details-mobile-title";
 const LIST_ERROR_COPY: Record<string, string> = {
   api_unavailable: "Ideas are offline right now. Try again in a moment.",
 };
@@ -143,6 +145,65 @@ function VoteArrows({
           <path d="M8 2.5v10m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+function FeatureDetailsContent({
+  item,
+  headingId,
+  closeButtonRef,
+  voting,
+  onClose,
+  onVote,
+}: {
+  item: FeatureRequest;
+  headingId: string;
+  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
+  voting: boolean;
+  onClose: () => void;
+  onVote: (direction: "up" | "down") => void;
+}) {
+  return (
+    <div className="flex h-full max-h-full min-w-0 flex-col overflow-y-auto p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 lg:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <StatusChip status={item.status} />
+        <button
+          ref={closeButtonRef}
+          type="button"
+          aria-label={`Close details for ${item.title}`}
+          onClick={onClose}
+          className="-mr-1 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[5px] text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" className="h-4 w-4" fill="none">
+            <path d="m3.5 3.5 9 9m0-9-9 9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <h2
+        id={headingId}
+        className="mt-4 break-words text-[1.375rem] font-[680] leading-[1.25] tracking-[-0.03em] text-zinc-950 [overflow-wrap:anywhere]"
+      >
+        {item.title}
+      </h2>
+      <p className="mt-3 whitespace-pre-wrap break-words text-[0.9375rem] leading-[1.65] text-zinc-700 [overflow-wrap:anywhere]">
+        {item.details}
+      </p>
+
+      <div className="mt-5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-t border-zinc-200/80 pt-4 text-[0.8125rem] text-zinc-500">
+        <AuthorAvatar username={item.author} />
+        <span className="max-w-full break-words [overflow-wrap:anywhere]" title={item.author}>
+          {displayText(item.author, USERNAME_DISPLAY_LENGTH)}
+        </span>
+        <span aria-hidden="true">·</span>
+        <time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>
+      </div>
+
+      <div className="mt-5 flex items-center rounded-[8px] border border-zinc-200 bg-zinc-50/60">
+        <VoteArrows item={item} disabled={voting} onVote={onVote} />
+        <p className="min-w-0 px-3 text-sm leading-5 text-zinc-600">Vote on this idea</p>
+      </div>
     </div>
   );
 }
@@ -422,9 +483,15 @@ export function FeatureRequestList({
   const [votingIds, setVotingIds] = useState<Set<string>>(new Set());
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const pendingSuggestAfterLoginRef = useRef(false);
   const rowRefs = useRef(new Map<string, HTMLLIElement>());
+  const detailTriggerRefs = useRef(new Map<string, HTMLButtonElement>());
+  const restoreDetailFocusIdRef = useRef<string | null>(null);
+  const desktopCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileDialogRef = useRef<HTMLDialogElement>(null);
   const hiddenRowsRef = useRef(new Map<string, { item: FeatureRequest; index: number }>());
   const isOperator = Boolean(session?.isOperator);
 
@@ -447,6 +514,55 @@ export function FeatureRequestList({
     return () => window.clearTimeout(timeout);
   }, [highlightId]);
 
+  useEffect(() => {
+    if (!selectedId) {
+      const triggerId = restoreDetailFocusIdRef.current;
+      restoreDetailFocusIdRef.current = null;
+      if (triggerId) window.requestAnimationFrame(() => detailTriggerRefs.current.get(triggerId)?.focus());
+      return;
+    }
+
+    const dialog = mobileDialogRef.current;
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const previousBodyOverflow = document.body.style.overflow;
+
+    function syncPresentation() {
+      if (desktopQuery.matches) {
+        if (dialog?.open) dialog.close();
+        document.body.style.overflow = previousBodyOverflow;
+        window.requestAnimationFrame(() => desktopCloseRef.current?.focus());
+      } else {
+        document.body.style.overflow = "hidden";
+        if (dialog && !dialog.open) dialog.showModal();
+        window.requestAnimationFrame(() => mobileCloseRef.current?.focus());
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (!desktopQuery.matches && dialog?.open) {
+        event.preventDefault();
+        setSelectedId(null);
+        return;
+      }
+      if (desktopQuery.matches) {
+        if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return;
+        event.preventDefault();
+        setSelectedId(null);
+      }
+    }
+
+    syncPresentation();
+    desktopQuery.addEventListener("change", syncPresentation);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      desktopQuery.removeEventListener("change", syncPresentation);
+      window.removeEventListener("keydown", closeOnEscape);
+      if (dialog?.open) dialog.close();
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [selectedId]);
+
   function openSuggest() {
     if (!session) {
       pendingSuggestAfterLoginRef.current = true;
@@ -461,7 +577,7 @@ export function FeatureRequestList({
     setRetrying(true);
     try {
       const page = await fetchPage(activeTab, null);
-      setItems(page.items);
+      replaceItems(page.items);
       setNextCursor(page.next_cursor);
     } catch {
       setListError("api_unavailable");
@@ -489,7 +605,7 @@ export function FeatureRequestList({
     setSuggestOpen(false);
     try {
       const page = await fetchPage("new", null);
-      setItems(page.items);
+      replaceItems(page.items);
       setNextCursor(page.next_cursor);
       setActiveTab("new");
     } catch {
@@ -558,6 +674,7 @@ export function FeatureRequestList({
   async function handleHide(item: FeatureRequest) {
     const index = items.findIndex((row) => row.id === item.id);
     hiddenRowsRef.current.set(item.id, { item, index });
+    if (selectedId === item.id) setSelectedId(null);
     setItems((current) => current.filter((row) => row.id !== item.id));
     try {
       const response = await fetch(`/browser-api/feature-requests/${encodeURIComponent(item.id)}/hide`, {
@@ -594,7 +711,24 @@ export function FeatureRequestList({
     }).catch(() => undefined);
   }
 
+  function replaceItems(nextItems: FeatureRequest[]) {
+    setItems(nextItems);
+    setSelectedId((current) => (
+      current && !nextItems.some((item) => item.id === current && sanitizeItem(item) !== null) ? null : current
+    ));
+  }
+
   const visibleItems = items.map(sanitizeItem).filter((row): row is FeatureRequest => row !== null);
+  const selectedItem = selectedId ? visibleItems.find((item) => item.id === selectedId) ?? null : null;
+
+  function openDetails(itemId: string) {
+    restoreDetailFocusIdRef.current = itemId;
+    setSelectedId(itemId);
+  }
+
+  function closeDetails() {
+    setSelectedId(null);
+  }
 
   return (
     <div className="mx-auto w-full max-w-[76rem] px-5 pb-24 sm:px-8 sm:pb-20">
@@ -605,7 +739,13 @@ export function FeatureRequestList({
       {/* The toolbar lives inside the list column so its left and right edges
           line up with the rows beneath it on desktop instead of stretching
           across the rail (spec 4.2/4.4). */}
-      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div
+        className={`mt-8 grid gap-8 lg:items-start ${
+          selectedItem
+            ? "lg:grid-cols-[minmax(0,1.2fr)_minmax(24rem,0.8fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(27rem,0.9fr)]"
+            : "lg:grid-cols-[minmax(0,1fr)_20rem]"
+        }`}
+      >
         <div className="min-w-0">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <nav
@@ -674,7 +814,13 @@ export function FeatureRequestList({
                       else rowRefs.current.delete(item.id);
                     }}
                     className={`flex min-h-[5.5rem] items-stretch rounded-[10px] border transition-colors ${
-                      isNew ? "border-blue-200 bg-blue-50/60" : highlighted ? "border-blue-200 bg-blue-50/40" : "border-zinc-200 bg-white hover:border-zinc-300"
+                      selectedId === item.id
+                        ? "border-blue-300 bg-blue-50/30"
+                        : isNew
+                          ? "border-blue-200 bg-blue-50/60"
+                          : highlighted
+                            ? "border-blue-200 bg-blue-50/40"
+                            : "border-zinc-200 bg-white hover:border-zinc-300"
                     }`}
                   >
                     <VoteArrows item={item} disabled={votingIds.has(item.id)} onVote={(direction) => handleVote(item, direction)} />
@@ -687,18 +833,38 @@ export function FeatureRequestList({
                           {item.details}
                         </p>
                       )}
-                      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[0.8125rem] text-zinc-500">
-                        <AuthorAvatar username={item.author} />
-                        <span className="truncate" title={item.author}>{displayText(item.author, USERNAME_DISPLAY_LENGTH)}</span>
-                        <span aria-hidden="true">·</span>
-                        <time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>
-                        <span className="sm:hidden">
+                      <div className="mt-2.5 flex flex-col gap-2 text-[0.8125rem] text-zinc-500 sm:flex-row sm:items-center">
+                        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5">
+                          <AuthorAvatar username={item.author} />
+                          <span className="truncate" title={item.author}>{displayText(item.author, USERNAME_DISPLAY_LENGTH)}</span>
+                          <span aria-hidden="true">·</span>
+                          <time dateTime={item.created_at}>{dateLabel(item.created_at)}</time>
+                        </div>
+                        <div className="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
+                          {item.details && (
+                            <button
+                              ref={(node) => {
+                                if (node) detailTriggerRefs.current.set(item.id, node);
+                                else detailTriggerRefs.current.delete(item.id);
+                              }}
+                              type="button"
+                              aria-label={`View details for ${item.title}`}
+                              aria-controls="feature-request-details feature-request-details-mobile"
+                              aria-expanded={selectedId === item.id}
+                              onClick={() => openDetails(item.id)}
+                              className="inline-flex h-8 items-center rounded-[5px] px-1 font-semibold text-blue-700 transition-colors hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                            >
+                              Details <span aria-hidden="true" className="ml-1">→</span>
+                            </button>
+                          )}
+                          <span className="sm:hidden">
                           {isOperator ? (
                             <OperatorStatusMenu item={item} onChangeStatus={(status) => handleStatusChange(item, status)} onHide={() => handleHide(item)} />
                           ) : (
                             <StatusChip status={item.status} />
                           )}
-                        </span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="hidden shrink-0 items-center pr-4 sm:flex sm:pr-5">
@@ -730,8 +896,47 @@ export function FeatureRequestList({
           </div>
         </div>
 
-        <HowIdeasWorkRail />
+        {selectedItem ? (
+          <aside
+            id="feature-request-details"
+            aria-labelledby={DETAILS_DESKTOP_TITLE_ID}
+            className="hidden h-[calc(100vh-6.5rem)] min-w-0 overflow-hidden rounded-[10px] border border-blue-200 bg-white shadow-[0_8px_24px_rgba(9,9,11,0.08)] lg:sticky lg:top-[5.5rem] lg:block"
+          >
+            <FeatureDetailsContent
+              item={selectedItem}
+              headingId={DETAILS_DESKTOP_TITLE_ID}
+              closeButtonRef={desktopCloseRef}
+              voting={votingIds.has(selectedItem.id)}
+              onClose={closeDetails}
+              onVote={(direction) => handleVote(selectedItem, direction)}
+            />
+          </aside>
+        ) : (
+          <HowIdeasWorkRail />
+        )}
       </div>
+
+      <dialog
+        id="feature-request-details-mobile"
+        ref={mobileDialogRef}
+        aria-labelledby={DETAILS_MOBILE_TITLE_ID}
+        onCancel={(event) => {
+          event.preventDefault();
+          closeDetails();
+        }}
+        className="fixed inset-x-0 bottom-0 top-auto m-0 h-[min(85dvh,46rem)] w-full max-w-none overflow-hidden rounded-t-[14px] border border-zinc-200 bg-white p-0 shadow-[0_-12px_40px_rgba(9,9,11,0.18)] backdrop:bg-zinc-950/45 lg:hidden"
+      >
+        {selectedItem && (
+          <FeatureDetailsContent
+            item={selectedItem}
+            headingId={DETAILS_MOBILE_TITLE_ID}
+            closeButtonRef={mobileCloseRef}
+            voting={votingIds.has(selectedItem.id)}
+            onClose={closeDetails}
+            onVote={(direction) => handleVote(selectedItem, direction)}
+          />
+        )}
+      </dialog>
 
       <SuggestFeatureDialog
         open={suggestOpen}

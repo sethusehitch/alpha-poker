@@ -306,6 +306,39 @@ test("posted-row scrolling and list skeletons respect reduced motion and real ge
   assert.match(skeleton, /h-10 w-10 items-center justify-center sm:h-9 sm:w-9/);
 });
 
+test("feature request cards expose compact previews and open a live detail view", async () => {
+  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /line-clamp-2 break-words text-\[1\.0625rem\]/, "titles must stay at two lines");
+  assert.match(source, /mt-1 line-clamp-2 break-words text-\[0\.9375rem\]/, "descriptions must stay at two lines");
+  assert.match(source, /\{item\.details && \([\s\S]*Details <span aria-hidden="true" className="ml-1">→<\/span>/, "requests with descriptions need a Details trigger");
+  assert.match(source, /aria-label=\{`View details for \$\{item\.title\}`\}/);
+  assert.match(source, /aria-expanded=\{selectedId === item\.id\}/);
+  assert.match(source, /const selectedItem = selectedId \? visibleItems\.find/, "detail content must derive from live list state");
+  assert.match(source, /function replaceItems\([\s\S]*!nextItems\.some\(\(item\) => item\.id === current && sanitizeItem\(item\) !== null\) \? null : current/, "replacing the list must close details if its item disappears");
+  assert.match(source, /if \(selectedId === item\.id\) setSelectedId\(null\)/, "hiding the selected item must close its details");
+  assert.match(source, /selectedId === item\.id[\s\S]*border-blue-300 bg-blue-50\/30/, "the selected row needs a subtle highlight");
+});
+
+test("feature request details use accessible desktop and modal mobile presentations", async () => {
+  const source = await readFile(new URL("../app/components/FeatureRequestList.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /<aside[\s\S]*aria-labelledby=\{DETAILS_DESKTOP_TITLE_ID\}/, "desktop details need a labelled complementary landmark");
+  assert.match(source, /<dialog[\s\S]*aria-labelledby=\{DETAILS_MOBILE_TITLE_ID\}/, "mobile details need a labelled native dialog");
+  assert.doesNotMatch(source, /useId\(/, "detail labels must hydrate with page-stable ids");
+  assert.match(source, /dialog\.showModal\(\)/, "the mobile sheet must make the page behind it inert");
+  assert.match(source, /document\.body\.style\.overflow = "hidden"/, "the mobile sheet must block background scrolling");
+  assert.match(source, /h-\[min\(85dvh,46rem\)\]/, "the mobile sheet needs a definite dynamic-viewport scroll boundary");
+  assert.match(source, /safe-area-inset-bottom/, "the mobile sheet must clear the device safe area");
+  assert.match(source, /onCancel=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*closeDetails\(\)/, "Escape must close the mobile dialog through its cancel event");
+  assert.match(source, /!desktopQuery\.matches && dialog\?\.open[\s\S]*setSelectedId\(null\)/, "mobile Escape must not depend only on native cancel behavior");
+  assert.match(source, /event\.key === "Escape"[\s\S]*setSelectedId\(null\)/, "Escape must close desktop details");
+  assert.match(source, /detailTriggerRefs\.current\.get\(triggerId\)\?\.focus\(\)/, "closing must restore trigger focus");
+  assert.match(source, /aria-label=\{`Close details for \$\{item\.title\}`\}/);
+  assert.match(source, /document\.querySelector\('dialog\[open\], \[role="dialog"\]\[aria-modal="true"\]'\)/, "another active modal must own Escape");
+  assert.match(source, /whitespace-pre-wrap break-words[^"]*\[overflow-wrap:anywhere\]/, "long detail content must wrap");
+});
+
 test("contribute skeleton rows mirror the issue rows they replace", async () => {
   const source = await readFile(new URL("../app/components/ContributeIssuesCard.tsx", import.meta.url), "utf8");
   const skeleton = source.slice(source.indexOf("{loading ? ("), source.indexOf(") : failed ?"));

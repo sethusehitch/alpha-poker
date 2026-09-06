@@ -90,6 +90,14 @@ class CliTests(unittest.TestCase):
             self.assertEqual(saved["profiles"]["http://league.test/v1"]["token"], "session-token")
             self.assertEqual(request.call_args.args[2]["password"], "correct horse")
 
+    def test_login_without_an_interactive_terminal_has_a_clear_error(self):
+        error = io.StringIO()
+        with patch.object(cli.getpass, "getpass", side_effect=EOFError), contextlib.redirect_stderr(error):
+            code = cli.main(["login", "maya", "--api-url", "https://league.test/v1"])
+        self.assertEqual(code, 1)
+        self.assertIn("Error: secure password input requires an interactive terminal", error.getvalue())
+        self.assertNotIn("Traceback", error.getvalue())
+
     def test_validate_accepts_contract_compliant_bot(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -317,6 +325,15 @@ class CliTests(unittest.TestCase):
             code = cli.main(["status", "--api-url", "https://league.test/v1"])
         self.assertEqual(code, 0)
         self.assertIn("1 win, 1 loss", output.getvalue())
+
+        payload["result"]["record"] = {"wins": 1, "losses": 1, "draws": 2}
+        output = io.StringIO()
+        with patch.object(cli, "_identity", return_value=("maya", "secret")), patch.object(
+            cli, "_http_json", return_value=payload
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["status", "--api-url", "https://league.test/v1"])
+        self.assertEqual(code, 0)
+        self.assertIn("1 win, 1 loss, 2 draws", output.getvalue())
 
     def test_logs_downloads_validation_and_official_artifacts(self):
         payload = {

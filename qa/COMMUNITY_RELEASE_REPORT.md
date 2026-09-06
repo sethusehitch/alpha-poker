@@ -41,9 +41,9 @@ Date: September 5, 2026
 
 ## Verification completed before publication
 
-- Full local gate: production build, 10 landing-page render tests, 21 community
-  render/contract tests, 4 container configuration tests, ESLint, 107 backend
-  tests, 13 CLI tests, Python compilation, and deterministic starter-kit build.
+- Full local gate: production build, 10 landing-page render tests, 24 community
+  render/contract tests, 4 container configuration tests, ESLint, 108 backend
+  tests, 17 CLI tests, Python compilation, and deterministic starter-kit build.
 - Dependency audit: zero known production or development vulnerabilities.
 - Isolated Compose gate: rebuilt Caddy, web, and API images; all services became
   healthy; homepage, health, Swagger/OpenAPI, authenticated account status,
@@ -57,5 +57,5 @@ Date: September 5, 2026
   retest produced zero console errors and a cross-time-zone regression test now
   covers the boundary.
 
-Production deployment and two clean-slate acceptance passes are recorded in
-`qa/DEPLOYMENT_REPORT.md` after the protected release reaches `main`.
+Production deployment, the acceptance findings they uncovered, their fixes,
+and the final clean-slate passes are recorded in `qa/DEPLOYMENT_REPORT.md`.

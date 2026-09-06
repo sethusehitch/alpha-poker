@@ -638,7 +638,7 @@ function RivalOverlay({
                 />
               </div>
               <div className="min-w-0 w-full flex-1">
-                <div className="flex flex-wrap items-center justify-center gap-2 pr-10 sm:justify-start">
+                <div className="flex flex-wrap items-center justify-center gap-2 pr-10 sm:translate-x-3 sm:justify-start">
                   <h1
                     id="rival-title"
                     className="min-w-0 max-w-full truncate text-3xl font-bold tracking-tight"
@@ -648,7 +648,7 @@ function RivalOverlay({
                   </h1>
                   {detail.is_nemesis && <NemesisBadge className="text-[11px]" />}
                 </div>
-                <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm text-zinc-600 sm:justify-start">
+                <p className="mt-1 flex flex-wrap items-center justify-center gap-x-2 text-sm text-zinc-600 sm:translate-x-3 sm:justify-start">
                   <span
                     className="max-w-full truncate"
                     title={detail.rival.bot_name ?? undefined}
@@ -667,7 +667,7 @@ function RivalOverlay({
                 )}
                 {/* Auto-width columns instead of 1fr keep the two numbers
                     reading as one scoreline rather than drifting to the edges. */}
-                <div className="mt-4 flex items-end justify-center gap-4">
+                <div className="mt-4 flex -translate-x-2 items-end justify-center gap-4 sm:-translate-x-3">
                   <div className="min-w-0 max-w-[9rem] text-center">
                     <p className="text-sm font-semibold text-blue-700">You</p>
                     <p className="text-4xl font-bold leading-none tabular-nums text-blue-700 sm:text-5xl">
@@ -695,7 +695,7 @@ function RivalOverlay({
                     {detail.direct_record.draws} drawn
                   </p>
                 )}
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <div className="mt-5 flex -translate-x-2 flex-wrap justify-center gap-2 sm:-translate-x-3">
                   {status === "pending" && incoming ? (
                     <>
                       <button
@@ -736,7 +736,7 @@ function RivalOverlay({
                         !detail.rival.has_active_bot
                       }
                       onClick={() => setConfirmCreate(true)}
-                      className="inline-flex max-w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-w-44 max-w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-8 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {busy ? (
                         "Starting…"
@@ -770,11 +770,8 @@ function RivalOverlay({
                 action, and a head-to-head list that takes whatever height is
                 left over and scrolls inside itself. */}
             <section className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200">
-              <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+              <div className="flex shrink-0 items-baseline border-b border-zinc-200 px-4 py-3">
                 <h2 className="font-semibold">Recent head-to-head</h2>
-                <span className="shrink-0 text-xs text-zinc-500">
-                  Direct challenges only
-                </span>
               </div>
               <ul className="min-h-0 flex-1 overflow-y-auto">
                 {detail.history.items.length ? (

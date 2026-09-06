@@ -41,7 +41,7 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /challenges: "Challenges"/);
   assert.doesNotMatch(workspace, /League records/);
   assert.doesNotMatch(workspace, /leaderboard: "Leaderboard"/);
-  assert.match(workspace, /Direct challenges only/);
+  assert.doesNotMatch(workspace, /Direct challenges only/);
   assert.match(workspace, /event\.key === "Escape"/);
   assert.match(workspace, /document\.body\.style\.overflow = "hidden"/);
   assert.match(workspace, /history\.pushState/);
@@ -172,8 +172,8 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
     workspace,
     /\) : \(\s*<>\s*\{error && \(\s*<p\s*role="alert"/,
   );
-  // Head-to-head history stays direct-challenge only.
-  assert.match(workspace, /Direct challenges only/);
+  // The API contract keeps this history direct-only without extra UI copy.
+  assert.doesNotMatch(workspace, /Direct challenges only/);
   assert.match(workspace, /No completed direct challenges yet\./);
   assert.match(
     workspace,

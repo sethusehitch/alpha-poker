@@ -180,6 +180,30 @@ def test_training_freezes_current_leader_submission(client):
     assert frozen["leader_submission_id"] == uploaded["submission_id"]
 
 
+def test_training_ignores_nonofficial_qa_leaderboards(client):
+    db = client.app.state.db
+    db.execute(
+        "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,completed_at,hand_count_per_pairing) "
+        "VALUES('run_qa_latest','completed',0,'prototype-0.1','heads-up-v1',1,'9999-01-01T00:00:00Z','9999-01-01T00:00:00Z',2)"
+    )
+    db.execute(
+        "INSERT INTO leaderboard(run_id,rank,username,bot_name,bb_per_100,ci_low,ci_high,hands,submission_id,elo_rating,matchup_wins,matchup_losses,matchup_draws) "
+        "VALUES('run_qa_latest',1,'qa-player','Temporary QA Bot',1,0,2,2,NULL,1200,1,0,0)"
+    )
+
+    session = client.post(
+        "/v1/training/sessions",
+        json={"username": "challenger", "hand_limit": 1},
+    ).json()
+    frozen = db.one(
+        "SELECT leader_username,leader_submission_id FROM training_sessions WHERE id=?",
+        (session["session_id"],),
+    )
+
+    assert frozen["leader_username"] == "maya"
+    assert frozen["leader_submission_id"] is None
+
+
 def test_training_websocket_url_respects_https_proxy(client):
     session = client.post(
         "/v1/training/sessions",

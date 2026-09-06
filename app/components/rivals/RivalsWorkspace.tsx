@@ -121,19 +121,19 @@ function RivalCard({
 }) {
   return (
     <article
-      className={`flex h-[16.8125rem] min-h-0 w-full max-w-[20.5625rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
+      className={`flex h-[18.5rem] min-h-0 w-full max-w-[20.5625rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
     >
       {/* min-h-0 + overflow-hidden keep long names or five-digit Elo values
           from stretching the card beyond its fixed compact height. */}
       <div className="flex min-h-0 flex-1 items-start gap-3.5 overflow-hidden">
-        <div className="mt-1.5 shrink-0">
+        <div className="mt-3 shrink-0">
           <Portrait
             name={rival.username}
             rank={rival.rank}
             className="h-28 w-28"
           />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col self-stretch pt-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2
               className="min-w-0 max-w-full truncate text-lg font-bold tracking-tight text-zinc-950"
@@ -149,17 +149,17 @@ function RivalCard({
           >
             {rival.bot_name ?? "No active bot"}
           </p>
-          <p className="mt-2 text-xl font-bold leading-none tabular-nums text-zinc-950">
+          <p className="mt-3 text-xl font-bold leading-none tabular-nums text-zinc-950">
             {rival.elo_rating.toLocaleString()}
           </p>
           <p className="mt-1 text-[0.65rem] font-bold leading-none tracking-[0.14em] text-zinc-500">
             ELO
           </p>
-          <p className="mt-2 text-base font-semibold leading-tight tabular-nums text-zinc-900">
+          <p className="mt-3 text-base font-semibold leading-tight tabular-nums text-zinc-900">
             {rival.direct_record.wins} – {rival.direct_record.losses}
           </p>
           <p className="text-xs text-zinc-500">vs you</p>
-          <p className="mt-1 text-xs font-medium text-zinc-600">
+          <p className="mt-auto pb-1 text-xs font-medium text-zinc-600">
             <ChallengeStatus online={isOnline(rival)} />
           </p>
         </div>

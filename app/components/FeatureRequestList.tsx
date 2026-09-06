@@ -803,8 +803,7 @@ export function FeatureRequestList({
             <EmptyState tab={activeTab} onSuggest={openSuggest} />
           ) : (
             <ul role="list" className="space-y-2.5">
-              {visibleItems.map((item, index) => {
-                const highlighted = activeTab === "top" && index === 0;
+              {visibleItems.map((item) => {
                 const isNew = item.id === highlightId;
                 return (
                   <li
@@ -818,9 +817,7 @@ export function FeatureRequestList({
                         ? "border-blue-300 bg-blue-50/30"
                         : isNew
                           ? "border-blue-200 bg-blue-50/60"
-                          : highlighted
-                            ? "border-blue-200 bg-blue-50/40"
-                            : "border-zinc-200 bg-white hover:border-zinc-300"
+                          : "border-zinc-200 bg-white hover:border-zinc-300"
                     }`}
                   >
                     <VoteArrows item={item} disabled={votingIds.has(item.id)} onVote={(direction) => handleVote(item, direction)} />
@@ -920,6 +917,23 @@ export function FeatureRequestList({
         id="feature-request-details-mobile"
         ref={mobileDialogRef}
         aria-labelledby={DETAILS_MOBILE_TITLE_ID}
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ));
+          const first = focusable[0];
+          const last = focusable.at(-1);
+          if (!first || !last) return;
+
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
         onCancel={(event) => {
           event.preventDefault();
           closeDetails();

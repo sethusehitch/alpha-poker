@@ -318,6 +318,9 @@ test("feature request cards expose compact previews and open a live detail view"
   assert.match(source, /function replaceItems\([\s\S]*!nextItems\.some\(\(item\) => item\.id === current && sanitizeItem\(item\) !== null\) \? null : current/, "replacing the list must close details if its item disappears");
   assert.match(source, /if \(selectedId === item\.id\) setSelectedId\(null\)/, "hiding the selected item must close its details");
   assert.match(source, /selectedId === item\.id[\s\S]*border-blue-300 bg-blue-50\/30/, "the selected row needs a subtle highlight");
+  const rowStyles = source.slice(source.indexOf("selectedId === item.id"), source.indexOf("<VoteArrows item={item}", source.indexOf("selectedId === item.id")));
+  assert.match(rowStyles, /: "border-zinc-200 bg-white hover:border-zinc-300"/, "an unselected row must use the neutral card treatment");
+  assert.doesNotMatch(rowStyles, /highlighted|activeTab === "top"/, "top rank alone must not look selected");
 });
 
 test("feature request details use accessible desktop and modal mobile presentations", async () => {
@@ -335,6 +338,9 @@ test("feature request details use accessible desktop and modal mobile presentati
   assert.match(source, /event\.key === "Escape"[\s\S]*setSelectedId\(null\)/, "Escape must close desktop details");
   assert.match(source, /detailTriggerRefs\.current\.get\(triggerId\)\?\.focus\(\)/, "closing must restore trigger focus");
   assert.match(source, /aria-label=\{`Close details for \$\{item\.title\}`\}/);
+  assert.match(source, /onKeyDown=\{\(event\) => \{[\s\S]*event\.key !== "Tab"[\s\S]*querySelectorAll<HTMLElement>/, "the mobile dialog must handle Tab itself");
+  assert.match(source, /event\.shiftKey && document\.activeElement === first[\s\S]*last\.focus\(\)/, "Shift+Tab from Close must wrap to the final control");
+  assert.match(source, /!event\.shiftKey && document\.activeElement === last[\s\S]*first\.focus\(\)/, "Tab from the final control must wrap to Close");
   assert.match(source, /document\.querySelector\('dialog\[open\], \[role="dialog"\]\[aria-modal="true"\]'\)/, "another active modal must own Escape");
   assert.match(source, /whitespace-pre-wrap break-words[^"]*\[overflow-wrap:anywhere\]/, "long detail content must wrap");
 });

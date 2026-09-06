@@ -331,6 +331,7 @@ test("feature request details use accessible desktop and modal mobile presentati
   assert.match(source, /h-\[min\(85dvh,46rem\)\]/, "the mobile sheet needs a definite dynamic-viewport scroll boundary");
   assert.match(source, /safe-area-inset-bottom/, "the mobile sheet must clear the device safe area");
   assert.match(source, /onCancel=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*closeDetails\(\)/, "Escape must close the mobile dialog through its cancel event");
+  assert.match(source, /!desktopQuery\.matches && dialog\?\.open[\s\S]*setSelectedId\(null\)/, "mobile Escape must not depend only on native cancel behavior");
   assert.match(source, /event\.key === "Escape"[\s\S]*setSelectedId\(null\)/, "Escape must close desktop details");
   assert.match(source, /detailTriggerRefs\.current\.get\(triggerId\)\?\.focus\(\)/, "closing must restore trigger focus");
   assert.match(source, /aria-label=\{`Close details for \$\{item\.title\}`\}/);

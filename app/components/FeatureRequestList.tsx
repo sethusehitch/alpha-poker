@@ -539,7 +539,13 @@ export function FeatureRequestList({
     }
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (desktopQuery.matches && event.key === "Escape") {
+      if (event.key !== "Escape") return;
+      if (!desktopQuery.matches && dialog?.open) {
+        event.preventDefault();
+        setSelectedId(null);
+        return;
+      }
+      if (desktopQuery.matches) {
         if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return;
         event.preventDefault();
         setSelectedId(null);

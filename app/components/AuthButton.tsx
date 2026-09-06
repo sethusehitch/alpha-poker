@@ -41,7 +41,6 @@ export function AuthButton() {
   const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sessionChecked, setSessionChecked] = useState(false);
 
   const resetAuthForm = useCallback(() => {
     setRegistering(false);
@@ -67,8 +66,7 @@ export function AuthButton() {
           emit("session-changed", { username: result.username, isOperator: Boolean(result.is_operator) });
         }
       })
-      .catch(() => undefined)
-      .finally(() => setSessionChecked(true));
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => on("open-account", () => setOpen(true)), []);
@@ -144,10 +142,8 @@ export function AuthButton() {
             </span>
             <ChevronDownIcon />
           </>
-        ) : sessionChecked ? (
-          <span>Log in</span>
         ) : (
-          <span>Account</span>
+          <span>Log in</span>
         )}
       </button>
 

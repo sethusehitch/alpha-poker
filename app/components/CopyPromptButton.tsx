@@ -10,6 +10,7 @@ export function CopyPromptButton({
   label?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export function CopyPromptButton({
 
   async function handleCopy() {
     let didCopy = false;
+    setCopyFailed(false);
 
     try {
       await navigator.clipboard.writeText(text);
@@ -42,6 +44,9 @@ export function CopyPromptButton({
       setCopied(true);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopied(false), 3000);
+    } else {
+      setCopied(false);
+      setCopyFailed(true);
     }
   }
 
@@ -73,9 +78,13 @@ export function CopyPromptButton({
           strokeLinecap="round"
         />
       </svg>
-      {copied ? "Copied" : label}
+      {copied ? "Copied" : copyFailed ? "Copy failed. Try again" : label}
       <span className="sr-only" role="status" aria-live="polite">
-        {copied ? "Prompt copied to clipboard" : ""}
+        {copied
+          ? "Prompt copied to clipboard"
+          : copyFailed
+            ? "Could not copy the prompt. Try again."
+            : ""}
       </span>
     </button>
   );

@@ -153,7 +153,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Public, unauthenticated: lets the browser decide whether to offer a
         # signed-out feedback/vote path or send the user straight to login,
         # without ever exposing operator usernames or the GitHub token.
-        return {"auth_required": settings.auth_required}
+        return {
+            "auth_required": settings.auth_required,
+            "invite_required": bool(settings.invite_code),
+        }
 
     def request_user(authorization: str | None) -> str:
         return require_user(db, authorization)

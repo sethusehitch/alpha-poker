@@ -34,7 +34,10 @@ Set `ALPHA_POKER_CONFIG` to an exact file path when you need a fully isolated
 profile. Tokens are scoped to
 the API URL and are never included in bot ZIPs. Use `alpha-poker whoami` to
 check the account and `alpha-poker logout` to revoke the current token.
-If the league uses a cohort code, add `--invite-code CODE` when registering.
+If the league uses a cohort code, `register` requests it through a hidden
+interactive prompt. This keeps the code out of command arguments and shell
+history. `--invite-code CODE` remains available only for controlled automation
+where interactive input is impossible.
 
 `status` shows validation, whether the league is waiting or running, matchup
 progress, and the latest Elo result. `logs` downloads your validation log and,

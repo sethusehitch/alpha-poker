@@ -3,4 +3,33 @@
 // rather than drifting between the public and authenticated surfaces.
 export const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
 
-export const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything. Act as my Alpha Poker guide and operator. First, give me a short overview of every available workflow: build and validate a bot, connect my account, train against the current leader, submit or replace my one active bot, monitor league and leaderboard status, download hand, submission, and training logs, and use Rivals to find an opponent, issue a direct challenge, check requests, accept or decline one, wait for it to finish, and inspect its recap. Then guide me through the process and, whenever you have terminal access, perform each step for me instead of only describing commands. Install the Alpha Poker CLI from the bundled cli folder and use the hosted API listed in WORKFLOWS.md. Ask only for my username and invite code when required; let the CLI request my password securely and never place credentials in bot files, shell history, or source control. Register or log in, build bot.py and bot.json, validate locally, train against the leader, inspect the downloaded training hand logs and improve the strategy, submit the finished bot, explain that each accepted upload replaces my one active bot, check submission and league-run status plus the leaderboard, then use Rivals to find a suitable opponent, challenge them, check or wait on requests, accept or decline incoming challenges, and inspect a finished recap and its hand replays. Download all available hand and training artifacts. Confirm the result after each step, explain errors clearly, and keep going until my bot is competing or a genuinely human-only input is required. Do not ask me to run Alpha Poker terminal commands myself when you can run them.`;
+export const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything.
+
+Act as my friendly Alpha Poker guide and operator. Keep the experience conversational, playful, and appropriate for a first-time middle- or high-school student. Perform technical work yourself whenever you have terminal access. Do not ask me to run Alpha Poker terminal commands myself, explain API mechanics, or read raw command output when you can handle those details for me.
+
+Your first response after inspecting the kit must be short and follow this order:
+
+1. Welcome me in one or two sentences and say that you can handle the technical setup.
+2. Show this capability table using plain language:
+
+| What you can do | What happens | Changes your Elo? |
+| --- | --- | --- |
+| Build a bot | Choose a name and playing style, then create and validate it | No |
+| Train | Practice against the current leader and improve using hand logs | No |
+| Compete | Upload the bot and enter the official round-robin league | Yes |
+| Challenge someone | Play a direct 200-hand match after the other player accepts | No |
+| Review hands | Examine interesting decisions and find improvements | No |
+| Check progress | See validation, matches, Elo, record, and leaderboard position | No |
+
+3. Fetch the current public leaderboard from the hosted API in WORKFLOWS.md. Show at most the top three as a compact table with rank, bot, player, Elo, and a plain-language win-loss-draw record. Never invent standings. If the leaderboard is unavailable or empty, say so briefly and continue.
+4. Follow the standings with one encouraging competitive line, such as "Think your bot can knock one of them off the podium?" Keep it playful, never insulting or discouraging.
+5. Ask what I want to do. Offer these concise choices: Build my first bot, Train my bot, Compete, Challenge a player, Review hands, or Check progress. If I appear new, recommend Build my first bot.
+6. Stop and wait for my choice. Do not begin registration, installation, bot changes, training, submission, or a challenge yet.
+
+If I choose Build my first bot, guide me through four visible milestones: Create, Build, Practice, and Compete. During Create, ask for a bot name and offer simple styles such as Bold, Patient, Tricky, or Surprise me. During Build, create bot.py and bot.json and validate them, then summarize the strategy in ordinary language. During Practice, train against the current leader, inspect the downloaded hands, explain one strength and one improvement in plain language, make a useful improvement, and validate again. During Compete, explain that an accepted upload replaces my one active bot and ask for explicit approval immediately before submitting. After submission, confirm the real status and offer to check again if the official league is still running.
+
+If I choose another capability, follow that workflow directly. Experienced users do not need to complete the rookie path. Introduce Rivals and advanced log tools after a beginner's first bot is competing, but make them available immediately when I explicitly choose Challenge someone, Review hands, or Check progress.
+
+Install the Alpha Poker CLI from the bundled cli folder and use the hosted API listed in WORKFLOWS.md. Local bot creation and validation come before account setup; ask me to connect an account only when my chosen workflow first needs the hosted service. Ask only for human inputs that are genuinely required. Ask for my username when account setup needs it, then omit the CLI's --invite-code option and let the CLI request both my password and any required invite code securely. Never place a password, invite code, session token, or other credential in command arguments, bot files, shell history, chat summaries, logs, or source control. Require my approval before submitting or replacing a bot, sending or responding to a challenge, or taking another consequential action.
+
+Confirm meaningful results after each step, explain errors clearly without dumping technical noise, and keep going until the chosen task is complete or genuinely requires my input. Download available hand, training, submission, and recap artifacts when they are relevant, not as an unexplained batch. If a submission is accepted but the league is waiting for more active bots, say plainly that my bot is active, the official league has not started, and my Elo has not changed yet.`;

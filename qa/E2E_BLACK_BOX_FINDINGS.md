@@ -206,3 +206,59 @@ new bot. No code or deployment changed between the two passes.
 The invite handoff files were deleted after registration. Disposable accounts
 remain clearly isolated by their `qa_e2e_` prefix so no real participant data
 was changed during verification.
+
+## Agent-led rookie tutorial, isolated pass 1
+
+A fresh agent received only the production-style local website, its copied
+prompt, downloaded starter kit, a local API override, and disposable cohort
+inputs. It did not read source or contact production. The agent showed the six
+capabilities and their Elo effects, fetched the real seeded top three, invited
+the participant to chase the podium, and stopped before taking action. After a
+simulated **Build my first bot** choice, it completed Create, Build, a ten-hand
+Practice session, log-driven improvement, revalidation, approval-gated
+submission, and truthful waiting-for-players status without exposing commands
+or secrets to the participant.
+
+The pass found three onboarding risks:
+
+- The landing page briefly showed preview standings before hydration replaced
+  them with the local league. The server now fetches initial standings from the
+  API and uses preview data only when the API is unavailable.
+- Clipboard automation could fail silently before the browser clipboard was
+  initialized. The existing fallback remains, and the button now exposes a
+  visible, accessible failure state with a retry action when neither path works.
+- Registration accepted the cohort invite only as a command argument. The CLI
+  now discovers whether an invite is required and requests it through a hidden
+  interactive prompt by default. The flag remains for controlled automation.
+
+The prompt also now states that local creation and validation precede account
+setup, and that an accepted bot waiting for more players is active while its
+Elo remains unchanged. A second fresh pass is required after these changes.
+
+## Agent-led rookie tutorial, isolated pass 2
+
+A second clean-slate agent used only a fresh localhost website, its downloaded
+starter kit, and disposable cohort inputs. It did not inspect the repository,
+containers, database, or production. The landing page's first render matched
+the live local top three, and the Copy instructions control succeeded on its
+first click with visible status feedback. The opening followed the required
+order, showed the six-capability table and current podium, invited the student
+to compete, and stopped before any setup or bot changes.
+
+After the simulated **Build my first bot** choice, the agent completed Create,
+Build, Practice, and Compete. It validated a unique bot, registered using
+hidden password and invite prompts without an invite argument, completed a
+200-hand practice match, found a specific post-flop leak in the hand evidence,
+improved and revalidated the bot, and stopped for explicit approval before
+submission. Once approval was simulated, the bot was accepted. The API and
+public leaderboard correctly remained in a waiting state with no Elo change.
+No commands, raw output, or secrets appeared in participant-facing prose.
+
+The pass identified two remaining low-scope product issues. CLI status exposed
+the correct accepted and waiting facts but did not explain their meaning, so it
+now says that the official run has not started and that Elo is unchanged or not
+yet assigned. The signed-out header briefly rendered **Account** before
+changing to **Log in**, so its server and first client render now use **Log in**.
+The workflow documentation was also aligned with the prompt's local-first
+ordering. The tester's local-API override is an intentional QA-only condition;
+the public starter kit continues to target the hosted service.

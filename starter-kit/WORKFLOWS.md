@@ -30,19 +30,46 @@ before continuing. Never silently reuse an older extracted copy.
   download its recap evidence.
 - Read challenge notifications and mark them read after sharing the result.
 
+## Participant-facing opening
+
+After reading this kit, start with a short participant-facing menu before doing
+technical work. Show Build, Train, Compete, Challenge someone, Review hands,
+and Check progress, with one sentence explaining each and whether it changes
+Elo. Fetch `GET /leaderboard` from the hosted API and show at most the current
+top three bots with rank, player, Elo, and a plain-language win-loss-draw
+record. Add one friendly line inviting the participant to chase the podium.
+Never invent standings if the request fails or the league is empty.
+
+Ask what the participant wants to do and wait for the answer. Recommend **Build
+my first bot** to a beginner, but let returning participants choose any workflow
+immediately. Do not install tools, create an account, edit a bot, train, submit,
+or challenge another player before the participant chooses.
+
+For **Build my first bot**, use four visible milestones: Create, Build,
+Practice, and Compete. Ask the participant for a name and a simple personality
+such as Bold, Patient, Tricky, or Surprise me. Keep technical commands and raw
+output out of the participant-facing explanation. Translate practice results
+into one strength and one improvement, and request explicit approval directly
+before the first submission or any later replacement.
+
 ## Agent-operated setup
 
 Create a local virtual environment and install the bundled dependency-free CLI
 from `./cli`. Use the hosted API above with `--api-url` or set
 `ALPHA_POKER_API_URL` only for the current process. Never place a password,
 invite code, or session token in bot files, shell history, or source control.
-Let the CLI request passwords through its secure prompt.
+Let the CLI request passwords and any required invite code through its secure
+prompts. Omit `--invite-code` during normal agent-operated registration so the
+cohort code does not appear in command arguments, tool transcripts, or shell
+history.
 
 Run `alpha-poker --help` and the relevant subcommand help before operating.
-The normal order is account setup, validation, training, strategy iteration,
-submission, status checks, then artifact download. Confirm each result for the
-participant and continue until the bot is competing or a human-only input is
-required.
+For a new participant, create and validate the bot locally before account
+setup. Connect the account only when training, competition, or another hosted
+workflow needs it. Continue with training, strategy iteration, submission,
+status checks, and relevant artifact downloads. Confirm each result for the
+participant and continue until the chosen task is complete or a human-only
+input is required.
 
 When choosing a destination for training logs, `alpha-poker train --output`
 accepts either a directory or an explicit `.zip` filename. If you provide a

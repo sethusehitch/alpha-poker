@@ -117,3 +117,45 @@ test("the starter kit filename and agent prompt have a single definition", async
   assert.doesNotMatch(landing, /^const BUILD_BOT_PROMPT/m);
   assert.doesNotMatch(landing, /^const STARTER_KIT_FILENAME/m);
 });
+
+test("the shared agent prompt opens with a choice-driven rookie experience", async () => {
+  const prompt = await readFile(
+    new URL("../app/components/agentPrompt.ts", import.meta.url),
+    "utf8",
+  );
+
+  for (const capability of [
+    "Build a bot",
+    "Train",
+    "Compete",
+    "Challenge someone",
+    "Review hands",
+    "Check progress",
+  ]) {
+    assert.match(prompt, new RegExp(capability));
+  }
+  assert.match(prompt, /Changes your Elo\?/);
+  assert.match(prompt, /Fetch the current public leaderboard/);
+  assert.match(prompt, /top three/);
+  assert.match(prompt, /rank, bot, player, Elo/);
+  assert.match(prompt, /Think your bot can knock one of them off the podium\?/);
+  assert.match(prompt, /Build my first bot/);
+  assert.match(prompt, /Create, Build, Practice, and Compete/);
+  assert.match(prompt, /Stop and wait for my choice/);
+  assert.match(prompt, /explicit approval immediately before submitting/);
+  assert.match(prompt, /Never invent standings/);
+  assert.doesNotMatch(prompt, /First, give me a short overview of every available workflow/);
+});
+
+test("the copy control reports both success and failure", async () => {
+  const source = await readFile(
+    new URL("../app/components/CopyPromptButton.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /navigator\.clipboard\.writeText\(text\)/);
+  assert.match(source, /document\.execCommand\("copy"\)/);
+  assert.match(source, /Copy failed\. Try again/);
+  assert.match(source, /Could not copy the prompt\. Try again\./);
+  assert.match(source, /Prompt copied to clipboard/);
+});

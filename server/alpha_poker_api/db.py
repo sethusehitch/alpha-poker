@@ -94,6 +94,32 @@ CREATE TABLE IF NOT EXISTS league_queue (
   running INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS feature_requests (
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, details TEXT,
+  status TEXT NOT NULL DEFAULT 'submitted', author_username TEXT NOT NULL,
+  hidden INTEGER NOT NULL DEFAULT 0,
+  github_issue_number INTEGER, github_issue_url TEXT,
+  github_promotion_state TEXT NOT NULL DEFAULT 'idle',
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feature_requests_status
+ON feature_requests(hidden, status, created_at DESC);
+CREATE TABLE IF NOT EXISTS feature_votes (
+  request_id TEXT NOT NULL, username TEXT NOT NULL,
+  value INTEGER NOT NULL CHECK(value IN (1,-1)),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  PRIMARY KEY(request_id, username),
+  FOREIGN KEY(request_id) REFERENCES feature_requests(id)
+);
+CREATE INDEX IF NOT EXISTS idx_feature_votes_request ON feature_votes(request_id);
+CREATE TABLE IF NOT EXISTS feedback (
+  id TEXT PRIMARY KEY, username TEXT, type TEXT NOT NULL, message TEXT NOT NULL,
+  path TEXT, client_context TEXT, created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at DESC);
+CREATE TABLE IF NOT EXISTS github_cache (
+  cache_key TEXT PRIMARY KEY, payload_json TEXT NOT NULL, fetched_at TEXT NOT NULL
+);
 """
 
 
@@ -144,6 +170,16 @@ class Database:
             ):
                 if column not in run_columns:
                     conn.execute(f"ALTER TABLE runs ADD COLUMN {column} {definition}")
+            feedback_columns = {row[1] for row in conn.execute("PRAGMA table_info(feedback)")}
+            if "client_context" not in feedback_columns:
+                conn.execute("ALTER TABLE feedback ADD COLUMN client_context TEXT")
+            feature_columns = {row[1] for row in conn.execute("PRAGMA table_info(feature_requests)")}
+            if "github_promotion_state" not in feature_columns:
+                conn.execute("ALTER TABLE feature_requests ADD COLUMN github_promotion_state TEXT NOT NULL DEFAULT 'idle'")
+            # Normalize status names from the earliest community prototype so
+            # existing local databases remain readable after the six-state UI.
+            conn.execute("UPDATE feature_requests SET status='submitted' WHERE status='open'")
+            conn.execute("UPDATE feature_requests SET status='declined' WHERE status='not_planned'")
             conn.execute(
                 "INSERT OR IGNORE INTO league_queue(singleton,requested_generation,completed_generation,running,updated_at) VALUES(1,0,0,0,?)",
                 (now_iso(),),

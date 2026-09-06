@@ -41,14 +41,42 @@ the entire site before launch if standings themselves must be confidential.
   retention.
 - Inactive and rejected upload ZIPs are pruned while preserving the active bots,
   the published leader, and packages frozen into live training sessions.
+- Feature-request titles, details, and feedback messages are treated as
+  untrusted content: rejected outright if they contain C0/C1 control
+  characters, and otherwise stripped of bidi-override/isolate and zero-width
+  formatting characters before storage, matching the leaderboard's existing
+  untrusted-name handling. They are always rendered as text, never as HTML.
+- Feature-request creation and voting require an authenticated session.
+  Feedback may be anonymous, is rate-limited by client IP, stores only a
+  coarse browser/device category, and is automatically deleted after the
+  configured retention window (90 days by default).
+- Feature-request moderation (status change, hide/restore) requires an
+  authenticated session whose username is in `ALPHA_POKER_OPERATOR_USERNAMES`.
+  Those names are reserved at registration unless the server-only operator
+  token is supplied directly to the API.
+  Promotion to a GitHub issue additionally requires the exact
+  `ALPHA_POKER_OPERATOR_TOKEN` value, mirroring `/v1/admin/runs`'s existing
+  operator-token gate, and is idempotent so a retried or repeated request
+  cannot create duplicate GitHub issues.
+- The optional `GITHUB_TOKEN` used for `/contribute` reads and promotion is
+  read only from the server process environment. No browser route accepts,
+  forwards, or echoes either `GITHUB_TOKEN` or the operator token; the
+  same-origin `/browser-api/*` proxy only ever forwards the visitor's own
+  session cookie as a bearer token.
+- Every GitHub-sourced issue URL is validated against the configured
+  `https://github.com/{owner}/{repo}/...` prefix before being rendered as a
+  link; GitHub-supplied label colors and any other styling are mapped through
+  a fixed local table, never used directly, so a compromised or malicious
+  upstream label cannot inject arbitrary styling or an off-repo link.
 
 ## Remaining trust assumptions
 
 Python audit hooks and resource limits are defense in depth, not a security
 boundary against deliberately hostile native-code attackers. All bot processes
 still share the host kernel and API container user. There are no per-person
-invitations, password recovery, multi-factor authentication, login rate limits,
-or security event alerts yet.
+per-person invitations, password recovery, multi-factor authentication, or
+security event alerts yet. Login attempts are bounded per client IP and failed
+attempts are also bounded per normalized account.
 
 Before public access, execute each bot in an ephemeral container or microVM with
 no network namespace, read-only root filesystem, seccomp or equivalent syscall

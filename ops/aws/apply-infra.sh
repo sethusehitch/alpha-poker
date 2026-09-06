@@ -4,7 +4,7 @@ umask 077
 
 project_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
 terraform_dir="$project_dir/infra/aws/lightsail"
-aws_profile=${AWS_PROFILE:-hitch-personal}
+aws_profile=${AWS_PROFILE:-default}
 aws_region=${AWS_REGION:-us-west-2}
 ssh_key_file=${ALPHA_POKER_SSH_KEY_FILE:-$HOME/.ssh/alpha-poker-lightsail}
 

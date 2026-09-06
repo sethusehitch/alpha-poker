@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import ipaddress
 import json
 import logging
 import re
@@ -10,6 +11,7 @@ import secrets
 import threading
 import zipfile
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile, WebSocket, WebSocketDisconnect
@@ -19,10 +21,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
 from .auth import DUMMY_PASSWORD_HASH, authenticate_token, hash_password, issue_session, normalize_username, require_user, revoke_session, verify_password
+from .community import is_operator_username, register_community_routes
 from .config import Settings
 from .db import Database, now_iso
 from .jobs import archive_and_prune, archive_run, build_run_artifact, prune_submission_packages, run_official_league, summarize_run, validate_submission
 from .models import LoginRequest, RegisterRequest, RunCreate, TrainingCreate
+from .ratelimit import RateLimiter
 from .training import action_request, create_session, emit, remember_action, remembered_action
 from .training_runtime import advance_leader, build_runtime, persist_completed_hand, public_action_to_engine, start_hand
 
@@ -70,6 +74,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 logger.addFilter(RedactCapabilityTokens())
         db.initialize(settings.seed_demo_data)
         db.execute("DELETE FROM auth_sessions WHERE expires_at<=?", (now_iso(),))
+        feedback_cutoff = (datetime.now(UTC) - timedelta(days=settings.feedback_retention_days)).isoformat().replace("+00:00", "Z")
+        db.execute("DELETE FROM feedback WHERE created_at<?", (feedback_cutoff,))
         prune_submission_packages(db)
         if settings.auto_run_on_accept:
             queue = db.one("SELECT * FROM league_queue WHERE singleton=1")
@@ -97,6 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.auto_run_task = None
     app.state.auto_run_lock = asyncio.Lock()
     app.state.league_execution_lock = threading.Lock()
+    auth_limiter = RateLimiter()
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -128,6 +135,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def api_health():
         return {"status": "ok"}
 
+    @app.get("/v1/config")
+    def public_config():
+        # Public, unauthenticated: lets the browser decide whether to offer a
+        # signed-out feedback/vote path or send the user straight to login,
+        # without ever exposing operator usernames or the GitHub token.
+        return {"auth_required": settings.auth_required}
+
     def request_user(authorization: str | None) -> str:
         return require_user(db, authorization)
 
@@ -140,8 +154,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return authenticated
         return normalize_username(requested or authenticated or "local")
 
+    def auth_client_key(request: Request) -> str:
+        # Caddy replaces X-Forwarded-For before proxying, so the first address
+        # is safe to use here. Direct/local requests fall back to the peer.
+        forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
+        if forwarded:
+            try:
+                return str(ipaddress.ip_address(forwarded))
+            except ValueError:
+                pass
+        return request.client.host if request.client else "unknown"
+
+    def enforce_auth_rate_limit(request: Request, scope: str, limit: int, window_seconds: int) -> None:
+        if not auth_limiter.allow(f"{scope}:ip:{auth_client_key(request)}", limit, window_seconds):
+            raise HTTPException(
+                429,
+                {"code": "rate_limited", "message": "Too many account attempts. Try again in a few minutes."},
+            )
+
     @app.post("/v1/auth/register", status_code=201)
-    def register(body: RegisterRequest):
+    def register(
+        body: RegisterRequest,
+        request: Request,
+        x_alpha_operator: Annotated[str | None, Header()] = None,
+    ):
+        enforce_auth_rate_limit(request, "register", 8, 600)
         if settings.invite_code and not __import__("hmac").compare_digest(body.invite_code or "", settings.invite_code):
             raise HTTPException(403, {"code": "invite_invalid", "message": "A valid invite code is required"})
         try:
@@ -149,6 +186,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             password_hash = hash_password(body.password)
         except ValueError as exc:
             raise HTTPException(422, {"code": "account_invalid", "message": str(exc)}) from exc
+        if username in settings.operator_usernames and (
+            not settings.operator_token
+            or not x_alpha_operator
+            or not secrets.compare_digest(x_alpha_operator, settings.operator_token)
+        ):
+            # Prevent a cohort member from registering an allowlisted operator
+            # name before the maintainer. Operators are provisioned via the
+            # API/CLI with the server-only operator token, never through JS.
+            raise HTTPException(403, {"code": "operator_required", "message": "Operator access required"})
         timestamp = now_iso()
         try:
             with db.connect() as conn:
@@ -162,7 +208,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"username": username, "token": token, "expires_at": expires_at}
 
     @app.post("/v1/auth/login")
-    def login(body: LoginRequest):
+    def login(body: LoginRequest, request: Request):
+        enforce_auth_rate_limit(request, "login", 20, 300)
         try:
             username = normalize_username(body.username)
         except ValueError:
@@ -170,13 +217,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         user = db.one("SELECT password_hash FROM users WHERE username=?", (username,))
         password_ok = verify_password(body.password, user["password_hash"] if user else DUMMY_PASSWORD_HASH)
         if not user or not password_ok:
+            account_key = hashlib.sha256((username or "invalid").encode("utf-8")).hexdigest()[:16]
+            if not auth_limiter.allow(f"login_failure:account:{account_key}", 10, 900):
+                raise HTTPException(
+                    429,
+                    {"code": "rate_limited", "message": "Too many account attempts. Try again in a few minutes."},
+                )
             raise HTTPException(401, {"code": "credentials_invalid", "message": "Username or password is incorrect"})
         token, expires_at = issue_session(db, username)
         return {"username": username, "token": token, "expires_at": expires_at}
 
     @app.get("/v1/auth/me")
     def auth_me(authorization: Annotated[str | None, Header()] = None):
-        return {"username": request_user(authorization)}
+        username = request_user(authorization)
+        return {"username": username, "is_operator": is_operator_username(settings, username)}
 
     @app.post("/v1/auth/logout", status_code=204)
     def logout(authorization: Annotated[str | None, Header()] = None):
@@ -258,6 +312,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             participant_message = league_status["queue"]["message"]
         return {
             "username": username,
+            "is_operator": is_operator_username(settings, username),
             "participant_state": participant_state,
             "participant_message": participant_message,
             "submission": public_submission(latest) if latest else None,
@@ -731,6 +786,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except WebSocketDisconnect:
             return
 
+    register_community_routes(app, db, settings)
     return app
 
 

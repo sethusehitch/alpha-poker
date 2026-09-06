@@ -2,7 +2,11 @@ name: alpha-poker
 
 services:
   caddy:
-    image: caddy:2.10.2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+      args:
+        CADDYFILE: Caddyfile.aws
     restart: unless-stopped
     depends_on:
       web:
@@ -17,7 +21,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile.aws:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     healthcheck:
@@ -73,6 +76,9 @@ services:
       ALPHA_POKER_RETAINED_ARTIFACT_RUNS: "${ALPHA_POKER_RETAINED_ARTIFACT_RUNS:-30}"
       ALPHA_POKER_INVITE_CODE: "${ALPHA_POKER_INVITE_CODE:?set ALPHA_POKER_INVITE_CODE}"
       ALPHA_POKER_OPERATOR_TOKEN: "${ALPHA_POKER_OPERATOR_TOKEN:?set ALPHA_POKER_OPERATOR_TOKEN}"
+      ALPHA_POKER_OPERATOR_USERNAMES: "${ALPHA_POKER_OPERATOR_USERNAMES:-}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      ALPHA_POKER_FEEDBACK_RETENTION_DAYS: "${ALPHA_POKER_FEEDBACK_RETENTION_DAYS:-90}"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
     expose:
       - "8000"

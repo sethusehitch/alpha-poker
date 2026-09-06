@@ -28,3 +28,30 @@ class RunCreate(BaseModel):
     # count cannot be fulfilled without silently changing the request.
     hand_count_per_pairing: int = Field(default=2000, ge=2, le=100000, multiple_of=2)
     seed: int | None = None
+
+
+# Feature-request title/details and feedback message limits are enforced in
+# main/community route bodies (not here) so violations return the community
+# surfaces' documented 400 validation_error copy instead of a generic 422.
+# These Field bounds are only a generous backstop against oversized payloads.
+class FeatureRequestCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=4000)
+    details: str | None = Field(default=None, max_length=4000)
+
+
+class FeatureRequestVote(BaseModel):
+    value: Literal[1, 0, -1]
+
+
+class FeatureRequestStatusUpdate(BaseModel):
+    status: Literal["submitted", "under_review", "planned", "in_progress", "shipped", "declined"]
+
+
+class FeatureRequestHide(BaseModel):
+    hidden: bool
+
+
+class FeedbackCreate(BaseModel):
+    type: Literal["bug", "idea", "other"]
+    message: str = Field(min_length=1, max_length=4000)
+    path: str = Field(min_length=1, max_length=500)

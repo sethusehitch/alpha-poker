@@ -1,7 +1,6 @@
 import { CopyPromptButton } from "./components/CopyPromptButton";
 import { Leaderboard, type LeaderboardEntry } from "./components/Leaderboard";
-import { AuthButton } from "./components/AuthButton";
-import { AlphaPokerMark } from "./components/AlphaPokerMark";
+import { SiteHeader } from "./components/SiteHeader";
 
 const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
 
@@ -68,21 +67,7 @@ const initialLeaderboard: LeaderboardEntry[] = [
 export default function Home() {
   return (
     <>
-      <header className="border-b border-zinc-200/80 bg-white">
-        <div className="mx-auto flex h-[4.5rem] max-w-[90rem] items-center justify-between px-5 sm:px-8">
-          <a
-            href="#top"
-            className="group inline-flex items-center gap-2.5 rounded-[5px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"
-            aria-label="Alpha Poker home"
-          >
-            <AlphaPokerMark className="h-8 w-10 transition-transform duration-200 group-hover:-rotate-2" />
-            <span className="text-[1.05rem] font-semibold tracking-[-0.025em] text-zinc-950">
-              Alpha Poker
-            </span>
-          </a>
-          <AuthButton />
-        </div>
-      </header>
+      <SiteHeader currentPath="/" />
 
       <main>
         <section

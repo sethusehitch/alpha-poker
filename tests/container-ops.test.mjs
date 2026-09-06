@@ -7,6 +7,7 @@ const text = (path) => readFileSync(path, "utf8");
 
 test("compose exposes only Caddy and persists application data", () => {
   const compose = text("compose.yaml");
+  const caddyImage = text("Dockerfile.caddy");
 
   assert.match(compose, /ALPHA_POKER_PORT:-8080}:8080/);
   assert.match(compose, /alpha_poker_data:\/data/);
@@ -19,6 +20,9 @@ test("compose exposes only Caddy and persists application data", () => {
   );
   assert.match(compose, /ALPHA_POKER_AUTH_REQUIRED:-true/);
   assert.match(compose, /ALPHA_POKER_RETAINED_ARTIFACT_RUNS:-30/);
+  assert.match(compose, /dockerfile: Dockerfile\.caddy/);
+  assert.doesNotMatch(compose, /\.\/Caddyfile:\/etc\/caddy\/Caddyfile/);
+  assert.match(caddyImage, /COPY \$\{CADDYFILE\} \/etc\/caddy\/Caddyfile/);
 
   const publishedPorts = [...compose.matchAll(/^\s{4}ports:\s*$/gm)];
   assert.equal(publishedPorts.length, 1, "only Caddy should publish a host port");

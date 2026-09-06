@@ -77,6 +77,9 @@ test("operations scripts are executable and valid POSIX shell", () => {
   assert.ok(statSync(deploy).mode & 0o100, `${deploy} must be executable`);
   execFileSync("bash", ["-n", deploy]);
   const deploySource = text(deploy);
+  assert.match(deploySource, /git -C "\$project_dir" archive --format=tar\.gz --output="\$archive_file" HEAD/);
+  assert.match(deploySource, /rev-parse origin\/main/);
+  assert.doesNotMatch(deploySource, /tar -C "\$project_dir" -czf/, "deploy must never package untracked workspace files");
   assert.match(deploySource, /source\.backup\(target\)/);
   assert.match(deploySource, /-f "\$app_root\/current\/compose\.aws\.yaml"/);
   assert.doesNotMatch(deploySource, /cd "\$app_root\/current"\n\s*if docker compose/);

@@ -125,7 +125,7 @@ destination.chmod(0o600)
 backups = sorted(backup_dir.glob("pre-deploy-*.sqlite3"), key=lambda item: item.stat().st_mtime, reverse=True)
 for expired in backups[10:]:
     expired.unlink()
-'
+' </dev/null
   fi
 fi
 

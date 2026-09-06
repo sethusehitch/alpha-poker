@@ -78,6 +78,8 @@ test("operations scripts are executable and valid POSIX shell", () => {
   execFileSync("bash", ["-n", deploy]);
   const deploySource = text(deploy);
   assert.match(deploySource, /source\.backup\(target\)/);
+  assert.match(deploySource, /-f "\$app_root\/current\/compose\.aws\.yaml"/);
+  assert.doesNotMatch(deploySource, /cd "\$app_root\/current"\n\s*if docker compose/);
   assert.match(deploySource, /pre-deploy-\*\.sqlite3/);
   assert.match(deploySource, /backups\[10:\]/);
   const embeddedPython = deploySource.match(/api python -c '([\s\S]*?)'\n/);

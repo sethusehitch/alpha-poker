@@ -108,9 +108,8 @@ chown -R ubuntu:ubuntu "$release_dir"
 # switching releases. The backup lives with the persistent data volume and is
 # bounded to the ten newest pre-deploy snapshots.
 if [ -f "$app_root/current/compose.aws.yaml" ]; then
-  cd "$app_root/current"
-  if docker compose -f compose.aws.yaml --env-file "$app_root/shared/.env" ps --status running -q api | grep -q .; then
-    docker compose -f compose.aws.yaml --env-file "$app_root/shared/.env" exec -T \
+  if docker compose -f "$app_root/current/compose.aws.yaml" --env-file "$app_root/shared/.env" ps --status running -q api | grep -q .; then
+    docker compose -f "$app_root/current/compose.aws.yaml" --env-file "$app_root/shared/.env" exec -T \
       -e "ALPHA_POKER_BACKUP_ID=$release_id" api python -c '
 import os
 import sqlite3

@@ -121,14 +121,18 @@ function RivalCard({
 }) {
   return (
     <article
-      className={`flex aspect-square w-full max-w-[16.25rem] flex-col justify-between rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
+      className={`flex aspect-square min-h-0 w-full max-w-[16.25rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
     >
-      <div className="flex items-start gap-3.5">
-        <Portrait
-          name={rival.username}
-          rank={rival.rank}
-          className="h-24 w-24"
-        />
+      {/* min-h-0 + overflow-hidden keep the square literal: a long bot name or
+          a five-digit Elo clips instead of stretching the card past 1:1. */}
+      <div className="flex min-h-0 flex-1 items-start gap-3.5 overflow-hidden">
+        <div className="mt-1.5 shrink-0">
+          <Portrait
+            name={rival.username}
+            rank={rival.rank}
+            className="h-28 w-28"
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2
@@ -145,17 +149,17 @@ function RivalCard({
           >
             {rival.bot_name ?? "No active bot"}
           </p>
-          <p className="mt-3 text-xl font-bold leading-none tabular-nums text-zinc-950">
+          <p className="mt-2 text-xl font-bold leading-none tabular-nums text-zinc-950">
             {rival.elo_rating.toLocaleString()}
           </p>
-          <p className="mt-1 text-[0.65rem] font-bold tracking-[0.14em] text-zinc-500">
+          <p className="mt-1 text-[0.65rem] font-bold leading-none tracking-[0.14em] text-zinc-500">
             ELO
           </p>
-          <p className="mt-3 text-base font-semibold tabular-nums text-zinc-900">
+          <p className="mt-2 text-base font-semibold leading-tight tabular-nums text-zinc-900">
             {rival.direct_record.wins} – {rival.direct_record.losses}
           </p>
           <p className="text-xs text-zinc-500">vs you</p>
-          <p className="mt-1.5 text-xs font-medium text-zinc-600">
+          <p className="mt-1 text-xs font-medium text-zinc-600">
             <ChallengeStatus online={isOnline(rival)} />
           </p>
         </div>
@@ -163,7 +167,7 @@ function RivalCard({
       <button
         type="button"
         onClick={() => onOpen(rival.username)}
-        className={`mt-4 w-full rounded-xl border px-3 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${selected ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
+        className={`mt-3 w-full shrink-0 rounded-xl border px-3 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${selected ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700" : "border-blue-200 text-blue-700 hover:bg-blue-50"}`}
       >
         View rival
       </button>
@@ -181,7 +185,7 @@ function RivalGrid({
   selected?: string | null;
 }) {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(13.75rem,16.25rem))] justify-center gap-4 sm:justify-start">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,16.25rem))] justify-center gap-4 sm:justify-start">
       {items.map((rival) => (
         <RivalCard
           key={rival.username}
@@ -544,13 +548,16 @@ function RivalOverlay({
       role="presentation"
       onMouseDown={onClose}
     >
+      {/* Fixed near-viewport height: the panel no longer grows or shrinks with
+          the history length, so opening rivals back to back does not make the
+          overlay jump around. The history list absorbs the slack instead. */}
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby="rival-title"
         tabIndex={-1}
-        className="relative max-h-[100dvh] w-full max-w-2xl overflow-auto rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
+        className="relative flex h-[92dvh] max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
         onMouseDown={(event) => event.stopPropagation()}
       >
         {/* Exactly one of loading, error, or detail is on screen. A failed
@@ -560,7 +567,7 @@ function RivalOverlay({
           <div
             role="status"
             aria-live="polite"
-            className="flex min-h-72 flex-col items-center justify-center gap-4 py-10"
+            className="flex min-h-72 flex-1 flex-col items-center justify-center gap-4 py-10"
           >
             <span
               aria-hidden="true"
@@ -573,7 +580,7 @@ function RivalOverlay({
         ) : !detail ? (
           <div
             role="alert"
-            className="flex min-h-72 flex-col items-center justify-center px-4 py-10 text-center"
+            className="flex min-h-72 flex-1 flex-col items-center justify-center px-4 py-10 text-center"
           >
             <span
               aria-hidden="true"
@@ -609,7 +616,7 @@ function RivalOverlay({
             {error && (
               <p
                 role="alert"
-                className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700"
+                className="mb-4 shrink-0 rounded-lg bg-red-50 p-3 text-sm text-red-700"
               >
                 {error}
               </p>
@@ -622,12 +629,14 @@ function RivalOverlay({
             >
               ×
             </button>
-            <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:text-left">
-              <Portrait
-                name={detail.rival.username}
-                rank={detail.rival.rank}
-                className="h-28 w-28 sm:h-32 sm:w-32"
-              />
+            <div className="flex shrink-0 flex-col items-center gap-5 text-center sm:flex-row sm:items-start sm:text-left">
+              <div className="mt-1 shrink-0 sm:mt-3">
+                <Portrait
+                  name={detail.rival.username}
+                  rank={detail.rival.rank}
+                  className="h-32 w-32 sm:h-44 sm:w-44"
+                />
+              </div>
               <div className="min-w-0 w-full flex-1">
                 <div className="flex flex-wrap items-center justify-center gap-2 pr-10 sm:justify-start">
                   <h1
@@ -656,20 +665,20 @@ function RivalOverlay({
                     {detail.nemesis_explanation}
                   </p>
                 )}
-                <div className="mt-4 grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-                  <div className="min-w-0 text-center">
+                {/* Auto-width columns instead of 1fr keep the two numbers
+                    reading as one scoreline rather than drifting to the edges. */}
+                <div className="mt-4 flex items-end justify-center gap-4">
+                  <div className="min-w-0 max-w-[9rem] text-center">
                     <p className="text-sm font-semibold text-blue-700">You</p>
                     <p className="text-4xl font-bold leading-none tabular-nums text-blue-700 sm:text-5xl">
                       {detail.direct_record.wins}
                     </p>
                   </div>
-                  <p
+                  <span
                     aria-hidden="true"
-                    className="pb-1 text-3xl font-light text-zinc-400"
-                  >
-                    –
-                  </p>
-                  <div className="min-w-0 text-center">
+                    className="mb-3 h-1 w-7 rounded-full bg-zinc-600"
+                  />
+                  <div className="min-w-0 max-w-[9rem] text-center">
                     <p
                       className="truncate text-sm font-semibold text-zinc-700"
                       title={detail.rival.username}
@@ -686,20 +695,20 @@ function RivalOverlay({
                     {detail.direct_record.draws} drawn
                   </p>
                 )}
-                <div className="mt-5 flex gap-2">
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
                   {status === "pending" && incoming ? (
                     <>
                       <button
                         disabled={busy}
                         onClick={() => void action("accept")}
-                        className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+                        className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
                       >
                         Accept
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => void action("decline")}
-                        className="rounded-xl border border-zinc-300 px-4 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                        className="rounded-xl border border-zinc-300 px-6 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
                       >
                         Decline
                       </button>
@@ -708,14 +717,14 @@ function RivalOverlay({
                     <button
                       disabled={busy}
                       onClick={() => void action("cancel")}
-                      className="w-full rounded-xl border border-zinc-300 px-4 py-3 font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed"
+                      className="rounded-xl border border-zinc-300 px-6 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed"
                     >
                       Pending · Cancel
                     </button>
                   ) : status && status !== "completed" ? (
                     <button
                       disabled
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 font-semibold text-zinc-600 disabled:cursor-not-allowed"
+                      className="rounded-xl border border-zinc-200 bg-zinc-50 px-6 py-2.5 text-sm font-semibold text-zinc-600 disabled:cursor-not-allowed"
                     >
                       {statusLabel(status)}
                     </button>
@@ -727,7 +736,7 @@ function RivalOverlay({
                         !detail.rival.has_active_bot
                       }
                       onClick={() => setConfirmCreate(true)}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex max-w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {busy ? (
                         "Starting…"
@@ -744,13 +753,13 @@ function RivalOverlay({
                   )}
                 </div>
                 {!detail.viewer.has_active_bot && (
-                  <p className="mt-2 text-xs text-zinc-500">
+                  <p className="mt-2 text-center text-xs text-zinc-500">
                     Submit an active bot to start a direct challenge.
                   </p>
                 )}
                 {detail.viewer.has_active_bot &&
                   !detail.rival.has_active_bot && (
-                    <p className="mt-2 text-xs text-zinc-500">
+                    <p className="mt-2 text-center text-xs text-zinc-500">
                       You can view this rival now. Challenges unlock when they
                       submit an active bot.
                     </p>
@@ -758,15 +767,16 @@ function RivalOverlay({
               </div>
             </div>
             {/* Nothing follows the history: the overlay is identity, one
-                action, and a bounded head-to-head list. */}
-            <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200">
-              <div className="flex items-baseline justify-between gap-3 border-b border-zinc-200 px-4 py-3">
+                action, and a head-to-head list that takes whatever height is
+                left over and scrolls inside itself. */}
+            <section className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-200">
+              <div className="flex shrink-0 items-baseline justify-between gap-3 border-b border-zinc-200 px-4 py-3">
                 <h2 className="font-semibold">Recent head-to-head</h2>
                 <span className="shrink-0 text-xs text-zinc-500">
                   Direct challenges only
                 </span>
               </div>
-              <ul className="max-h-72 overflow-y-auto">
+              <ul className="min-h-0 flex-1 overflow-y-auto">
                 {detail.history.items.length ? (
                   detail.history.items.map((challenge) => (
                     <ChallengeRow

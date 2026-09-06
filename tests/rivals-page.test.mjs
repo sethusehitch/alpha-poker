@@ -180,6 +180,12 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
     /Challenges unlock when they\s+submit an active bot\./,
   );
   assert.match(workspace, /aspect-square/);
+  assert.match(workspace, /min-h-0 flex-1 items-start[^\n]*overflow-hidden/);
+  assert.match(workspace, /className="h-28 w-28"/);
+  assert.match(workspace, /h-\[92dvh\]/);
+  assert.match(workspace, /sm:h-\[calc\(100dvh-2rem\)\]/);
+  assert.match(workspace, /h-1 w-7 rounded-full bg-zinc-600/);
+  assert.match(workspace, /mt-6 flex min-h-0 flex-1 flex-col overflow-hidden/);
   assert.match(workspace, /circle/);
   assert.match(workspace, /direct_record\.wins\} – \{rival\.direct_record\.losses/);
   assert.match(workspace, />\s*Suggested\s*</);

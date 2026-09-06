@@ -1,12 +1,12 @@
 # Open-source release audit
 
 Date: September 5, 2026
-Release branch: `codex/community-platform`
+Release branch: `main`
 Repository: `sethusehitch/alpha-poker`
 
 ## Result
 
-The repository is safe to make public after the release pull request passes CI.
+The repository is public and passed the release audit and protected CI gate.
 No credential, private key, participant record, database, Terraform state,
 private hand log, or local environment file is present in the release tree or
 the existing Git history.
@@ -43,12 +43,14 @@ does not create a security boundary or require history rewriting.
 - MIT license, contributor guide, Code of Conduct, security policy, CODEOWNERS,
   structured issue forms, pull-request template, and least-privilege CI are in
   the release.
-- The repository remains private until this branch passes GitHub Actions.
-- After publication, `main` must require pull requests, the `qa` status check,
+- The repository was made public only after the release pull request passed
+  GitHub Actions.
+- `main` requires pull requests, the `qa` status check,
   resolved conversations, and strict up-to-date checks; force pushes and branch
   deletion remain disabled. Only the maintainer account has merge access.
-- GitHub private vulnerability reporting and dependency alerts are enabled as
-  part of the publication step.
+- GitHub private vulnerability reporting and dependency alerts are enabled.
+  The one test-only pytest advisory found immediately after publication was
+  fixed through pull request 2; Dependabot reports it as fixed.
 
 ## Exclusions
 

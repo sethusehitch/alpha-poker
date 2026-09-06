@@ -38,6 +38,16 @@ class CliError(RuntimeError):
     pass
 
 
+def _prompt_password(prompt: str) -> str:
+    try:
+        return getpass.getpass(prompt)
+    except (EOFError, KeyboardInterrupt) as exc:
+        raise CliError(
+            "secure password input requires an interactive terminal; "
+            "re-run this command in a terminal"
+        ) from exc
+
+
 def _config_path() -> Path:
     override = os.environ.get("ALPHA_POKER_CONFIG")
     if override:
@@ -557,9 +567,9 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command in {"register", "login"}:
-            password = getpass.getpass("Password: ")
+            password = _prompt_password("Password: ")
             if args.command == "register":
-                confirmation = getpass.getpass("Confirm password: ")
+                confirmation = _prompt_password("Confirm password: ")
                 if password != confirmation:
                     raise CliError("passwords do not match")
             response = _http_json(
@@ -615,10 +625,17 @@ def main(argv: list[str] | None = None) -> int:
                     record = result.get("record", {})
                     win_count = int(record.get("wins", 0))
                     loss_count = int(record.get("losses", 0))
+                    draw_count = int(record.get("draws", 0))
+                    draw_summary = (
+                        f", {_count_label(draw_count, 'draw', 'draws')}"
+                        if draw_count > 0
+                        else ""
+                    )
                     print(
                         f"Latest result: rank #{result.get('rank')}, {result.get('elo_rating'):,} Elo, "
                         f"{_count_label(win_count, 'win', 'wins')}, "
                         f"{_count_label(loss_count, 'loss', 'losses')}"
+                        f"{draw_summary}"
                     )
                 return 0
             destination = args.output.expanduser().resolve()

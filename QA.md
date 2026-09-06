@@ -14,15 +14,15 @@ Verified:
 
 - Production vinext build succeeds.
 - Ten rendered-page tests pass.
-- Twenty-one community-surface tests pass, covering `/feature-requests`,
+- Twenty-four community-surface tests pass, covering `/feature-requests`,
   `/contribute`, the six-stage lifecycle, anonymous feedback, responsive and
   accessible controls, exact GitHub URL validation, draft recovery, and
   deterministic server/browser date rendering.
 - Four single-box container configuration tests pass.
 - ESLint passes with zero warnings.
-- 107 poker engine, auth, queue, isolation, retention, migration, community, and
+- 108 poker engine, auth, queue, isolation, retention, migration, community, and
   FastAPI tests pass.
-- Thirteen CLI tests pass.
+- Seventeen CLI tests pass.
 - Python compilation passes for the CLI, benchmark, starter kit, and server.
 - The public starter ZIP rebuild is byte-deterministic and contains the bot
   template, API and agent-workflow guides, plus the dependency-free CLI source.
@@ -258,24 +258,31 @@ the sslip.io transition hostname retained as a fallback, is verified end to end:
 
 ## Final independent production acceptance
 
-The final deployed build passed two consecutive, independent, clean-slate
-participant journeys with no code or deployment change between them. Every pass
-used a new `qa_e2e_` account, a new download directory, a new bot, an isolated
-CLI home, and no repository, server, database, AWS, or operator access.
+Four independent, clean-slate participant agents tested production without
+repository, server, database, AWS, or operator access. The first two passes
+found and reproduced a retained registration-form secret, official-league lock
+contention during training, shared CLI credentials that ignored
+`XDG_CONFIG_HOME`, a logged-out copy flash, missing draw records, and a dead-end
+404. Each issue received a regression test and was fixed through protected pull
+request 3 before acceptance restarted.
 
-Both passes verified registration, reload persistence, duplicate-safe newest
-starter selection, copied agent instructions, local bot validation, CLI login,
-exactly ten hosted training hands with a directory output, readable training
-logs, log-driven bot revision, revalidation, accepted submission, truthful
-league progress, official completion within the deadline, matching website/CLI
-leaderboard results, validation and official downloads, rendered Swagger docs
-with zero console errors, and browser plus CLI logout/login.
+Two new independent agents then repeated the journey with fresh accounts,
+download directories, bots, and isolated CLI homes. Both passed registration,
+reload persistence, logout/reopen field clearing, copied instructions, local
+validation, exactly ten hosted training hands, readable logs, accepted upload,
+truthful league progress, feature submission and voting, feedback, Contribute,
+mobile layout, API documentation, branded 404s, and returning login. A separate
+ten-hand training session also completed in seven seconds while a 10-bot,
+45-matchup official league was running, proving that training no longer waits
+behind the league lock.
 
-The first final pass completed a four-player league with six matchups and 1,200
-official hands. The second completed a five-player league with ten matchups and
-2,000 official hands. In both cases, JSONL, CSV, PHH, manifest, account UI, CLI,
-and leaderboard totals agreed. All invite handoff files were deleted after use;
-test accounts remain explicitly isolated by the `qa_e2e_` prefix.
+The final agents exposed two narrow CLI presentation defects: status omitted
+draws, and password prompting without a TTY surfaced a Python EOF traceback.
+The final release prints draws when present and turns noninteractive password
+input into a concise, actionable error. Both behaviors have direct regression
+coverage. QA-only public standings and request artifacts are hidden after a
+recoverable production database backup; the disposable accounts are retained
+privately for auditability.
 
 ## Final deployment audit
 
@@ -288,15 +295,14 @@ After the two consecutive passes, a read-only completion audit confirmed:
   OpenAPI account-status route, and a real authenticated training WebSocket pass
   the release smoke suite.
 - The Caddy, web, and API containers are all running and healthy.
-- The latest official league is completed at 10 of 10 matchups; its queue has no
-  pending generation and no running worker.
+- The final 10-bot acceptance league completed all 45 matchups before QA data
+  cleanup; the queue has no pending generation and no running worker.
 - The deployed OpenAPI document contains 25 paths, including
   `/v1/account/status`.
 
 The final local suite for this release passed the build, lint, compilation,
-starter-kit rebuild, 63 server tests, 13 CLI tests, 10 rendered-page tests, and
-four container-configuration tests. The exact final CLI behavior was then
-exercised through both independent live production passes.
+starter-kit rebuild, 108 server tests, 17 CLI tests, 10 rendered-page tests, 24
+community-surface tests, and four container-configuration tests.
 
 ## Completion matrix
 
@@ -311,22 +317,23 @@ exercised through both independent live production passes.
 | Agent-operated submission | Copied prompt assigns CLI operation to the coding agent; both black-box agents submitted end to end |
 | Truthful progress and failures | Account-status API/UI/CLI regression tests; passes observed incremental matchup progress |
 | Bounded competition | Durable heartbeat/deadline tests; final leagues completed 6/6 and 10/10 well within the limit |
-| Refreshed Elo leaderboard | Account, CLI, and public leaderboard rank/Elo/record agreed in both passes |
+| Refreshed Elo leaderboard | Account, CLI, and public leaderboard rank/Elo/record agreed, including explicit draw counts |
 | Official results and hand logs | Validation plus five-file official artifacts downloaded and counts reconciled in both passes |
 | Working API documentation | Proxy/CSP tests, release smoke, and rendered Swagger with zero console errors in both passes |
 | Logout and returning login | Browser and CLI session tests plus successful final logout/login in both passes |
 | No silently stuck worker | Deadline and heartbeat regression coverage; final live queue completed, idle, and not pending |
-| Isolated QA data | New `qa_e2e_` accounts and fresh directories per pass; invite handoffs deleted; no real accounts touched |
+| Isolated QA data | Fresh accounts/directories per pass; public QA artifacts hidden only after a recoverable database backup |
 
 ## Deliberate prototype limits
 
-- Username/password auth is intended for a small, trusted private cohort. There
-  is no password reset, email verification, MFA, or login rate limiter yet.
+- Username/password auth is intended for a small, trusted private cohort.
+  Registration and login are rate-limited, but there is no password reset,
+  email verification, or MFA yet.
 - Bot process isolation is defense in depth, not a hardened multi-tenant sandbox
   for hostile public code.
 - One league and one serialized match worker
 - Lightweight PHH summaries rather than fully replayable action streams
-- No remote Terraform state or off-instance application-data backup yet
+- No remote Terraform state or automated off-instance application-data backup yet
 
 Do not expose the current build to untrusted public participants. A stronger
 container or microVM sandbox, request rate limits, secrets management, and

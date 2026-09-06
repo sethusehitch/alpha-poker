@@ -239,7 +239,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return None
 
     def league_snapshot() -> dict[str, Any]:
-        run = db.one("SELECT * FROM runs ORDER BY requested_at DESC LIMIT 1")
+        run = db.one("SELECT * FROM runs WHERE official=1 ORDER BY requested_at DESC LIMIT 1")
         active_count = int(db.one("SELECT count(*) AS n FROM submissions WHERE active=1")["n"])
         queue = db.one("SELECT requested_generation,completed_generation,running,updated_at FROM league_queue WHERE singleton=1")
         pending = int(queue["requested_generation"]) > int(queue["completed_generation"])
@@ -331,7 +331,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/v1/leaderboard")
     def leaderboard():
-        run = db.one("SELECT * FROM runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1")
+        run = db.one("SELECT * FROM runs WHERE status='completed' AND official=1 ORDER BY completed_at DESC LIMIT 1")
         if not run:
             return {"run_id": None, "updated_at": None, "entries": []}
         rows = db.all("SELECT * FROM leaderboard WHERE run_id=? ORDER BY rank", (run["id"],))
@@ -346,7 +346,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/v1/matchups")
     def matchups():
-        run = db.one("SELECT id FROM runs WHERE status='completed' ORDER BY completed_at DESC LIMIT 1")
+        run = db.one("SELECT id FROM runs WHERE status='completed' AND official=1 ORDER BY completed_at DESC LIMIT 1")
         return {"run_id": run["id"] if run else None, "matchups": _matchups(run["id"]) if run else []}
 
     def _matchups(run_id: str):
@@ -359,7 +359,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/v1/runs")
     def runs():
-        return {"runs": db.all("SELECT * FROM runs ORDER BY requested_at DESC")}
+        return {"runs": db.all("SELECT * FROM runs WHERE official=1 ORDER BY requested_at DESC")}
 
     @app.get("/v1/runs/{run_id}")
     def run_detail(run_id: str):

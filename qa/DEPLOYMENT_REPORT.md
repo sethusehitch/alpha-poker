@@ -20,7 +20,7 @@ credentials remain server-side and untracked.
 ## Verification
 
 - Full local gate: production build, 10 landing-page tests, 24 community tests,
-  4 container tests, zero-warning lint, 108 API/engine tests, 17 CLI tests,
+  4 container tests, zero-warning lint, 109 API/engine tests, 17 CLI tests,
   compilation, and deterministic starter-kit generation
 - Dependency gate: production and full npm audits report zero known
   vulnerabilities; the published pytest advisory is fixed

@@ -20,7 +20,7 @@ Verified:
   deterministic server/browser date rendering.
 - Four single-box container configuration tests pass.
 - ESLint passes with zero warnings.
-- 108 poker engine, auth, queue, isolation, retention, migration, community, and
+- 109 poker engine, auth, queue, isolation, retention, migration, community, and
   FastAPI tests pass.
 - Seventeen CLI tests pass.
 - Python compilation passes for the CLI, benchmark, starter kit, and server.
@@ -301,7 +301,7 @@ After the two consecutive passes, a read-only completion audit confirmed:
   `/v1/account/status`.
 
 The final local suite for this release passed the build, lint, compilation,
-starter-kit rebuild, 108 server tests, 17 CLI tests, 10 rendered-page tests, 24
+starter-kit rebuild, 109 server tests, 17 CLI tests, 10 rendered-page tests, 24
 community-surface tests, and four container-configuration tests.
 
 ## Completion matrix

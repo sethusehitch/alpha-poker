@@ -72,4 +72,12 @@ test("operations scripts are executable and valid POSIX shell", () => {
     assert.ok(statSync(script).mode & 0o100, `${script} must be executable`);
     execFileSync("sh", ["-n", script]);
   }
+
+  const deploy = "ops/aws/deploy.sh";
+  assert.ok(statSync(deploy).mode & 0o100, `${deploy} must be executable`);
+  execFileSync("bash", ["-n", deploy]);
+  const deploySource = text(deploy);
+  assert.match(deploySource, /source\.backup\(target\)/);
+  assert.match(deploySource, /pre-deploy-\*\.sqlite3/);
+  assert.match(deploySource, /backups\[10:\]/);
 });

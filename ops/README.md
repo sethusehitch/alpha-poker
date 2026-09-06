@@ -85,6 +85,11 @@ API restart resumes after startup. Only one league executes at a time, including
 manual runs. Completed run ZIPs are written atomically before older detailed
 hand rows are pruned.
 
+The AWS deploy script uses SQLite's online backup API before each release
+switch. It stores mode-`0600` snapshots under `/data/backups` in the persistent
+volume and retains the ten newest `pre-deploy-*.sqlite3` files. Daily Lightsail
+snapshots provide the separate instance-level recovery layer.
+
 The browser API base stays `/v1`, which makes development, WebSockets, and a
 later domain same-origin. Do not expose ports `3000` or `8000` publicly.
 

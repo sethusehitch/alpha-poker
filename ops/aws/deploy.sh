@@ -103,6 +103,32 @@ fi
 
 ln -s "$app_root/shared/.env" "$release_dir/.env"
 chown -R ubuntu:ubuntu "$release_dir"
+
+# Take a transactionally consistent SQLite backup from the running API before
+# switching releases. The backup lives with the persistent data volume and is
+# bounded to the ten newest pre-deploy snapshots.
+if [ -f "$app_root/current/compose.aws.yaml" ]; then
+  cd "$app_root/current"
+  if docker compose -f compose.aws.yaml --env-file "$app_root/shared/.env" ps --status running -q api | grep -q .; then
+    docker compose -f compose.aws.yaml --env-file "$app_root/shared/.env" exec -T \
+      -e "ALPHA_POKER_BACKUP_ID=$release_id" api python -c '
+import os
+import sqlite3
+from pathlib import Path
+
+backup_dir = Path("/data/backups")
+backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+destination = backup_dir / f"pre-deploy-{os.environ[\"ALPHA_POKER_BACKUP_ID\"]}.sqlite3"
+with sqlite3.connect("/data/alpha-poker.sqlite3") as source, sqlite3.connect(destination) as target:
+    source.backup(target)
+destination.chmod(0o600)
+backups = sorted(backup_dir.glob("pre-deploy-*.sqlite3"), key=lambda item: item.stat().st_mtime, reverse=True)
+for expired in backups[10:]:
+    expired.unlink()
+'
+  fi
+fi
+
 ln -sfn "$release_dir" "$app_root/current.next"
 mv -Tf "$app_root/current.next" "$app_root/current"
 

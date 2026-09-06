@@ -7,6 +7,7 @@ type UiEvents = {
   "open-account": { openSuggestAfterLogin?: boolean };
   "account-dialog-changed": { open: boolean };
   "suggest-dialog-changed": { open: boolean };
+  "rivals-dialog-changed": { open: boolean };
   "session-changed": { username: string | null; isOperator: boolean };
   "close-panels": Record<string, never>;
   "open-feedback-panel": { focusTextarea?: boolean };

@@ -94,6 +94,53 @@ CREATE TABLE IF NOT EXISTS league_queue (
   running INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS rival_challenges (
+  id TEXT PRIMARY KEY,
+  challenger_username TEXT NOT NULL,
+  challenged_username TEXT NOT NULL,
+  challenger_submission_id TEXT,
+  challenged_submission_id TEXT,
+  run_id TEXT,
+  status TEXT NOT NULL,
+  hand_count INTEGER NOT NULL DEFAULT 200,
+  seed INTEGER,
+  winner_username TEXT,
+  margin_play_chips INTEGER,
+  error TEXT,
+  idempotency_key TEXT,
+  created_at TEXT NOT NULL,
+  accepted_at TEXT,
+  started_at TEXT,
+  completed_at TEXT,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(challenger_username) REFERENCES users(username),
+  FOREIGN KEY(challenged_username) REFERENCES users(username),
+  FOREIGN KEY(run_id) REFERENCES runs(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rival_challenge_idempotency
+ON rival_challenges(challenger_username,idempotency_key) WHERE idempotency_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_rival_challenges_participants
+ON rival_challenges(challenger_username,challenged_username,status,updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rival_challenges_queue
+ON rival_challenges(status,accepted_at,created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_rival_challenges_open_pair
+ON rival_challenges(
+  min(challenger_username,challenged_username),
+  max(challenger_username,challenged_username)
+) WHERE status IN ('pending','queued','running');
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL,
+  type TEXT NOT NULL,
+  challenge_id TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT,
+  FOREIGN KEY(username) REFERENCES users(username),
+  FOREIGN KEY(challenge_id) REFERENCES rival_challenges(id)
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_username
+ON notifications(username,created_at DESC,id DESC);
 CREATE TABLE IF NOT EXISTS feature_requests (
   id TEXT PRIMARY KEY, title TEXT NOT NULL, details TEXT,
   status TEXT NOT NULL DEFAULT 'submitted', author_username TEXT NOT NULL,
@@ -186,7 +233,7 @@ class Database:
             )
             conn.execute("UPDATE league_queue SET running=0 WHERE singleton=1")
             conn.execute(
-                "UPDATE runs SET status='failed',error=COALESCE(error,'API restarted before this run completed'),completed_at=COALESCE(completed_at,?) WHERE status IN ('queued','running')",
+                "UPDATE runs SET status='failed',error=COALESCE(error,'API restarted before this run completed'),completed_at=COALESCE(completed_at,?) WHERE status IN ('queued','running') AND official=1",
                 (now_iso(),),
             )
             if seed and not conn.execute("SELECT 1 FROM runs LIMIT 1").fetchone():

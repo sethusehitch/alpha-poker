@@ -31,10 +31,15 @@ export async function proxyApi(request: Request, path: string) {
   try {
     const headers = new Headers({ Accept: "application/json" });
     const contentType = request.headers.get("content-type");
+    const idempotencyKey = request.headers.get("idempotency-key");
     const authorization = request.headers.get("authorization") ?? browserAuthorization(request);
     const forwardedFor = request.headers.get("x-forwarded-for");
     const userAgent = request.headers.get("user-agent");
     if (contentType) headers.set("Content-Type", contentType);
+    // Challenge writes are safely retryable only when their client-supplied key
+    // reaches the API unchanged. Other request headers remain intentionally
+    // allowlisted.
+    if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
     if (authorization) headers.set("Authorization", authorization);
     // Preserve the client address Caddy supplied to the web container so the
     // API's account limiter cannot be exhausted globally through this proxy.

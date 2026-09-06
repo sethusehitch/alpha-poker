@@ -1,52 +1,127 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-html-link-for-pages */
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AlphaPokerMark } from "./AlphaPokerMark";
 import { AuthButton } from "./AuthButton";
 import { on } from "./uiBus";
+import { useSession } from "./useSession";
 
-type NavItem = { label: string; href: string; isActive: (path: string) => boolean };
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Leaderboard", href: "/#leaderboard", isActive: (path) => path === "/" },
-  { label: "Feature requests", href: "/feature-requests", isActive: (path) => path.startsWith("/feature-requests") },
-  { label: "Contribute", href: "/contribute", isActive: (path) => path.startsWith("/contribute") },
+type NavItem = {
+  label: string;
+  href: string;
+  isActive: (path: string) => boolean;
+};
+const LEADERBOARD: NavItem = {
+  label: "Leaderboard",
+  href: "/#leaderboard",
+  isActive: (path) => path === "/",
+};
+const RIVALS: NavItem = {
+  label: "Rivals",
+  href: "/rivals",
+  isActive: (path) => path.startsWith("/rivals") || path.startsWith("/hands/"),
+};
+const COMMUNITY_ITEMS: NavItem[] = [
+  {
+    label: "Feature requests",
+    href: "/feature-requests",
+    isActive: (path) => path.startsWith("/feature-requests"),
+  },
+  {
+    label: "Contribute",
+    href: "/contribute",
+    isActive: (path) => path.startsWith("/contribute"),
+  },
 ];
 
 function MenuIcon({ open }: { open: boolean }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5" fill="none">
       {open ? (
-        <path d="M5 5l10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        <path
+          d="M5 5l10 10M15 5 5 15"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
       ) : (
-        <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        <path
+          d="M3 5.5h14M3 10h14M3 14.5h14"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
       )}
     </svg>
   );
 }
+function ChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 14 14"
+      className="h-3.5 w-3.5"
+      fill="none"
+    >
+      <path
+        d="M3.5 5.25 7 8.75l3.5-3.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
-export function SiteHeader({ currentPath, sticky = false }: { currentPath: string; sticky?: boolean }) {
+export function SiteHeader({
+  currentPath,
+  sticky = false,
+}: {
+  currentPath: string;
+  sticky?: boolean;
+}) {
+  const { session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
+  const [mobileCommunityOpen, setMobileCommunityOpen] = useState(false);
   const panelId = useId();
+  const communityId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const communityRef = useRef<HTMLLIElement>(null);
+  const communityButtonRef = useRef<HTMLButtonElement>(null);
+  const coreItems = session ? [LEADERBOARD, RIVALS] : [LEADERBOARD];
 
-  useEffect(() => on("close-panels", () => setMenuOpen(false)), []);
-
+  const closeMenus = () => {
+    setMenuOpen(false);
+    setCommunityOpen(false);
+    setMobileCommunityOpen(false);
+  };
+  useEffect(() => on("close-panels", closeMenus), []);
   useEffect(() => {
-    if (!menuOpen) return;
-    firstLinkRef.current?.focus();
+    closeMenus();
+  }, [session]);
+  useEffect(() => {
+    if (!menuOpen && !communityOpen) return;
+    if (menuOpen) firstLinkRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        toggleRef.current?.focus();
-      }
+      if (event.key !== "Escape") return;
+      const wasCommunity = communityOpen;
+      closeMenus();
+      (wasCommunity ? communityButtonRef.current : toggleRef.current)?.focus();
     };
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (panelRef.current?.contains(target) || toggleRef.current?.contains(target)) return;
-      setMenuOpen(false);
+      if (
+        panelRef.current?.contains(target) ||
+        toggleRef.current?.contains(target) ||
+        communityRef.current?.contains(target)
+      )
+        return;
+      closeMenus();
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mousedown", onPointerDown);
@@ -54,15 +129,34 @@ export function SiteHeader({ currentPath, sticky = false }: { currentPath: strin
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("mousedown", onPointerDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, communityOpen]);
+
+  function DesktopItem({ item }: { item: NavItem }) {
+    const active = item.isActive(currentPath);
+    return (
+      <li className="relative h-[4.5rem]">
+        <a
+          href={item.href}
+          aria-current={active ? "page" : undefined}
+          className={`inline-flex h-full items-center rounded-[5px] px-1 text-[0.9375rem] font-medium tracking-[-0.01em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${active ? "text-blue-700" : "text-zinc-600 hover:text-zinc-950"}`}
+        >
+          {item.label}
+        </a>
+        {active && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-blue-600"
+          />
+        )}
+      </li>
+    );
+  }
 
   return (
-    <header className={`relative border-b border-zinc-200/80 bg-white ${sticky ? "sticky top-0 z-30" : ""}`}>
+    <header
+      className={`relative border-b border-zinc-200/80 bg-white ${sticky ? "sticky top-0 z-30" : ""}`}
+    >
       <div className="mx-auto flex h-[4.5rem] max-w-[90rem] items-center justify-between px-5 sm:px-8">
-        {/* The lockup never wraps or shrinks: at 320px the tighter gap plus the
-            account chip's narrower small-screen padding keeps the whole row on
-            one 72px line. */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- vinext's worker routing has no next/link support; every internal link in this codebase is a plain <a>. */}
         <a
           href="/"
           className="group inline-flex shrink-0 items-center gap-2 rounded-[5px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600 sm:gap-2.5"
@@ -73,29 +167,50 @@ export function SiteHeader({ currentPath, sticky = false }: { currentPath: strin
             Alpha Poker
           </span>
         </a>
-
-        <nav aria-label="Main" className="absolute left-1/2 hidden -translate-x-1/2 lg:flex">
+        <nav
+          aria-label="Main"
+          className="absolute left-1/2 hidden -translate-x-1/2 lg:flex"
+        >
           <ul className="flex items-center gap-8">
-            {NAV_ITEMS.map((item) => {
-              const active = item.isActive(currentPath);
-              return (
-                <li key={item.href} className="relative h-[4.5rem]">
-                  <a
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`inline-flex h-full items-center rounded-[5px] px-1 text-[0.9375rem] font-medium tracking-[-0.01em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
-                      active ? "text-blue-700" : "text-zinc-600 hover:text-zinc-950"
-                    }`}
+            {coreItems.map((item) => (
+              <DesktopItem key={item.href} item={item} />
+            ))}
+            {session && (
+              <li ref={communityRef} className="relative">
+                <button
+                  ref={communityButtonRef}
+                  type="button"
+                  aria-expanded={communityOpen}
+                  aria-controls={communityId}
+                  onClick={() => setCommunityOpen((value) => !value)}
+                  className="inline-flex h-10 items-center gap-1 rounded-[5px] px-1 text-[0.9375rem] font-medium text-zinc-600 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                >
+                  Community <ChevronIcon />
+                </button>
+                {communityOpen && (
+                  <div
+                    id={communityId}
+                    className="absolute left-0 top-12 w-44 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-lg"
                   >
-                    {item.label}
-                  </a>
-                  {active && <span aria-hidden="true" className="absolute inset-x-0 bottom-[-1px] h-0.5 bg-blue-600" />}
-                </li>
-              );
-            })}
+                    <ul>
+                      {COMMUNITY_ITEMS.map((item) => (
+                        <li key={item.href}>
+                          <a
+                            href={item.href}
+                            onClick={closeMenus}
+                            className="block rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 hover:text-zinc-950"
+                          >
+                            {item.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </li>
+            )}
           </ul>
         </nav>
-
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <button
             ref={toggleRef}
@@ -111,19 +226,15 @@ export function SiteHeader({ currentPath, sticky = false }: { currentPath: strin
           <AuthButton />
         </div>
       </div>
-
       {menuOpen && (
         <div
           id={panelId}
           ref={panelRef}
           className="absolute inset-x-0 top-full z-35 border-b border-zinc-200 bg-white px-5 py-2 shadow-[0_8px_24px_rgba(9,9,11,0.10)] motion-safe:animate-[fade-in_150ms_ease-out]"
         >
-          {/* The disclosure carries the Main landmark below 1024px, where the
-              centered nav above is display:none and therefore absent from the
-              accessibility tree (spec 7.4). */}
           <nav aria-label="Main">
             <ul>
-              {NAV_ITEMS.map((item, index) => {
+              {coreItems.map((item, index) => {
                 const active = item.isActive(currentPath);
                 return (
                   <li key={item.href}>
@@ -131,18 +242,41 @@ export function SiteHeader({ currentPath, sticky = false }: { currentPath: strin
                       ref={index === 0 ? firstLinkRef : undefined}
                       href={item.href}
                       aria-current={active ? "page" : undefined}
-                      onClick={() => setMenuOpen(false)}
-                      className={`flex h-12 items-center rounded-[5px] pl-3 text-[1.0625rem] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
-                        active
-                          ? "border-l-2 border-blue-600 bg-blue-50/60 font-semibold text-blue-700"
-                          : "text-zinc-700"
-                      }`}
+                      onClick={closeMenus}
+                      className={`flex h-12 items-center rounded-[5px] pl-3 text-[1.0625rem] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${active ? "border-l-2 border-blue-600 bg-blue-50/60 font-semibold text-blue-700" : "text-zinc-700"}`}
                     >
                       {item.label}
                     </a>
                   </li>
                 );
               })}
+              {session && (
+                <li className="mt-1 border-t border-zinc-100 pt-1">
+                  <button
+                    type="button"
+                    aria-expanded={mobileCommunityOpen}
+                    onClick={() => setMobileCommunityOpen((value) => !value)}
+                    className="flex h-12 w-full items-center justify-between rounded-[5px] pl-3 text-left text-[1.0625rem] font-medium text-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600"
+                  >
+                    Community <ChevronIcon />
+                  </button>
+                  {mobileCommunityOpen && (
+                    <ul className="ml-3 border-l border-zinc-200">
+                      {COMMUNITY_ITEMS.map((item) => (
+                        <li key={item.href}>
+                          <a
+                            href={item.href}
+                            onClick={closeMenus}
+                            className="flex h-11 items-center pl-4 text-sm font-medium text-zinc-600 hover:text-zinc-950"
+                          >
+                            {item.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              )}
             </ul>
           </nav>
         </div>

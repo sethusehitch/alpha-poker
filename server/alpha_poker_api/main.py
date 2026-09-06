@@ -24,11 +24,12 @@ from .auth import DUMMY_PASSWORD_HASH, authenticate_token, hash_password, issue_
 from .community import is_operator_username, register_community_routes
 from .config import Settings
 from .db import Database, now_iso
-from .jobs import archive_and_prune, archive_run, build_run_artifact, prune_submission_packages, run_official_league, summarize_run, validate_submission
+from .jobs import archive_and_prune, archive_run, build_run_artifact, prune_submission_packages, recover_rival_challenges, run_official_league, run_rival_challenge, summarize_run, validate_submission
 from .models import LoginRequest, RegisterRequest, RunCreate, TrainingCreate
 from .ratelimit import RateLimiter
 from .training import action_request, create_session, emit, remember_action, remembered_action
 from .training_runtime import advance_leader, build_runtime, persist_completed_hand, public_action_to_engine, start_hand
+from .rivals import register_rival_routes
 
 MAX_ZIP_BYTES = 2 * 1024 * 1024
 CAPABILITY_TOKEN_PATTERN = re.compile(r"([?&]token=)[^&\s\"]+")
@@ -73,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if not any(isinstance(item, RedactCapabilityTokens) for item in logger.filters):
                 logger.addFilter(RedactCapabilityTokens())
         db.initialize(settings.seed_demo_data)
+        recover_rival_challenges(db)
         db.execute("DELETE FROM auth_sessions WHERE expires_at<=?", (now_iso(),))
         feedback_cutoff = (datetime.now(UTC) - timedelta(days=settings.feedback_retention_days)).isoformat().replace("+00:00", "Z")
         db.execute("DELETE FROM feedback WHERE created_at<?", (feedback_cutoff,))
@@ -81,6 +83,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             queue = db.one("SELECT * FROM league_queue WHERE singleton=1")
             if queue and queue["requested_generation"] > queue["completed_generation"]:
                 app.state.auto_run_task = asyncio.create_task(auto_run_worker())
+        if db.one("SELECT 1 FROM rival_challenges WHERE status='queued' LIMIT 1"):
+            app.state.rival_worker_task = asyncio.create_task(rival_worker())
         try:
             yield
         finally:
@@ -94,6 +98,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     await task
                 except asyncio.CancelledError:
                     pass
+            rival_task = app.state.rival_worker_task
+            if rival_task and not rival_task.done():
+                rival_task.cancel()
+                try:
+                    await rival_task
+                except asyncio.CancelledError:
+                    pass
 
     app = FastAPI(title="Alpha Poker API", version="0.1.0", lifespan=lifespan)
     app.state.db = db
@@ -102,6 +113,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.auto_run_requested = False
     app.state.auto_run_task = None
     app.state.auto_run_lock = asyncio.Lock()
+    app.state.rival_worker_task = None
+    app.state.rival_worker_lock = asyncio.Lock()
     app.state.league_execution_lock = threading.Lock()
     auth_limiter = RateLimiter()
     app.add_middleware(
@@ -153,6 +166,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 raise HTTPException(403, {"code": "username_mismatch", "message": "Username does not match the logged-in account"})
             return authenticated
         return normalize_username(requested or authenticated or "local")
+
+    def rival_username(authorization: str | None, requested: str | None) -> str:
+        authenticated = authenticate_token(db, authorization)
+        if authenticated:
+            if requested and normalize_username(requested) != authenticated:
+                raise HTTPException(403, {"code": "username_mismatch", "message": "Username does not match the logged-in account"})
+            return authenticated
+        if settings.auth_required:
+            return request_user(authorization)
+        if requested:
+            return normalize_username(requested)
+        raise HTTPException(401, {"code": "authentication_required", "message": "Log in to use Rivals"})
+
+    def authorize_run_access(
+        run: dict[str, Any], authorization: str | None, local_username: str | None
+    ) -> None:
+        if bool(run["official"]):
+            return
+        challenge = db.one(
+            "SELECT challenger_username,challenged_username FROM rival_challenges WHERE run_id=?",
+            (run["id"],),
+        )
+        if not challenge:
+            raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        username = rival_username(authorization, local_username)
+        if username not in {challenge["challenger_username"], challenge["challenged_username"]}:
+            raise HTTPException(403, {"code": "run_forbidden", "message": "This rival run belongs to other players"})
 
     def auth_client_key(request: Request) -> str:
         # Caddy replaces X-Forwarded-For before proxying, so the first address
@@ -362,10 +402,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"runs": db.all("SELECT * FROM runs WHERE official=1 ORDER BY requested_at DESC")}
 
     @app.get("/v1/runs/{run_id}")
-    def run_detail(run_id: str):
+    def run_detail(run_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
         run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
         if not run:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        authorize_run_access(run, authorization, x_alpha_username)
         run["reproducibility"] = {"seed": run["seed"], "engine_version": run["engine_version"], "rules_version": run["rules_version"], "seat_mirroring": True}
         run["progress"] = {
             "matchups_completed": int(run.get("completed_matchups") or db.one("SELECT count(*) AS n FROM matchups WHERE run_id=?", (run_id,))["n"]),
@@ -377,15 +418,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return run
 
     @app.get("/v1/runs/{run_id}/matchups")
-    def run_matchups(run_id: str):
-        if not db.one("SELECT 1 FROM runs WHERE id=?", (run_id,)):
+    def run_matchups(run_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
+        if not run:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        authorize_run_access(run, authorization, x_alpha_username)
         return {"run_id": run_id, "matchups": _matchups(run_id)}
 
     @app.get("/v1/runs/{run_id}/summary")
-    def run_summary(run_id: str):
-        if not db.one("SELECT 1 FROM runs WHERE id=?", (run_id,)):
+    def run_summary(run_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
+        if not run:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        authorize_run_access(run, authorization, x_alpha_username)
         stored = settings.artifact_dir / f"{run_id}.zip"
         if stored.exists():
             with zipfile.ZipFile(stored) as archive:
@@ -487,6 +532,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if task is None or task.done():
             app.state.auto_run_task = asyncio.create_task(auto_run_worker())
 
+    def run_one_rival_challenge(challenge_id: str) -> None:
+        with app.state.league_execution_lock:
+            completed = run_rival_challenge(db, challenge_id, settings.auto_run_timeout_seconds)
+            challenge = db.one("SELECT run_id,status FROM rival_challenges WHERE id=?", (challenge_id,))
+            if completed and challenge and challenge["status"] == "completed" and challenge["run_id"]:
+                archive_run(db, challenge["run_id"], settings.artifact_dir)
+            prune_submission_packages(db)
+
+    async def rival_worker() -> None:
+        async with app.state.rival_worker_lock:
+            while True:
+                challenge = db.one(
+                    "SELECT id FROM rival_challenges WHERE status='queued' ORDER BY accepted_at,created_at LIMIT 1"
+                )
+                if not challenge:
+                    return
+                await asyncio.to_thread(run_one_rival_challenge, challenge["id"])
+
+    def schedule_rival_worker() -> None:
+        task = app.state.rival_worker_task
+        if task is None or task.done():
+            app.state.rival_worker_task = asyncio.create_task(rival_worker())
+
     async def validate_and_schedule(submission_id: str) -> None:
         def validate_with_package_lock() -> None:
             # Activation and package pruning share the same lock as official
@@ -535,24 +603,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return PlainTextResponse(row["logs"], media_type="text/plain")
 
     @app.get("/v1/hands/{hand_id}")
-    def hand(hand_id: str):
-        row = db.one("SELECT record_json FROM hands WHERE id=?", (hand_id,))
+    def hand(hand_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        row = db.one("SELECT h.record_json,r.* FROM hands h JOIN runs r ON r.id=h.run_id WHERE h.id=?", (hand_id,))
         if not row:
             raise HTTPException(404, {"code": "hand_not_found", "message": "Hand not found"})
+        authorize_run_access(row, authorization, x_alpha_username)
         return json.loads(row["record_json"])
 
     @app.get("/v1/hands/{hand_id}/phh")
-    def hand_phh(hand_id: str):
-        row = db.one("SELECT phh FROM hands WHERE id=?", (hand_id,))
+    def hand_phh(hand_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        row = db.one("SELECT h.phh,r.* FROM hands h JOIN runs r ON r.id=h.run_id WHERE h.id=?", (hand_id,))
         if not row:
             raise HTTPException(404, {"code": "hand_not_found", "message": "Hand not found"})
+        authorize_run_access(row, authorization, x_alpha_username)
         return PlainTextResponse(row["phh"], media_type="text/plain", headers={"Content-Disposition": f'attachment; filename="{hand_id}.phh"'})
 
     @app.get("/v1/runs/{run_id}/artifacts")
-    def artifacts(run_id: str):
-        run = db.one("SELECT status FROM runs WHERE id=?", (run_id,))
+    def artifacts(run_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
         if not run:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        authorize_run_access(run, authorization, x_alpha_username)
         if run["status"] != "completed":
             raise HTTPException(409, {"code": "artifacts_not_ready", "message": "Run artifacts are not ready"})
         stored = settings.artifact_dir / f"{run_id}.zip"
@@ -786,6 +857,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except WebSocketDisconnect:
             return
 
+    register_rival_routes(app, db, rival_username, schedule_rival_worker, app.state.league_execution_lock)
     register_community_routes(app, db, settings)
     return app
 

@@ -33,7 +33,9 @@ test("server-renders the Alpha Poker landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>Alpha Poker/i);
   assert.match(html, /Build a poker bot\./);
-  assert.match(html, /font-\[650\] leading-\[1\.09\]/);
+  assert.match(html, /text-\[2rem\].*sm:text-\[clamp\(3\.35rem,6\.2vw,6\.5rem\)\]/);
+  assert.match(html, /<span class="block whitespace-nowrap">Build a poker bot\.<\/span>/);
+  assert.match(html, /<span class="block whitespace-nowrap">\s*Prove it.{1,2}s the best\./);
   assert.match(html, /Prove it.{1,2}s the best\./);
   assert.match(html, /A private arena for testing autonomous poker agents\./);
   assert.match(html, /PRIVATE BOT LEAGUE/);

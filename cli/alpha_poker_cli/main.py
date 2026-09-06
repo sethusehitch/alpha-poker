@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import socket
 import ssl
@@ -246,19 +247,27 @@ def build_submission(root: Path, destination: Path) -> Path:
     return destination
 
 
-def _http_json(method: str, url: str, payload: dict[str, Any] | None = None, token: str | None = None) -> dict[str, Any]:
+def _http_json(
+    method: str,
+    url: str,
+    payload: dict[str, Any] | None = None,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
     data = None if payload is None else json.dumps(payload).encode()
-    headers = {"Accept": "application/json"}
+    request_headers = {"Accept": "application/json", **(headers or {})}
     if data is not None:
-        headers["Content-Type"] = "application/json"
+        request_headers["Content-Type"] = "application/json"
     if token:
-        headers["Authorization"] = f"Bearer {token}"
-    request = Request(url, data=data, method=method, headers=headers)
+        request_headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, data=data, method=method, headers=request_headers)
     try:
         with urlopen(request, timeout=30) as response:
             body = response.read()
     except HTTPError as exc:
         detail = exc.read().decode(errors="replace")
+        if token:
+            detail = detail.replace(token, "[redacted]")
         raise CliError(f"server returned HTTP {exc.code}: {detail}") from exc
     except URLError as exc:
         raise CliError(f"could not reach Alpha Poker at {url}: {exc.reason}") from exc
@@ -270,6 +279,143 @@ def _http_json(method: str, url: str, payload: dict[str, Any] | None = None, tok
         return json.loads(body) if body else {}
     except json.JSONDecodeError as exc:
         raise CliError("server returned invalid JSON") from exc
+
+
+def _authenticated(api_url: str) -> tuple[str, str]:
+    username, token = _identity(api_url)
+    if not token:
+        raise CliError("not logged in; run alpha-poker login USERNAME")
+    return username, token
+
+
+def _query_url(url: str, **parameters: Any) -> str:
+    filtered = {key: value for key, value in parameters.items() if value is not None}
+    return f"{url}?{urlencode(filtered)}" if filtered else url
+
+
+def _username_argument(value: str) -> str:
+    normalized = value.strip().lower()
+    if not re.fullmatch(r"[a-z0-9_-]{2,40}", normalized):
+        raise argparse.ArgumentTypeError("username must be 2 to 40 letters, numbers, underscores, or hyphens")
+    return normalized
+
+
+def _resource_id(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_-]{2,200}", value):
+        raise argparse.ArgumentTypeError("identifier contains unsupported characters")
+    return value
+
+
+def _history_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("limit must be an integer") from exc
+    if not 1 <= parsed <= 50:
+        raise argparse.ArgumentTypeError("limit must be between 1 and 50")
+    return parsed
+
+
+def _json_object(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {"items": value}
+
+
+def _print_json(value: Any) -> None:
+    print(json.dumps(_json_object(value), sort_keys=True, separators=(",", ":")))
+
+
+def _items(value: Any, *keys: str) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        for key in keys:
+            found = value.get(key)
+            if isinstance(found, list):
+                return [item for item in found if isinstance(item, dict)]
+    return []
+
+
+def _name(value: dict[str, Any], *keys: str, fallback: str = "unknown") -> str:
+    for key in keys:
+        found = value.get(key)
+        if isinstance(found, str) and found:
+            return found
+    return fallback
+
+
+def _challenge_status(value: dict[str, Any]) -> str:
+    return _name(value, "status", fallback="unknown")
+
+
+def _challenge_opponent(value: dict[str, Any], username: str) -> str:
+    opponent_username = value.get("opponent_username")
+    if isinstance(opponent_username, str) and opponent_username:
+        return opponent_username
+    direct = value.get("opponent")
+    if isinstance(direct, dict):
+        return _name(direct, "username", fallback="opponent")
+    if isinstance(direct, str):
+        return direct
+    challenger = _name(value, "challenger_username", "challenger", fallback="")
+    challenged = _name(value, "challenged_username", "challenged", fallback="")
+    return challenged if challenger.lower() == username.lower() else challenger or challenged or "opponent"
+
+
+def _confirm(message: str, assume_yes: bool) -> None:
+    if assume_yes:
+        return
+    if not sys.stdin.isatty():
+        raise CliError("confirmation requires an interactive terminal; review the action and re-run with --yes")
+    try:
+        answer = input(f"{message} Type yes to continue: ").strip().lower()
+    except (EOFError, KeyboardInterrupt) as exc:
+        raise CliError("confirmation cancelled") from exc
+    if answer != "yes":
+        raise CliError("confirmation cancelled")
+
+
+def _challenge_preview(value: dict[str, Any], username: str, action: str) -> str:
+    opponent = _challenge_opponent(value, username)
+    bot_names = value.get("bot_names") if isinstance(value.get("bot_names"), dict) else {}
+    challenger = _name(value, "challenger_username", fallback="")
+    if challenger.lower() == username.lower():
+        own_bot, opponent_bot = bot_names.get("challenger"), bot_names.get("challenged")
+    else:
+        own_bot, opponent_bot = bot_names.get("challenged"), bot_names.get("challenger")
+    own_bot = own_bot or value.get("challenger_bot_name") or value.get("your_bot_name") or value.get("caller_bot_name")
+    opponent_bot = opponent_bot or value.get("challenged_bot_name") or value.get("opponent_bot_name") or value.get("bot_name")
+    bots = f" ({own_bot} vs {opponent_bot})" if own_bot and opponent_bot else ""
+    hands = int(value.get("hand_count") or 200)
+    return f"{action} {opponent}{bots} in one {hands}-hand direct challenge."
+
+
+def _format_record(record: Any) -> str:
+    if not isinstance(record, dict):
+        return "0-0"
+    wins = int(record.get("wins", 0))
+    losses = int(record.get("losses", 0))
+    draws = int(record.get("draws", 0))
+    return f"{wins}-{losses}" + (f"-{draws}" if draws else "")
+
+
+def _write_recap(response: dict[str, Any], output: Path, api_url: str, token: str) -> Path:
+    output = output.expanduser().resolve()
+    artifact = response.get("artifacts_url") or response.get("artifact_url")
+    challenge = response.get("challenge") if isinstance(response.get("challenge"), dict) else response
+    challenge_id = challenge.get("challenge_id") or challenge.get("id") or "recap"
+    if isinstance(artifact, str):
+        if output.exists() and output.is_dir():
+            output = output / f"alpha-poker-rival-{challenge_id}.zip"
+        elif not output.suffix:
+            output.mkdir(parents=True, exist_ok=True)
+            output = output / f"alpha-poker-rival-{challenge_id}.zip"
+        return _download(urljoin(api_url.rstrip("/") + "/", artifact), output, token)
+    if (output.exists() and output.is_dir()) or not output.suffix:
+        output.mkdir(parents=True, exist_ok=True)
+        output = output / f"alpha-poker-rival-{challenge_id}.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(response, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return output
 
 
 def _multipart_upload(url: str, package: Path, bot_name: str, username: str = "local", token: str | None = None) -> dict[str, Any]:
@@ -528,8 +674,228 @@ def run_training(root: Path, api_url: str, opponent: str, hands: int, output: Pa
     return _download(artifacts_url, destination, auth_token) if auth_token else _download(artifacts_url, destination)
 
 
+def _print_rivals(response: dict[str, Any]) -> None:
+    rivals = _items(response, "rivals", "items")
+    if not rivals:
+        print("No rivals found.")
+        return
+    for rival in rivals:
+        username = _name(rival, "username")
+        bot = _name(rival, "bot_name", fallback="no active bot")
+        elo = rival.get("elo") if rival.get("elo") is not None else rival.get("elo_rating")
+        suffix = f"{int(elo):,} Elo" if isinstance(elo, (int, float)) else "unranked"
+        record = rival.get("direct_record") or rival.get("record") or rival.get("head_to_head")
+        if isinstance(record, dict):
+            suffix += f", {_format_record(record)} direct"
+        print(f"{username}: {bot} ({suffix})")
+
+
+def _print_challenges(response: dict[str, Any], username: str) -> None:
+    challenges = _items(response, "challenges", "items")
+    if not challenges and (response.get("id") or response.get("challenge_id")):
+        challenges = [response]
+    if not challenges:
+        print("No matching rival challenges.")
+        return
+    for challenge in challenges:
+        identifier = _name(challenge, "id", "challenge_id")
+        opponent = _challenge_opponent(challenge, username)
+        status = _challenge_status(challenge)
+        result = ""
+        winner = challenge.get("winner_username") or challenge.get("winner")
+        margin = challenge.get("margin_play_chips") or challenge.get("margin")
+        if winner:
+            result = f", winner {winner}"
+            if isinstance(margin, (int, float)):
+                result += f" by {abs(int(margin)):,} play chips"
+        print(f"{identifier}: {opponent} — {status}{result}")
+
+
+def _notification_message(item: dict[str, Any]) -> str:
+    message = item.get("message")
+    if isinstance(message, str) and message:
+        return message
+    payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+    opponent = _name(payload, "opponent_username", fallback="Your rival")
+    kind = item.get("type")
+    margin = payload.get("margin_play_chips")
+    margin_text = f" by {abs(int(margin)):,} play chips" if isinstance(margin, (int, float)) else ""
+    if kind == "challenge_received":
+        return f"{opponent} challenged you."
+    if kind == "challenge_won":
+        return f"You beat {opponent}{margin_text}."
+    if kind == "challenge_lost":
+        return f"{opponent} beat you{margin_text}."
+    if kind == "challenge_drawn":
+        return f"Your challenge with {opponent} ended in a draw."
+    if kind == "challenge_failed":
+        return f"Your challenge with {opponent} could not finish. It is safe to check or retry."
+    return _name(item, "type", fallback="Notification")
+
+
+def _wait_for_challenge(
+    api_url: str,
+    challenge_id: str,
+    token: str,
+    timeout_seconds: float,
+    json_output: bool,
+) -> dict[str, Any]:
+    if not 1 <= timeout_seconds <= 3600:
+        raise CliError("--timeout must be between 1 and 3600 seconds")
+    terminal = {"completed", "declined", "cancelled", "failed"}
+    deadline = time.monotonic() + timeout_seconds
+    delay = 0.5
+    last_status = ""
+    while True:
+        response = _http_json("GET", f"{api_url.rstrip('/')}/challenges/{challenge_id}", token=token)
+        status = _challenge_status(response)
+        if not json_output and status != last_status:
+            print(f"Challenge {challenge_id}: {status}", file=sys.stderr)
+            last_status = status
+        if status in terminal:
+            return response
+        if time.monotonic() >= deadline:
+            raise CliError(f"challenge {challenge_id} did not finish within {int(timeout_seconds)} seconds; check it later with rivals status")
+        time.sleep(min(delay, max(0.0, deadline - time.monotonic())))
+        delay = min(delay * 1.6, 5.0)
+
+
+def _run_rivals(args: argparse.Namespace) -> int:
+    username, token = _authenticated(args.api_url)
+    api = args.api_url.rstrip("/")
+    action = args.rivals_command
+    if action == "list":
+        response = _http_json("GET", _query_url(f"{api}/rivals", source=args.source, q=args.search), token=token)
+        _print_json(response) if args.json else _print_rivals(response)
+        return 0
+    if action == "show":
+        response = _http_json("GET", f"{api}/rivals/{args.username}", token=token)
+        if args.json:
+            _print_json(response)
+        else:
+            rival = response.get("rival") if isinstance(response.get("rival"), dict) else response
+            elo = rival.get("elo") if rival.get("elo") is not None else rival.get("elo_rating")
+            print(f"{_name(rival, 'username', fallback=args.username)} — {_name(rival, 'bot_name', fallback='no active bot')}")
+            if isinstance(elo, (int, float)):
+                print(f"Elo: {int(elo):,}")
+            record = response.get("direct_record") or rival.get("direct_record") or rival.get("record") or rival.get("head_to_head")
+            print(f"Direct challenge record: {_format_record(record)}")
+            if response.get("is_nemesis") or rival.get("is_nemesis"):
+                print("Relationship: Nemesis")
+        return 0
+    if action == "history":
+        response = _http_json(
+            "GET", _query_url(f"{api}/rivals/{args.username}/history", limit=args.limit), token=token
+        )
+        if args.json:
+            _print_json(response)
+        else:
+            history = _items(response, "history", "challenges", "items")
+            _print_challenges({"challenges": history}, username)
+        return 0
+    if action == "requests":
+        response = _http_json("GET", _query_url(f"{api}/challenges", status=args.status), token=token)
+        _print_json(response) if args.json else _print_challenges(response, username)
+        return 0
+    if action == "challenge":
+        rival = _http_json("GET", f"{api}/rivals/{args.username}", token=token)
+        account = _http_json("GET", f"{api}/account/status", token=token)
+        preview = rival.get("rival") if isinstance(rival.get("rival"), dict) else rival
+        submission = account.get("submission") if isinstance(account.get("submission"), dict) else {}
+        preview = {
+            **preview,
+            "opponent": args.username,
+            "hand_count": 200,
+            "your_bot_name": submission.get("bot_name") or "your active bot",
+            "opponent_bot_name": preview.get("bot_name") or "their active bot",
+        }
+        print(_challenge_preview(preview, username, "Challenge"), file=sys.stderr if args.json else sys.stdout)
+        _confirm("Send this challenge?", args.yes)
+        response = _http_json(
+            "POST",
+            f"{api}/challenges",
+            {"opponent_username": args.username},
+            token,
+            {"Idempotency-Key": f"cli-challenge-{uuid.uuid4()}"},
+        )
+        if args.json:
+            _print_json(response)
+        else:
+            print(f"Challenge sent: {_name(response, 'id', 'challenge_id')}")
+        return 0
+    if action in {"accept", "decline", "cancel"}:
+        challenge = _http_json("GET", f"{api}/challenges/{args.challenge_id}", token=token)
+        verb = {"accept": "Accept", "decline": "Decline", "cancel": "Cancel"}[action]
+        print(_challenge_preview(challenge, username, verb), file=sys.stderr if args.json else sys.stdout)
+        _confirm(f"{verb} this challenge?", args.yes)
+        response = _http_json(
+            "POST",
+            f"{api}/challenges/{args.challenge_id}/{action}",
+            {},
+            token,
+            {"Idempotency-Key": f"cli-{action}-{uuid.uuid4()}"},
+        )
+        _print_json(response) if args.json else _print_challenges(response, username)
+        return 0
+    if action == "status":
+        if args.wait and not args.challenge_id:
+            raise CliError("rivals status --wait requires a CHALLENGE_ID")
+        if args.challenge_id:
+            response = (
+                _wait_for_challenge(api, args.challenge_id, token, args.timeout, args.json)
+                if args.wait
+                else _http_json("GET", f"{api}/challenges/{args.challenge_id}", token=token)
+            )
+        else:
+            response = _http_json("GET", f"{api}/challenges", token=token)
+        _print_json(response) if args.json else _print_challenges(response, username)
+        return 0
+    if action == "recap":
+        response = _http_json("GET", f"{api}/challenges/{args.challenge_id}/recap", token=token)
+        saved: Path | None = None
+        if args.output:
+            saved = _write_recap(response, args.output, api, token)
+        if args.json:
+            payload = {**response, **({"saved_to": str(saved)} if saved else {})}
+            _print_json(payload)
+        else:
+            challenge = response.get("challenge") if isinstance(response.get("challenge"), dict) else response
+            winner = challenge.get("winner_username") or challenge.get("winner") or "No winner"
+            margin = challenge.get("margin_play_chips") or challenge.get("margin")
+            print(f"Winner: {winner}" + (f" by {abs(int(margin)):,} play chips" if isinstance(margin, (int, float)) else ""))
+            if saved:
+                print(f"Saved recap: {saved}")
+        return 0
+    raise CliError(f"unknown rivals command: {action}")
+
+
+def _run_notifications(args: argparse.Namespace) -> int:
+    _, token = _authenticated(args.api_url)
+    api = args.api_url.rstrip("/")
+    if args.notifications_command == "list":
+        response = _http_json(
+            "GET", _query_url(f"{api}/notifications", unread="true" if args.unread else None), token=token
+        )
+        if args.json:
+            _print_json(response)
+        else:
+            notifications = _items(response, "notifications", "items")
+            if not notifications:
+                print("No notifications.")
+            for item in notifications:
+                unread = "new" if not item.get("read_at") else "read"
+                print(f"{_name(item, 'id', 'notification_id')}: {_notification_message(item)} ({unread})")
+        return 0
+    response = _http_json("POST", f"{api}/notifications/{args.notification_id}/read", {}, token)
+    _print_json(response) if args.json else print(f"Marked notification {args.notification_id} read.")
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="alpha-poker", description="Build, submit, and train an Alpha Poker bot")
+    parser = argparse.ArgumentParser(
+        prog="alpha-poker",
+        description="Build, train, compete, and manage Alpha Poker rival challenges",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     register = sub.add_parser("register", help="create a local Alpha Poker account")
     register.add_argument("username")
@@ -560,12 +926,76 @@ def _parser() -> argparse.ArgumentParser:
     train.add_argument("--opponent", default="leader", choices=["leader"])
     train.add_argument("--hands", type=int, default=5000)
     train.add_argument("--output", type=Path, help="destination directory or .zip file")
+
+    rivals = sub.add_parser("rivals", help="find rivals and manage direct challenges")
+    rivals_sub = rivals.add_subparsers(dest="rivals_command", required=True)
+
+    rivals_list = rivals_sub.add_parser("list", help="list your rivals or leaderboard participants")
+    rivals_list.add_argument("--source", choices=["mine", "leaderboard"], default="mine")
+    rivals_list.add_argument("--search")
+    rivals_list.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_list.add_argument("--json", action="store_true")
+    rivals_show = rivals_sub.add_parser("show", help="show one rival and your direct-challenge record")
+    rivals_show.add_argument("username", type=_username_argument)
+    rivals_show.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_show.add_argument("--json", action="store_true")
+    rivals_history = rivals_sub.add_parser("history", help="show direct challenges against one rival")
+    rivals_history.add_argument("username", type=_username_argument)
+    rivals_history.add_argument("--limit", type=_history_limit, default=20, metavar="N")
+    rivals_history.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_history.add_argument("--json", action="store_true")
+    rivals_requests = rivals_sub.add_parser("requests", help="list incoming, running, or finished challenges")
+    rivals_requests.add_argument("--status", choices=["incoming", "running", "finished"])
+    rivals_requests.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_requests.add_argument("--json", action="store_true")
+
+    for command, help_text in (
+        ("challenge", "send a 200-hand direct challenge"),
+        ("accept", "accept and queue an incoming challenge"),
+        ("decline", "decline an incoming challenge"),
+        ("cancel", "cancel a challenge you sent"),
+    ):
+        mutation = rivals_sub.add_parser(command, help=help_text)
+        mutation.add_argument(
+            "username" if command == "challenge" else "challenge_id",
+            type=_username_argument if command == "challenge" else _resource_id,
+        )
+        mutation.add_argument("--yes", action="store_true", help="confirm after reviewing the action")
+        mutation.add_argument("--api-url", default=DEFAULT_API_URL)
+        mutation.add_argument("--json", action="store_true")
+
+    rivals_status = rivals_sub.add_parser("status", help="show or wait for rival challenge status")
+    rivals_status.add_argument("challenge_id", nargs="?", type=_resource_id)
+    rivals_status.add_argument("--wait", action="store_true")
+    rivals_status.add_argument("--timeout", type=float, default=300, metavar="SECONDS")
+    rivals_status.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_status.add_argument("--json", action="store_true")
+    rivals_recap = rivals_sub.add_parser("recap", help="show a completed challenge recap and save evidence")
+    rivals_recap.add_argument("challenge_id", type=_resource_id)
+    rivals_recap.add_argument("--output", type=Path)
+    rivals_recap.add_argument("--api-url", default=DEFAULT_API_URL)
+    rivals_recap.add_argument("--json", action="store_true")
+
+    notifications = sub.add_parser("notifications", help="list and read rival notifications")
+    notifications_sub = notifications.add_subparsers(dest="notifications_command", required=True)
+    notifications_list = notifications_sub.add_parser("list", help="list recent notifications")
+    notifications_list.add_argument("--unread", action="store_true")
+    notifications_list.add_argument("--api-url", default=DEFAULT_API_URL)
+    notifications_list.add_argument("--json", action="store_true")
+    notifications_read = notifications_sub.add_parser("read", help="mark one notification read")
+    notifications_read.add_argument("notification_id", type=_resource_id)
+    notifications_read.add_argument("--api-url", default=DEFAULT_API_URL)
+    notifications_read.add_argument("--json", action="store_true")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "rivals":
+            return _run_rivals(args)
+        if args.command == "notifications":
+            return _run_notifications(args)
         if args.command in {"register", "login"}:
             password = _prompt_password("Password: ")
             if args.command == "register":

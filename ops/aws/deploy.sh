@@ -20,26 +20,21 @@ known_hosts_file="$temporary_dir/known_hosts"
 trap 'rm -rf "$temporary_dir"' EXIT HUP INT TERM
 umask 077
 
+if ! git -C "$project_dir" diff --quiet || ! git -C "$project_dir" diff --cached --quiet; then
+  echo "Deployment requires a clean tracked worktree." >&2
+  exit 1
+fi
+if [ "$(git -C "$project_dir" rev-parse HEAD)" != "$(git -C "$project_dir" rev-parse origin/main)" ]; then
+  echo "Deployment requires HEAD to match the reviewed origin/main commit." >&2
+  exit 1
+fi
+
 if [ ! -f "$ssh_key_file" ]; then
   echo "SSH key not found at $ssh_key_file. Run ops/aws/apply-infra.sh first." >&2
   exit 1
 fi
 
-COPYFILE_DISABLE=1 tar -C "$project_dir" -czf "$archive_file" \
-  --exclude=.git \
-  --exclude=.env \
-  --exclude=.next \
-  --exclude=.terraform \
-  --exclude=.venv \
-  --exclude=.vinext \
-  --exclude=.wrangler \
-  --exclude='*.tfplan' \
-  --exclude='*.tfstate*' \
-  --exclude='__pycache__' \
-  --exclude=data \
-  --exclude=dist \
-  --exclude=node_modules \
-  .
+git -C "$project_dir" archive --format=tar.gz --output="$archive_file" HEAD
 
 ssh_options=(
   -i "$ssh_key_file"

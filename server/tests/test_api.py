@@ -155,6 +155,23 @@ def test_training_websocket_url_respects_https_proxy(client):
     assert session["websocket_url"].startswith("wss://poker.example/v1/training/ws?")
 
 
+def test_training_session_creation_never_waits_for_an_official_run_lock(client):
+    class LockMustNotBeUsed:
+        def __enter__(self):
+            raise AssertionError("training creation must not acquire the league execution lock")
+
+        def __exit__(self, *_args):
+            return False
+
+    client.app.state.league_execution_lock = LockMustNotBeUsed()
+    response = client.post(
+        "/v1/training/sessions",
+        json={"username": "challenger", "hand_limit": 2},
+    )
+    assert response.status_code == 201
+    assert response.json()["session_id"].startswith("trn_")
+
+
 def test_training_rejects_an_unsupported_client_contract(client):
     response = client.post(
         "/v1/training/sessions",

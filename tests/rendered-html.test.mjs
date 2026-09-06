@@ -111,18 +111,21 @@ test("renders working account entry and hero links to real sections", async () =
   const html = await response.text();
 
   assert.match(html, /data-testid="account-trigger"/);
-  assert.match(html, /<span>Log in<\/span>/);
+  assert.match(html, /<span>Account<\/span>/);
+  const authSource = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
+  assert.match(authSource, /sessionChecked \? \([\s\S]*<span>Log in<\/span>/);
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>\s*Log in/);
   assert.match(html, /href="#instructions"/);
   assert.match(html, /href="#leaderboard"/);
 });
 
-test("account result copy pluralizes wins and losses", async () => {
+test("account result copy pluralizes wins, losses, and draws", async () => {
   const source = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
 
   assert.match(source, /count === 1 \? singular : plural/);
   assert.match(source, /recordLabel\(accountStatus\.result\.record\.wins, "win", "wins"\)/);
   assert.match(source, /recordLabel\(accountStatus\.result\.record\.losses, "loss", "losses"\)/);
+  assert.match(source, /recordLabel\(accountStatus\.result\.record\.draws, "draw", "draws"\)/);
   assert.doesNotMatch(source, /record\.wins\} wins/);
   assert.doesNotMatch(source, /losss/);
 });

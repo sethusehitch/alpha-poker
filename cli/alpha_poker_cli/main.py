@@ -40,7 +40,11 @@ class CliError(RuntimeError):
 
 def _config_path() -> Path:
     override = os.environ.get("ALPHA_POKER_CONFIG")
-    return Path(override).expanduser() if override else Path.home() / ".config" / "alpha-poker" / "credentials.json"
+    if override:
+        return Path(override).expanduser()
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(config_home).expanduser() if config_home else Path.home() / ".config"
+    return base / "alpha-poker" / "credentials.json"
 
 
 def _load_credentials() -> dict[str, Any]:
@@ -248,6 +252,10 @@ def _http_json(method: str, url: str, payload: dict[str, Any] | None = None, tok
         raise CliError(f"server returned HTTP {exc.code}: {detail}") from exc
     except URLError as exc:
         raise CliError(f"could not reach Alpha Poker at {url}: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise CliError(
+            "Alpha Poker did not respond within 30 seconds. Try again; your local bot files are unchanged."
+        ) from exc
     try:
         return json.loads(body) if body else {}
     except json.JSONDecodeError as exc:
@@ -486,9 +494,14 @@ def run_training(root: Path, api_url: str, opponent: str, hands: int, output: Pa
                     break
             if completed is not None:
                 break
-        except (OSError, TimeoutError, CliError):
+        except (OSError, TimeoutError, CliError) as exc:
             if attempt == 2:
-                raise
+                if isinstance(exc, CliError):
+                    raise
+                raise CliError(
+                    "The training connection timed out after three attempts. Try again in a moment; "
+                    "your local bot files are unchanged."
+                ) from exc
             time.sleep(0.25 * (attempt + 1))
         finally:
             if ws is not None:

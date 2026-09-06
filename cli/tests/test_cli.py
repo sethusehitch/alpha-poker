@@ -36,6 +36,19 @@ def make_bot(root: Path, source: str = VALID_BOT) -> None:
 
 
 class CliTests(unittest.TestCase):
+    def test_credentials_honor_xdg_config_home_for_isolated_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(
+                "os.environ",
+                {"XDG_CONFIG_HOME": directory},
+                clear=False,
+            ), patch.object(cli, "DEFAULT_TOKEN", None):
+                expected = Path(directory) / "alpha-poker" / "credentials.json"
+                self.assertEqual(cli._config_path(), expected)
+                cli._remember_profile("https://league.test/v1", "maya", "session-token")
+                self.assertEqual(cli._identity("https://league.test/v1"), ("maya", "session-token"))
+                self.assertEqual(expected.stat().st_mode & 0o777, 0o600)
+
     def test_starter_kit_bundles_cli_and_agent_workflow(self):
         destination = build_starter_kit.build()
         with zipfile.ZipFile(destination) as archive:
@@ -248,6 +261,36 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result, output)
             self.assertEqual(len(connections), 2)
             self.assertIn("after_seq=7", connections[1].url)
+
+    def test_http_timeout_becomes_a_clear_cli_error(self):
+        with patch.object(cli, "urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(cli.CliError, "did not respond within 30 seconds"):
+                cli._http_json("POST", "https://league.test/v1/training/sessions", {})
+
+    def test_training_connection_timeout_is_wrapped_after_retries(self):
+        class TimedOutWebSocket:
+            def __init__(self, *_args, **_kwargs):
+                pass
+
+            def receive_json(self):
+                raise TimeoutError("timed out")
+
+            def close(self):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_bot(root)
+            session = {
+                "session_id": "trn_test",
+                "websocket_url": "wss://league.test/socket",
+                "training_token": "secret",
+            }
+            with patch.object(cli, "_http_json", return_value=session), patch.object(
+                cli, "WebSocket", TimedOutWebSocket
+            ), patch.object(cli.time, "sleep"):
+                with self.assertRaisesRegex(cli.CliError, "timed out after three attempts"):
+                    cli.run_training(root, "https://league.test/v1", "leader", 10, None)
 
     def test_status_prints_waiting_state_and_latest_result(self):
         payload = {

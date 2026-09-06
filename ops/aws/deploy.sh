@@ -118,7 +118,8 @@ from pathlib import Path
 
 backup_dir = Path("/data/backups")
 backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-destination = backup_dir / f"pre-deploy-{os.environ[\"ALPHA_POKER_BACKUP_ID\"]}.sqlite3"
+backup_id = os.environ["ALPHA_POKER_BACKUP_ID"]
+destination = backup_dir / f"pre-deploy-{backup_id}.sqlite3"
 with sqlite3.connect("/data/alpha-poker.sqlite3") as source, sqlite3.connect(destination) as target:
     source.backup(target)
 destination.chmod(0o600)

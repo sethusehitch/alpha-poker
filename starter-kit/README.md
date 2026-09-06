@@ -7,6 +7,12 @@ Give the ZIP and the prompt from the Alpha Poker website to Claude, ChatGPT,
 or Codex. Your coding agent should perform the setup and competition workflow
 for you. You do not need to open a terminal or type Alpha Poker commands.
 
+The agent begins with a short menu of what it can do, shows the current top
+three bots, and asks what you want to try. It does not start changing files or
+creating an account until you choose. New players can choose **Build my first
+bot** for a guided Create, Build, Practice, and Compete path. Returning players
+can go straight to training, competition, challenges, hand review, or progress.
+
 Your agent can also find rivals, send a direct challenge after you approve the
 opponent, respond to incoming challenges, wait for results, and bring back a
 recap with hand evidence. You choose whom to face and how to change the bot;

@@ -49,6 +49,16 @@ def _prompt_password(prompt: str) -> str:
         ) from exc
 
 
+def _prompt_invite_code() -> str:
+    try:
+        return getpass.getpass("Invite code: ")
+    except (EOFError, KeyboardInterrupt) as exc:
+        raise CliError(
+            "secure invite-code input requires an interactive terminal; "
+            "re-run this command in a terminal"
+        ) from exc
+
+
 def _config_path() -> Path:
     override = os.environ.get("ALPHA_POKER_CONFIG")
     if override:
@@ -900,7 +910,10 @@ def _parser() -> argparse.ArgumentParser:
     register = sub.add_parser("register", help="create a local Alpha Poker account")
     register.add_argument("username")
     register.add_argument("--api-url", default=DEFAULT_API_URL)
-    register.add_argument("--invite-code")
+    register.add_argument(
+        "--invite-code",
+        help="cohort code; omit to enter it securely when the league requires one",
+    )
     login = sub.add_parser("login", help="log in and store a revocable local token")
     login.add_argument("username")
     login.add_argument("--api-url", default=DEFAULT_API_URL)
@@ -998,17 +1011,23 @@ def main(argv: list[str] | None = None) -> int:
             return _run_notifications(args)
         if args.command in {"register", "login"}:
             password = _prompt_password("Password: ")
+            invite_code = None
             if args.command == "register":
                 confirmation = _prompt_password("Confirm password: ")
                 if password != confirmation:
                     raise CliError("passwords do not match")
+                invite_code = args.invite_code
+                if invite_code is None:
+                    config = _http_json("GET", f"{args.api_url.rstrip('/')}/config")
+                    if config.get("invite_required") is True:
+                        invite_code = _prompt_invite_code()
             response = _http_json(
                 "POST",
                 f"{args.api_url.rstrip('/')}/auth/{args.command}",
                 {
                     "username": args.username,
                     "password": password,
-                    **({"invite_code": args.invite_code} if args.command == "register" and args.invite_code else {}),
+                    **({"invite_code": invite_code} if args.command == "register" and invite_code else {}),
                 },
             )
             if not isinstance(response.get("token"), str) or not isinstance(response.get("username"), str):
@@ -1046,7 +1065,18 @@ def main(argv: list[str] | None = None) -> int:
                         print(f"Submission error: {submission['error']}")
                 else:
                     print("Bot: no submission yet")
-                print(f"League: {response.get('participant_message') or queue.get('message', 'Status unavailable')}")
+                league_message = response.get("participant_message") or queue.get("message", "Status unavailable")
+                if queue.get("state") == "waiting_for_players":
+                    wait_detail = str(league_message).rstrip(".")
+                    print(f"Official league: not started ({wait_detail.lower()}).")
+                    if isinstance(result, dict) and isinstance(result.get("elo_rating"), int):
+                        print(
+                            f"Elo: unchanged at {result['elo_rating']:,} until the next official run completes."
+                        )
+                    else:
+                        print("Elo: not assigned until an official run completes.")
+                else:
+                    print(f"League: {league_message}")
                 current_run = league.get("current_run") if isinstance(league, dict) else None
                 progress = current_run.get("progress") if isinstance(current_run, dict) else None
                 if queue.get("state") == "running" and isinstance(progress, dict):

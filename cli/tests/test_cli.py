@@ -79,20 +79,41 @@ class CliTests(unittest.TestCase):
                 cli._forget_profile("http://one.test/v1")
                 self.assertIsNone(cli._profile("http://one.test/v1").get("token"))
 
-    def test_register_prompts_twice_and_stores_session(self):
+    def test_register_prompts_for_password_and_secure_invite_then_stores_session(self):
         with tempfile.TemporaryDirectory() as directory:
             config = Path(directory) / "credentials.json"
             response = {"username": "maya", "token": "session-token", "expires_at": "later"}
             output = io.StringIO()
             with patch.dict("os.environ", {"ALPHA_POKER_CONFIG": str(config)}), patch.object(
-                cli.getpass, "getpass", side_effect=["correct horse", "correct horse"]
-            ), patch.object(cli, "_http_json", return_value=response) as request, contextlib.redirect_stdout(output):
+                cli.getpass, "getpass", side_effect=["correct horse", "correct horse", "cohort-secret"]
+            ), patch.object(
+                cli,
+                "_http_json",
+                side_effect=[{"auth_required": True, "invite_required": True}, response],
+            ) as request, contextlib.redirect_stdout(output):
                 code = cli.main(["register", "Maya", "--api-url", "http://league.test/v1"])
             self.assertEqual(code, 0)
             self.assertIn("Logged in as maya", output.getvalue())
             saved = json.loads(config.read_text(encoding="utf-8"))
             self.assertEqual(saved["profiles"]["http://league.test/v1"]["token"], "session-token")
-            self.assertEqual(request.call_args.args[2]["password"], "correct horse")
+            self.assertEqual(request.call_args_list[0].args[:2], ("GET", "http://league.test/v1/config"))
+            payload = request.call_args_list[1].args[2]
+            self.assertEqual(payload["password"], "correct horse")
+            self.assertEqual(payload["invite_code"], "cohort-secret")
+
+    def test_register_flag_avoids_invite_prompt_for_automation(self):
+        response = {"username": "maya", "token": "session-token", "expires_at": "later"}
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            "os.environ", {"ALPHA_POKER_CONFIG": str(Path(directory) / "credentials.json")}
+        ), patch.object(
+            cli.getpass, "getpass", side_effect=["correct horse", "correct horse"]
+        ) as prompt, patch.object(cli, "_http_json", return_value=response) as request:
+            code = cli.main([
+                "register", "maya", "--invite-code", "automation-code", "--api-url", "http://league.test/v1"
+            ])
+        self.assertEqual(code, 0)
+        self.assertEqual(prompt.call_count, 2)
+        self.assertEqual(request.call_args.args[2]["invite_code"], "automation-code")
 
     def test_login_without_an_interactive_terminal_has_a_clear_error(self):
         error = io.StringIO()
@@ -317,9 +338,21 @@ class CliTests(unittest.TestCase):
             code = cli.main(["status", "--api-url", "https://league.test/v1"])
         self.assertEqual(code, 0)
         self.assertIn("Bot: Test Bot (accepted)", output.getvalue())
-        self.assertIn("Waiting for 1 more active bot", output.getvalue())
+        self.assertIn("Official league: not started (waiting for 1 more active bot)", output.getvalue())
+        self.assertIn("Elo: unchanged at 1,264 until the next official run completes", output.getvalue())
         self.assertIn("1,264 Elo", output.getvalue())
         self.assertIn("2 wins, 0 losses", output.getvalue())
+
+        payload["result"] = None
+        output = io.StringIO()
+        with patch.object(cli, "_identity", return_value=("maya", "secret")), patch.object(
+            cli, "_http_json", return_value=payload
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["status", "--api-url", "https://league.test/v1"])
+        self.assertEqual(code, 0)
+        self.assertIn("Elo: not assigned until an official run completes", output.getvalue())
+
+        payload["result"] = {"id": "run_one", "rank": 1, "elo_rating": 1264, "record": {"wins": 2, "losses": 0, "draws": 0}}
 
         payload["result"]["record"] = {"wins": 1, "losses": 1, "draws": 0}
         output = io.StringIO()

@@ -2,8 +2,9 @@ import { BUILD_BOT_PROMPT, STARTER_KIT_FILENAME } from "./components/agentPrompt
 import { CopyPromptButton } from "./components/CopyPromptButton";
 import { Leaderboard, type LeaderboardEntry } from "./components/Leaderboard";
 import { SiteHeader } from "./components/SiteHeader";
+import { serverFetchJson } from "./browser-api/_proxy";
 
-const initialLeaderboard: LeaderboardEntry[] = [
+const previewLeaderboard: LeaderboardEntry[] = [
   {
     rank: 1,
     bot_name: "RiverRat",
@@ -61,7 +62,12 @@ const initialLeaderboard: LeaderboardEntry[] = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const liveLeaderboard = await serverFetchJson("leaderboard", null);
+  const initialLeaderboard = Array.isArray(liveLeaderboard?.entries) && liveLeaderboard.entries.length > 0
+    ? liveLeaderboard.entries as LeaderboardEntry[]
+    : previewLeaderboard;
+
   return (
     <>
       <SiteHeader currentPath="/" />

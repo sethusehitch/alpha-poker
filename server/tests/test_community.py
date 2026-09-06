@@ -251,12 +251,23 @@ def test_unknown_status_from_storage_renders_as_submitted(client):
 def test_public_config_exposes_auth_required_without_authentication(client):
     response = client.get("/v1/config")
     assert response.status_code == 200
-    assert response.json() == {"auth_required": False}
+    assert response.json() == {"auth_required": False, "invite_required": False}
 
 
 def test_public_config_reflects_hosted_auth_required(tmp_path):
     with auth_client(tmp_path) as client:
-        assert client.get("/v1/config").json() == {"auth_required": True}
+        assert client.get("/v1/config").json() == {
+            "auth_required": True,
+            "invite_required": False,
+        }
+
+
+def test_public_config_reports_invite_requirement_without_exposing_code(tmp_path):
+    with auth_client(tmp_path, invite_code="cohort-secret") as client:
+        assert client.get("/v1/config").json() == {
+            "auth_required": True,
+            "invite_required": True,
+        }
 
 
 # --- Moderation ------------------------------------------------------------

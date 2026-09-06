@@ -52,6 +52,17 @@ test("server-renders the Alpha Poker landing page", async () => {
   assert.doesNotMatch(html, /react-loading-skeleton/);
 });
 
+test("the landing page prefers live server-rendered standings", async () => {
+  const source = await readFile(
+    new URL("../app/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /await serverFetchJson\("leaderboard", null\)/);
+  assert.match(source, /liveLeaderboard\?\.entries/);
+  assert.match(source, /: previewLeaderboard/);
+});
+
 test("orders hero, leaderboard, and instructions sections", async () => {
   const response = await render();
   const html = await response.text();
@@ -118,9 +129,9 @@ test("renders working account entry and hero links to real sections", async () =
   const html = await response.text();
 
   assert.match(html, /data-testid="account-trigger"/);
-  assert.match(html, /<span>Account<\/span>/);
+  assert.match(html, /<span>Log in<\/span>/);
   const authSource = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
-  assert.match(authSource, /sessionChecked \? \([\s\S]*<span>Log in<\/span>/);
+  assert.doesNotMatch(authSource, /<span>Account<\/span>/);
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>\s*Log in/);
   assert.match(html, /href="#instructions"/);
   assert.match(html, /href="#leaderboard"/);
@@ -156,9 +167,12 @@ test("instructions download the kit and hand the complete workflow to a coding a
   assert.match(html, /Paste them into your coding agent/);
   assert.match(html, /min-h-\[100svh\]/);
   assert.match(html, /one active bot/);
-  assert.match(html, /download all available hand and training artifacts/i);
+  assert.match(html, /Download available hand, training, submission, and recap artifacts/i);
   assert.match(html, /bundled cli folder/i);
   assert.match(html, /Do not ask me to run Alpha Poker terminal commands myself/i);
+  assert.match(html, /Changes your Elo\?/i);
+  assert.match(html, /Think your bot can knock one of them off the podium\?/i);
+  assert.match(html, /Stop and wait for my choice/i);
   assert.doesNotMatch(html, /alpha-poker submit \./);
   assert.doesNotMatch(html, /font-mono text-sm leading-6 text-zinc-700/);
 });

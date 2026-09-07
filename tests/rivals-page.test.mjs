@@ -59,6 +59,11 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
     workspace,
     /const challengeIntent = useRef\(startWithConfirmation\)/,
   );
+  assert.match(workspace, /line-clamp-2 min-w-0 text-center leading-tight/);
+  assert.doesNotMatch(
+    workspace,
+    /<span className="min-w-0 truncate">\s*Challenge \{detail\.rival\.username\}/,
+  );
   assert.match(workspace, /viewer=\{viewer\}/);
   assert.match(workspace, /outcome === "draw"/);
   assert.match(workspace, /challenge\.recap_url/);

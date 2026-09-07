@@ -816,7 +816,7 @@ function RivalOverlay({
                       ) : (
                         <>
                           <BoltIcon />
-                          <span className="min-w-0 truncate">
+                          <span className="line-clamp-2 min-w-0 text-center leading-tight [overflow-wrap:anywhere]">
                             Challenge {detail.rival.username}
                             {status === "completed" ? " again" : ""}
                           </span>

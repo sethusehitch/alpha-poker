@@ -39,8 +39,13 @@ Branch: codex/google-signin, based on main 2ed9676.
 - Browser inspection caught a missing account-dialog host on the logged-out
   CLI page. Both signup and CLI now share the homepage backdrop and account
   dialog host. Screenshot checked the restored dimmed/blurred site backdrop.
-- Returning real Google login and existing-password-account linking remain to
-  be verified. Chrome paused automation because another extension UI was open.
+- Returning real Google login passed: after logout, the logged-out CLI page
+  opened its login dialog, Google accepted the previously approved identity,
+  and returned directly to CLI authorization as the same user without signup.
+- Existing-password-account linking remains to be verified in a separate local
+  database (`work/google-link-data`), preserving the first test's data. Chrome
+  again paused automation when the password-login dialog opened because an
+  extension UI was open. No browser-control workaround was attempted.
 - Synthetic installer tests verify mode-0600 credentials/backups, preservation
   of unrelated invite settings, no printed credentials, and rejection of a
   mismatched Google project without modifying the environment.

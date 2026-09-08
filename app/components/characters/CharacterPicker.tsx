@@ -4,11 +4,11 @@ import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
 import { cropGeometry, exportCrop, inspectUpload, type CropImage } from "./imageCrop";
 
 export type CharacterAvatar = { id: string; url: string };
-type Props = { initialAvatar: CharacterAvatar; onSaved: (avatar: CharacterAvatar) => void; onSkip?: () => void; onPendingChange?: (pending: boolean) => void };
+type Props = { initialAvatar: CharacterAvatar; onSaved: (avatar: CharacterAvatar) => void; onSkip?: () => void; onPendingChange?: (pending: boolean) => void; saveDraft?: (avatar: CharacterAvatar) => Promise<CharacterAvatar>; saveLabel?: string; compact?: boolean };
 const presets = ["elephant", "bear", "octopus", "bird"] as const;
 const names: Record<string, string> = { elephant: "Elephant", bear: "Bear", octopus: "Octopus", bird: "Bird" };
 
-export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChange }: Props) {
+export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChange, saveDraft, saveLabel, compact = false }: Props) {
   const [draft, setDraft] = useState(initialAvatar);
   const [custom, setCustom] = useState<CharacterAvatar | null>(presets.some(id => id === initialAvatar.id) ? null : initialAvatar);
   const [crop, setCrop] = useState<CropImage | null>(null);
@@ -76,6 +76,7 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
     lock.current = true; setBusy(true); setError("");
     try {
       // An unchanged saved custom image is already persisted. Never refetch it.
+      if (saveDraft) { const saved = await saveDraft(draft); if (mounted.current) onSaved(saved); return; }
       if (draft.id === initialAvatar.id && draft.url === initialAvatar.url) { onSaved(draft); return; }
       const response = await fetch("/browser-api/account/avatar", {
         method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
@@ -115,12 +116,12 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
       </details>
       <div className="character-actions"><button className="character-primary" disabled={busy} onClick={acceptCrop}>{busy ? "Preparing…" : "Use this crop"}</button><button className="character-secondary" disabled={busy} onClick={() => { setError(""); clearCrop(); }}>Cancel crop</button></div>
     </> : <>
-      <h2 id={`${uid}-title`}>Choose your avatar</h2>
-      <p>Pick an avatar or upload your own picture.</p>
-      <div className="character-large">
+      <h2 id={`${uid}-title`} style={compact ? { fontSize: 16, textAlign: "left", marginBottom: 20, letterSpacing: 0 } : undefined}>Choose your avatar</h2>
+      {!compact && <p>Pick an avatar or upload your own picture.</p>}
+      {!compact && <div className="character-large">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={draft.url} alt={`${names[draft.id] || "Your profile picture"} preview`} />
-      </div>
+      </div>}
       <div className="character-options" role="group" aria-label="Choose an avatar">
         {presets.map(id => <button key={id} className="character-option" aria-pressed={draft.id === id} disabled={busy} onClick={() => { setDraft({ id, url: `/characters/${id}.webp` }); setError(""); }}>
           <span className="character-tile">
@@ -135,7 +136,7 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
       </div>
       <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload a profile picture" hidden onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void upload(file); }} />
       <p className="character-hint">JPG, PNG, or WebP. Up to 2 MB.</p>
-      <div className="character-actions"><button className="character-primary" disabled={busy} onClick={save}>{busy ? "Please wait…" : "Save"}</button>{onSkip && <button className="character-secondary" disabled={busy} onClick={onSkip}>Skip for now</button>}</div>
+      <div className="character-actions"><button className="character-primary" disabled={busy} onClick={save}>{busy ? "Please wait…" : saveLabel ?? "Save"}</button>{onSkip && <button className="character-secondary" disabled={busy} onClick={onSkip}>Skip for now</button>}</div>
     </>}
     {error && <p className="character-error" role="alert">{error}</p>}
   </section>;

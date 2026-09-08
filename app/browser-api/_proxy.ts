@@ -1,3 +1,4 @@
+import { publicRequestUrl } from "./publicOrigin.mjs";
 export const LOCAL_API = process.env.ALPHA_POKER_API_URL ?? "http://127.0.0.1:8000/v1";
 
 /** Used by server components that only have a raw `cookie` header, not a Request. */
@@ -89,7 +90,7 @@ export async function browserSessionResponse(response: Response, requestUrl: str
       status: response.status,
       headers: {
         "Cache-Control": "no-store",
-        "Set-Cookie": `alpha_poker_session=${encodeURIComponent(result.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${requestUrl.startsWith("https:") ? "; Secure" : ""}`,
+        "Set-Cookie": `alpha_poker_session=${encodeURIComponent(result.token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000${publicRequestUrl(requestUrl).protocol === "https:" ? "; Secure" : ""}`,
       },
     },
   );

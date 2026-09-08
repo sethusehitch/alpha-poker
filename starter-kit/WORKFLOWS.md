@@ -77,6 +77,12 @@ Create a local virtual environment and install the bundled dependency-free CLI
 from `./cli`. Use the hosted API above with `--api-url` or set
 `ALPHA_POKER_API_URL` only for the current process. Never place a password,
 invite code, or session token in bot files, shell history, or source control.
+For Google accounts, run `alpha-poker login --browser --no-open` and give the
+participant the approval URL and one-time user code. Let the human sign in and
+approve the connection themselves. Keep the command running while they approve;
+it stores a revocable Alpha Poker token automatically. Never ask for their Google
+password or ask them to copy session cookies. This also works for password accounts.
+If browser login is unavailable, use existing username/password login instead.
 Let the CLI request passwords and any required invite code through its secure
 prompts. Omit `--invite-code` during normal agent-operated registration so the
 cohort code does not appear in command arguments, tool transcripts, or shell

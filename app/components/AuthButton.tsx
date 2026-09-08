@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { emit, on } from "./uiBus";
 import { CharacterImage } from "./characters/CharacterImage";
 import type { Avatar } from "./characters/avatar";
+import { GoogleSignIn } from "./GoogleSignIn";
 
 const USERNAME_CHIP_DISPLAY_LENGTH = 16;
 
@@ -62,6 +63,13 @@ export function AuthButton() {
   }, [resetAuthForm]);
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("login_error") === "google") {
+      queueMicrotask(() => {
+        setOpen(true);
+        setError("Google sign-in was canceled or could not be completed. Please try again.");
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
     fetch("/browser-api/auth/me")
       .then(async (response) => {
         if (!response.ok) return;
@@ -116,7 +124,7 @@ export function AuthButton() {
       const me = await fetch("/browser-api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null);
       setSession({ username: result.username, avatar: me?.avatar });
       emit("session-changed", { username: result.username, isOperator: Boolean(me?.is_operator) });
-      if (justRegistered) window.location.assign("/profile?welcome=1");
+      if (justRegistered) window.location.assign(window.location.pathname === "/authorize-cli" ? "/profile?welcome=1&next=cli" : "/profile?welcome=1");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not log in");
     } finally {
@@ -206,11 +214,12 @@ export function AuthButton() {
                 <>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h2 id="account-title" className="text-xl font-bold text-zinc-900">{registering ? "Create account" : "Log in"}</h2>
-                      <p className="mt-1 text-sm text-zinc-500">Use the same account in the Alpha Poker CLI.</p>
+                      <h2 id="account-title" className="text-xl font-bold text-zinc-900">{registering ? "Create account" : "Welcome to Alpha Poker"}</h2>
+                      <p className="mt-1 text-sm text-zinc-500">Log in or create an account.</p>
                     </div>
                     <button type="button" aria-label="Close" onClick={closeDialog} className="-mr-1 -mt-1 rounded-lg px-2 py-1 text-xl leading-none text-zinc-500 hover:bg-zinc-100">×</button>
                   </div>
+                  <GoogleSignIn />
                   <form onSubmit={submit} className="mt-6 space-y-4">
                     <label className="block text-sm font-medium text-zinc-800">
                       Username

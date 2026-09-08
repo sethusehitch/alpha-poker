@@ -88,7 +88,7 @@ function ChevronIcon() {
 
 export function SiteHeader({
   currentPath,
-  sticky = false,
+  sticky = true,
 }: {
   currentPath: string;
   sticky?: boolean;
@@ -167,7 +167,7 @@ export function SiteHeader({
 
   return (
     <header
-      className={`relative border-b border-zinc-200/80 bg-white ${sticky ? "sticky top-0 z-30" : ""}`}
+      className={`border-b border-zinc-200/80 bg-white ${sticky ? "sticky top-0 z-30" : "relative"}`}
     >
       <div className="mx-auto flex h-[4.5rem] max-w-[90rem] items-center justify-between px-5 sm:px-8">
         <a

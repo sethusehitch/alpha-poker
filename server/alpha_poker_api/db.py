@@ -32,6 +32,21 @@ CREATE TABLE IF NOT EXISTS account_avatars (
   CHECK(preset IN ('elephant','bear','octopus','bird','custom')),
   CHECK((custom_id IS NULL) = (custom_image IS NULL))
 );
+CREATE TABLE IF NOT EXISTS google_identities (
+  subject TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE REFERENCES users(username),
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS google_flows (
+  state_hash TEXT PRIMARY KEY, nonce TEXT NOT NULL, verifier TEXT NOT NULL,
+  link_username TEXT REFERENCES users(username), expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS google_signups (
+  ticket_hash TEXT PRIMARY KEY, subject TEXT NOT NULL, expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS browser_logins (
+  device_hash TEXT PRIMARY KEY, user_code TEXT NOT NULL UNIQUE,
+  username TEXT REFERENCES users(username), expires_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_account_avatars_custom ON account_avatars(custom_id);
 CREATE INDEX IF NOT EXISTS auth_sessions_username ON auth_sessions(username, created_at DESC);
 CREATE TABLE IF NOT EXISTS dojo_results (

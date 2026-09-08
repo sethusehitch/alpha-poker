@@ -9,6 +9,7 @@ import type { Highlight, MatchRecap as Recap, ReplayPlayer, ReplayStep } from ".
 import "./recap.css";
 
 const amount = (value: number | null | undefined) => value == null ? "Not retained" : value.toLocaleString();
+const STEP_INTERVAL_MS = 2200;
 const suits: Record<string, string> = { s: "♠", h: "♥", d: "♦", c: "♣" };
 function Arrow({ right = false }: { right?: boolean }) {
   return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={right ? "m7 4 6 6-6 6" : "m13 4-6 6 6 6"} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -109,7 +110,7 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   useEffect(() => {
     if (!playing || !hand) return;
     if (stepIndex >= hand.steps.length - 1) { setPlaying(false); return; }
-    const timer = window.setTimeout(() => setStepIndex(step => step + 1), 1100);
+    const timer = window.setTimeout(() => setStepIndex(step => step + 1), STEP_INTERVAL_MS);
     return () => window.clearTimeout(timer);
   }, [playing, hand, stepIndex]);
   function select(next: number) {

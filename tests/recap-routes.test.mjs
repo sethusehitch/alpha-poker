@@ -43,6 +43,8 @@ test("recap playback uses recorded actor/payment metadata and isolated step pres
   assert.match(component, /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
   assert.match(component, /motion.removeEventListener/);
   assert.match(component, /window.clearTimeout\(timer\)/);
+  assert.match(component, /const STEP_INTERVAL_MS = 2200/);
+  assert.match(css, /recap-chip-flight 1040ms/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.seat\.seat-active/);
   for (const field of ["actor_seat", "action_kind", "committed_amount", "pot_before", "action_label"]) assert.ok(types.includes(`${field}?:`));

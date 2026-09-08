@@ -1,4 +1,4 @@
-"""Retrospective showdown equity, using the engine's evaluator exclusively.
+"""Retrospective showdown equity, with an engine-oracle-tested seven-card ranker.
 
 Preflop: 2,048 uniformly sampled distinct boards, fixed seed. Worst-case
 binomial standard error is ~1.10 percentage points (~2.2pp at 95%). Flop,
@@ -10,11 +10,60 @@ from itertools import combinations
 from random import Random
 from math import sqrt
 
-from alpha_poker.evaluator import RANKS, SUITS, evaluate
+from alpha_poker.evaluator import RANKS, SUITS, RANK_VALUE
 
 PREFLOP_SAMPLES = 2048
 EQUITY_SEED = 20260907
 DECK = tuple(rank + suit for rank in RANKS for suit in SUITS)
+
+
+def _straight(ranks):
+    values = set(ranks)
+    if 14 in values:
+        values.add(1)
+    for high in range(14, 5 - 1, -1):
+        if all(rank in values for rank in range(high - 4, high + 1)):
+            return high
+    return 0
+
+
+def _seven(cards):
+    """Rank seven already-validated distinct cards without 21 subset evaluations.
+
+    Private to recap odds; gameplay continues to use the independent engine
+    evaluator. Return exactly the engine's lexicographic category/kicker tuple.
+    """
+    counts = {}
+    suits = {}
+    for card in cards:
+        rank = RANK_VALUE[card[0]]
+        counts[rank] = counts.get(rank, 0) + 1
+        suits.setdefault(card[1], []).append(rank)
+    ranks = sorted(counts, reverse=True)
+    flush = next((sorted(values, reverse=True) for values in suits.values() if len(values) >= 5), None)
+    if flush:
+        high = _straight(flush)
+        if high:
+            return (8, high)
+    quads = [r for r in ranks if counts[r] == 4]
+    if quads:
+        return (7, quads[0], next(r for r in ranks if r != quads[0]))
+    trips = [r for r in ranks if counts[r] >= 3]
+    pairs = [r for r in ranks if counts[r] >= 2]
+    if trips and len(pairs) >= 2:
+        return (6, trips[0], next(r for r in pairs if r != trips[0]))
+    if flush:
+        return (5, *flush[:5])
+    high = _straight(ranks)
+    if high:
+        return (4, high)
+    if trips:
+        return (3, trips[0], *[r for r in ranks if r != trips[0]][:2])
+    if len(pairs) >= 2:
+        return (2, *pairs[:2], next(r for r in ranks if r not in pairs[:2]))
+    if pairs:
+        return (1, pairs[0], *[r for r in ranks if r != pairs[0]][:3])
+    return (0, *ranks[:5])
 
 
 @lru_cache(maxsize=128)
@@ -33,7 +82,7 @@ def _calculate(left: tuple[str, ...], right: tuple[str, ...], board: tuple[str, 
         method = "exact"
     points, trials = 0, 0
     for tail in runouts:
-        a, b = evaluate(left + board + tail), evaluate(right + board + tail)
+        a, b = _seven(left + board + tail), _seven(right + board + tail)
         points += 2 if a > b else 1 if a == b else 0
         trials += 1
     # Round one side and complement it, so displayed values sum to 100%.

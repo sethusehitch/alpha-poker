@@ -1,13 +1,14 @@
 from copy import deepcopy
 from itertools import combinations
 from time import perf_counter
+from random import Random
 
 import pytest
 
 from alpha_poker.engine import play_hand
 from alpha_poker.evaluator import evaluate
 from alpha_poker_api import recaps
-from alpha_poker_api.recap_equity import DECK, PREFLOP_SAMPLES, _calculate, showdown_equity
+from alpha_poker_api.recap_equity import DECK, PREFLOP_SAMPLES, _calculate, _seven, showdown_equity
 from test_recaps import hand_record, normalized, MATCH
 
 
@@ -193,3 +194,15 @@ def test_five_distinct_equity_hands_performance_and_cache_guard():
             showdown_equity(holes, [], cache)
     assert _calculate.cache_info().misses == misses
     assert perf_counter() - start < .5
+
+
+def test_recap_ranker_matches_independent_engine_oracle():
+    rng = Random(907)
+    examples = [
+        "As Ks Qs Js Ts 2d 3c", "As 2s 3s 4s 5s Kh Kd",
+        "As Ah Ad Ac Ks Kh Qd", "As Ah Ad Ks Kh Kd Qc",
+        "As Ah Ks Kh Qs Qh Jd", "As Js 9s 7s 5s 3s 2s",
+        "As Ah Ad Ks Qh Jd Tc", "As 2h 3d 4c 5s Kh Qd",
+    ]
+    for cards in [s.split() for s in examples] + [rng.sample(DECK, 7) for _ in range(5000)]:
+        assert _seven(cards) == evaluate(cards), cards

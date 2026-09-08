@@ -104,7 +104,9 @@ Action cadence remains 2200ms; both payment and sweep animations remain 1040ms.
 ## Win chance / retrospective showdown equity
 
 Optional `equity` metadata is versioned `showdown-equity-v1`. Calculation runs
-server-side using the same `alpha_poker.evaluator.evaluate` as the engine. It
+server-side using a recap-only seven-card ranker, checked against the independent
+engine evaluator on 5,000 seeded random hands and targeted category edge cases.
+Gameplay's evaluator is unchanged. It
 requires a completed showdown result and **two explicit, valid hole-card reveals**.
 Folded/mucked cards, one-sided reveals, malformed cards, forfeits, and missing
 board evidence produce no equity. Even a viewer's own retained cards do not
@@ -128,9 +130,11 @@ Suit/rank order is canonicalized and seats are mapped back, so mirrored seats
 receive complementary results without a second calculation.
 
 A per-recap cache and bounded 128-entry evaluator LRU reuse identical states.
-Selection-only normalization never computes equity. The local benchmark measured
-0.198s for cold preflop, 0.093s flop, 0.004s turn, and <0.001s river. Five distinct
-cold hands across all streets took **1.507s**, below the <=2.5s local target.
+Selection-only normalization never computes equity. The original subset evaluator
+took 5.31s for five cold hands on CI, exceeding the request guard. The recap-only
+ranker avoids 21 subset evaluations per seven-card hand without reducing samples
+or changing exact enumeration. Five cold hands across all streets now take
+**0.09s locally**, below the <=2.5s local target.
 The test guard allows 3.5s for scheduling headroom; cache reuse is tested separately.
 Run `qa/recap_equity_benchmark.py` to reproduce the bounded benchmark.
 

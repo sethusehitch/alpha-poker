@@ -246,7 +246,7 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
   );
   assert.match(workspace, />\s*Suggested\s*</);
 
-  // The sprite crop lives in one shared component now.
-  assert.match(avatar, /robot-avatars\.png/);
+  // All surfaces use the same account-owned character renderer.
+  assert.match(avatar, /<CharacterImage username=\{name\} avatar=\{avatar\}/);
   assert.doesNotMatch(workspace, /robot-avatars\.png/);
 });

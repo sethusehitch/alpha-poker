@@ -23,6 +23,10 @@ accounts gate joining, submissions, training, and other mutations.
 | `GET` | `/v1/auth/me` | Resolve the current bearer session |
 | `POST` | `/v1/auth/logout` | Revoke the current session |
 | `GET` | `/v1/account/status` | Participant submission, league state, progress, result, and log URLs |
+| `GET` | `/v1/account/avatar` | Get the signed-in account's character |
+| `PUT` | `/v1/account/avatar` | Select a preset or upload a cropped character image |
+| `GET` | `/v1/avatars/users/{username}` | Public participant's current avatar descriptor |
+| `GET` | `/v1/avatars/{content_id}` | Public sanitized custom avatar image |
 | `GET` | `/v1/league` | League format, rules, and active-bot count |
 | `GET` | `/v1/leaderboard` | Latest completed official standings |
 | `GET` | `/v1/matchups` | Latest run's head-to-head summaries |
@@ -65,6 +69,40 @@ accounts gate joining, submissions, training, and other mutations.
 | `POST` | `/v1/feature-requests/{id}/promote` | Create a GitHub issue from a request (operator token) |
 | `POST` | `/v1/feedback` | Submit feedback (authentication optional) |
 | `GET` | `/v1/github/issues` | Public, cached `/contribute` summary of open issues and PRs |
+
+## Account characters
+
+`GET /v1/account/avatar` and `PUT /v1/account/avatar` require a bearer session,
+including local mode, and return `{ "avatar": { "id": "bear", "url": "/characters/bear.webp" } }`.
+Send exactly one JSON field: `{ "preset": "bear" }` or
+`{ "image_data": "data:image/png;base64,..." }`.
+Available presets are `elephant`, `bear`, `octopus`, and `bird`; existing accounts
+and seeded participants default to `elephant`. The frontend serves preset files.
+
+Custom images accept still PNG, JPEG, or WebP with matching data-URL MIME type,
+at most 2 MiB decoded, and dimensions from 1 through 4096 pixels per side.
+The server validates the actual format, rejects animation and malformed images,
+center-crops to 512 by 512, and reencodes as WebP with metadata removed.
+The browser can crop before submitting; circular display masking is a UI concern.
+Image uploads are limited to 10 per account per minute. Request bodies are bounded
+while streaming and image processing concurrency is bounded per API process.
+Invalid requests return 400, oversized requests 413, and rate limits 429.
+
+Custom descriptors use the SHA-256 digest of processed bytes as `id`, with browser
+URL `/browser-api/avatars/{id}`. This browser route proxies the API image endpoint
+`GET /v1/avatars/{id}`, which is public and returns only processed `image/webp`
+with `nosniff` and immutable caching. Character images are public presentation data.
+Account selections persist independently of bot uploads, replacements, and league
+runs. One custom image is retained per account, including when selecting a preset;
+the next upload replaces it atomically. Unreferenced prior image IDs return 404
+from the API, though previously cached copies can remain available.
+
+`/v1/auth/me` and `/v1/account/status` include `avatar`. Leaderboard and rival
+entries include `avatar`; rival detail includes both `rival.avatar` and
+`viewer.avatar`. Challenges include `challenger_avatar`, `challenged_avatar`,
+and nullable `opponent_avatar`. Public `GET /v1/avatars/users/{username}` returns
+the same `{avatar}` envelope for participants exposed by leaderboard or active
+submission data, with 404 for unknown or private registration-only accounts.
 
 ## Submit a bot
 

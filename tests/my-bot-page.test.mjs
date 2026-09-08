@@ -55,7 +55,7 @@ test("the empty state offers the starter kit and the agent instructions", async 
   // One identity slot renders in both states: the dashed empty seat and the
   // portrait that replaces it.
   assert.match(source, /border-dashed border-blue-200/);
-  assert.match(source, /<BotAvatar name=\{submission\.bot_name\}/);
+  assert.match(source, /<BotAvatar name=\{session\.username\} avatar=\{visibleStatus\.avatar\}/);
 });
 
 test("the submitted state stays on facts /browser-api/account/status returns", async () => {

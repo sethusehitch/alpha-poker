@@ -13,6 +13,7 @@ from fastapi import FastAPI, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from .db import Database, now_iso
+from .avatars import avatar_for, avatars_for
 from .recaps import match_recap
 
 
@@ -109,7 +110,8 @@ def _bot_names(db: Database, challenge: dict[str, Any]) -> dict[str, str | None]
     return result
 
 
-def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None = None) -> dict[str, Any]:
+def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None = None, avatars: dict | None = None) -> dict[str, Any]:
+    avatars = avatars if avatars is not None else avatars_for(db, _participants(challenge))
     opponent = None
     if viewer and _is_participant(challenge, viewer):
         opponent = (
@@ -141,6 +143,9 @@ def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None
         "challenger_username": challenge["challenger_username"],
         "challenged_username": challenge["challenged_username"],
         "opponent_username": opponent,
+        "challenger_avatar": avatars[challenge["challenger_username"]],
+        "challenged_avatar": avatars[challenge["challenged_username"]],
+        "opponent_avatar": avatars[opponent] if opponent else None,
         "status": challenge["status"],
         "format": challenge.get("format") or "best_of_five_plhe",
         "best_of": 5,
@@ -201,8 +206,9 @@ def _history(
     )
     has_more = len(rows) > limit
     rows = rows[:limit]
+    avatars = avatars_for(db, (name for row in rows for name in _participants(row)))
     return {
-        "items": [public_challenge(db, row, viewer) for row in rows],
+        "items": [public_challenge(db, row, viewer, avatars) for row in rows],
         "next_cursor": rows[-1]["id"] if has_more and rows else None,
     }
 
@@ -281,6 +287,7 @@ def register_rival_routes(
         names.discard(username)
         needle = q.strip().lower()
         entries = []
+        avatars = avatars_for(db, names | candidate_names)
         nemesis = _nemesis(db, username)
         for name in names:
             bot = _active_bot(db, name)
@@ -291,6 +298,7 @@ def register_rival_routes(
             record = _record(db, username, name)
             entries.append({
                 "username": name,
+                "avatar": avatars[name],
                 "bot_name": bot_name,
                 "elo_rating": int(standing["elo_rating"]) if standing else 1200,
                 "rank": int(standing["rank"]) if standing else None,
@@ -340,6 +348,7 @@ def register_rival_routes(
                 record = _record(db, username, name)
                 suggested.append({
                     "username": name,
+                    "avatar": avatars[name],
                     "bot_name": bot["bot_name"] if bot else (standing["bot_name"] if standing else None),
                     "elo_rating": int(standing["elo_rating"]) if standing else 1200,
                     "rank": int(standing["rank"]) if standing else None,
@@ -399,12 +408,13 @@ def register_rival_routes(
         return {
             "rival": {
                 "username": rival_username,
+                "avatar": avatar_for(db, rival_username),
                 "bot_name": bot["bot_name"] if bot else (standing["bot_name"] if standing else None),
                 "elo_rating": int(standing["elo_rating"]) if standing else 1200,
                 "rank": int(standing["rank"]) if standing else None,
                 "has_active_bot": bool(bot),
             },
-            "viewer": {"username": username, "has_active_bot": bool(viewer_bot)},
+            "viewer": {"username": username, "has_active_bot": bool(viewer_bot), "avatar": avatar_for(db, username)},
             "direct_record": {
                 "wins": record["player_a_wins"], "losses": record["player_b_wins"],
                 "draws": record["draws"], "played": record["played"],
@@ -548,7 +558,8 @@ def register_rival_routes(
         )
         has_more = len(rows) > limit
         rows = rows[:limit]
-        return {"items": [public_challenge(db, row, username) for row in rows], "next_cursor": rows[-1]["id"] if has_more and rows else None}
+        avatars = avatars_for(db, (name for row in rows for name in _participants(row)))
+        return {"items": [public_challenge(db, row, username, avatars) for row in rows], "next_cursor": rows[-1]["id"] if has_more and rows else None}
 
     @app.get("/v1/challenges/{challenge_id}")
     def challenge_get(

@@ -89,6 +89,8 @@ export function FeedbackWidget() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [rivalsDialogOpen, setRivalsDialogOpen] = useState(false);
+  const [characterPickerOpen, setCharacterPickerOpen] = useState(false);
+  useEffect(() => on("character-picker-changed", ({ open }) => setCharacterPickerOpen(open)), []);
   const [type, setType] = useState<FeedbackType>("idea");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -239,7 +241,7 @@ export function FeedbackWidget() {
   // username is attached server-side from the cookie when one exists; the
   // client never sends it.
   const disabled = messageLength < MESSAGE_MIN_LENGTH || sending || submitLocked;
-  const hidden = accountOpen || suggestOpen || rivalsDialogOpen;
+  const hidden = accountOpen || suggestOpen || rivalsDialogOpen || characterPickerOpen;
 
   return (
     <>

@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CharacterImage } from "./characters/CharacterImage";
+import type { Avatar } from "./characters/avatar";
 
 export type LeaderboardEntry = {
+  avatar?: Avatar;
   rank: number;
   username: string;
   bot_name: string;
@@ -95,9 +98,8 @@ function rankBadgeClass(rank: number) {
   return "bg-[#F1F3F5] text-[#66707E]";
 }
 
-function RobotAvatar({ rank, thumbnail = false }: { rank: number; thumbnail?: boolean }) {
+function RobotAvatar({ rank, entry, thumbnail = false }: { rank: number; entry: LeaderboardEntry; thumbnail?: boolean }) {
   const variant = rank === 1 ? "champion" : rank === 2 ? "silver" : rank === 3 ? "bronze" : (["champion", "silver", "bronze"] as const)[(rank - 1) % 3];
-  const position = variant === "silver" ? "0% 43%" : variant === "champion" ? "50% 43%" : "100% 43%";
   const ring = rank === 1
     ? "border-[#F4B82E]"
     : rank === 2
@@ -111,14 +113,7 @@ function RobotAvatar({ rank, thumbnail = false }: { rank: number; thumbnail?: bo
       data-avatar-variant={variant}
       className={`relative inline-flex aspect-square h-full w-full shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#07172B] ${ringWidth} ${ring} shadow-[0_3px_8px_rgba(15,23,42,0.18)]`}
     >
-      <span
-        className="absolute inset-0 bg-no-repeat"
-        style={{
-          backgroundImage: "url('/robot-avatars.png?v=poker-kids-1')",
-          backgroundPosition: position,
-          backgroundSize: "300% auto",
-        }}
-      />
+      <CharacterImage username={entry.username} avatar={entry.avatar} />
     </span>
   );
 }
@@ -223,12 +218,12 @@ function Podium({ entries }: { entries: LeaderboardEntry[] }) {
           </div>
           <div className="absolute left-[45.2%] top-0 z-[70] h-[9.25%] w-[9.7%]"><Crown /></div>
           <div className="absolute left-[38.06%] top-[11.34%] z-50 w-[22.26%]">
-            <RobotAvatar rank={1} />
+            <RobotAvatar rank={1} entry={leader} />
           </div>
         </>
       )}
-      {second && <div className="absolute left-[9.68%] top-[22.69%] z-[35] w-[19.68%]"><RobotAvatar rank={2} /></div>}
-      {third && <div className="absolute left-[68.06%] top-[26.47%] z-[35] w-[19.35%]"><RobotAvatar rank={3} /></div>}
+      {second && <div className="absolute left-[9.68%] top-[22.69%] z-[35] w-[19.68%]"><RobotAvatar rank={2} entry={second} /></div>}
+      {third && <div className="absolute left-[68.06%] top-[26.47%] z-[35] w-[19.35%]"><RobotAvatar rank={3} entry={third} /></div>}
       <ol className="contents">
         {ordered.map((entry) => <Pedestal key={`${entry.rank}-${entry.username}`} entry={entry} />)}
       </ol>
@@ -273,7 +268,7 @@ function StandingsTable({ entries }: { entries: LeaderboardEntry[] }) {
               </td>
               <td className="pr-[1cqi]">
                 <div className="flex min-w-0 items-center gap-[1.6cqi]">
-                  <span className="w-[clamp(1.7rem,8.7cqi,2.8rem)]"><RobotAvatar rank={entry.rank} thumbnail /></span>
+                  <span className="w-[clamp(1.7rem,8.7cqi,2.8rem)]"><RobotAvatar rank={entry.rank} entry={entry} thumbnail /></span>
                   <span className="min-w-0 truncate font-semibold text-[#17191D]" title={entry.bot_name}>{displayName(entry.bot_name, BOT_NAME_DISPLAY_LENGTH)}</span>
                 </div>
               </td>

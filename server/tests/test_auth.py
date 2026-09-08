@@ -85,7 +85,8 @@ def test_register_login_me_and_revoke(tmp_path):
         assert session_row["token_hash"] != token
 
         assert client.get("/v1/auth/me", headers={"Authorization": f"Bearer {token}"}).json() == {
-            "username": "maya_1", "is_operator": False
+            "username": "maya_1", "is_operator": False,
+            "avatar": {"id": "elephant", "url": "/characters/elephant.webp"},
         }
         assert client.post(
             "/v1/auth/login", json={"username": "maya_1", "password": "wrong password"}

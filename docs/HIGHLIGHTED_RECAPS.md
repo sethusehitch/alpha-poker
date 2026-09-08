@@ -56,11 +56,18 @@ folds and bot forfeits have explicit descriptions. Missing values remain
 unavailable rather than being presented as zero. Responses are `private,
 no-store`, and the browser discards cached recap state when the account changes.
 
-Previous/Next step through actions, exactly like Play/Pause. The highlight bar
-and highlight selector switch hands.
-The expandable action list selects an exact event, and every hand initially
-opens at its final result. The pot at a result is labeled **Pot awarded**, while
-player stacks show their post-award balances.
+The current highlight is the main heading, with the real matchup/source and
+**Hand N of TOTAL** context. One sidebar control area contains previous/next
+highlight arrows, Replay (restart the whole hand at step 1), and Play/Pause.
+Every hand initially opens at its final result. There is no bottom control bar,
+timeline, or duplicated action history. Compact step progress and the current
+action remain inside the table. The pot at a result is labeled **Pot awarded**,
+while player stacks show their post-award balances.
+
+At the final result only, the recorded winning seat receives a restrained gold
+accent and explicit Winner badge. A loss highlights the opponent; a split pot
+marks both seats as Split pot. Unknown winners receive no gold accent. Cobalt
+continues to indicate the recorded actor during playback.
 
 Optional `recap-v1` step fields `actor_seat`, `action_kind`, `committed_amount`,
 `pot_before`, and `action_label` make each recorded action explicit. Seats remain
@@ -70,7 +77,7 @@ payments stay null. Unknown metadata in older payloads renders without a flight.
 Board, reveal, forfeit, and result steps have a neutral table state.
 
 The acting badge gets a cobalt ring. A recorded positive payment flies from that
-badge to the pot over 520ms; the pot changes from its recorded before-value to
+badge to the pot over 1040ms; the pot changes from its recorded before-value to
 the step's after-value on arrival. Each visited step owns a keyed presentation,
 so backward/forward navigation cannot accumulate chips or retain a stale flight.
 Pausing leaves the current payment to settle, without starting another flight.
@@ -93,12 +100,13 @@ no separate renderer, token transfer, or local file import is needed.
 
 `qa/recap-browser.mjs` uses a separate headless Chrome profile under `.wrangler`
 and a local debugging endpoint on 9312. It logs in, checks net/gross accounting,
-exercises Previous/Play/Pause/Next, checks both physical actors, chip-flight
-movement and synchronized before/after pots, interrupts flights with navigation,
-and changes the reduced-motion preference during playback. It captures active,
-in-flight, reduced-motion, and final states at 1600x1000 and 390x844, asserts no
-horizontal overflow and visible controls, then verifies signed-out private-state
-clearing. `RECAP_SCREENSHOT_DIR` controls the output directory.
+checks sidebar-only controls and heading/context, exercises Replay/Play/Pause
+and highlight arrows, checks both physical actors and synchronized chip/pot
+movement, interrupts flights, and changes the reduced-motion preference. It
+plays the entire hand at its real 2200ms cadence and verifies gold appears only
+at the final result. Action and final screenshots are captured at 1600x1000 and
+390x844. It asserts no horizontal overflow and visible controls, then verifies
+signed-out private-state clearing. `RECAP_SCREENSHOT_DIR` controls the output.
 
 The repository's rendered-page tests expect the offline API state. Run them
 with `ALPHA_POKER_API_URL=http://127.0.0.1:9/v1` so another local API cannot alter

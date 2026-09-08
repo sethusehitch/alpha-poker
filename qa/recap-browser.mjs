@@ -1,6 +1,5 @@
-// Local browser QA against qa/recap_fixture.py. Uses an isolated Chrome profile.
-// Start Chrome with --headless=new --remote-debugging-port=9312 and a profile
-// beneath .wrangler, then run node qa/recap-browser.mjs. No tokens are printed.
+// Local QA against qa/recap_fixture.py. Isolated Chrome on debugging port 9312.
+// Timers are real: 2200ms per action, 1040ms per flight. No time mocking.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -8,8 +7,7 @@ const site = process.env.RECAP_SITE_URL ?? "http://localhost:3012";
 const output = process.env.RECAP_SCREENSHOT_DIR ?? resolve(".wrangler/recap-screenshots");
 await mkdir(output, { recursive: true });
 const tabs = await fetch("http://localhost:9312/json/list").then(r => r.json());
-const tab = tabs.find(t => t.type === "page");
-const ws = new WebSocket(tab.webSocketDebuggerUrl);
+const ws = new WebSocket(tabs.find(t => t.type === "page").webSocketDebuggerUrl);
 await new Promise(r => ws.addEventListener("open", r, { once: true }));
 let id = 0;
 const pending = new Map();
@@ -30,16 +28,34 @@ function call(method, params = {}) {
 }
 async function evaluate(expression) {
   const result = await call("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
-  if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
+  if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
   return result.result.value;
 }
-async function until(expression) {
-  const deadline = Date.now() + 20000;
+const wait = ms => new Promise(r => setTimeout(r, ms));
+async function until(expression, timeout = 20000) {
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     if (await evaluate(expression)) return;
-    await new Promise(r => setTimeout(r, 30));
+    await wait(30);
   }
   throw new Error(`Timed out: ${expression}`);
+}
+async function click(selector) {
+  await evaluate(`(async()=>{document.querySelector(${JSON.stringify(selector)}).click();await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)})()`);
+}
+async function state() {
+  return evaluate(`(()=>{const t=document.querySelector('.table-scene'),a=t.querySelector('.seat-active'),f=t.querySelector('.chip-flight');return {
+    actor:t.dataset.actorSeat,active:[...t.querySelectorAll('.seat-active')].map(s=>Number(s.dataset.seat)),
+    gold:[...t.querySelectorAll('.seat-winner')].map(s=>Number(s.dataset.seat)).sort(),goldResult:!!t.querySelector('.result-action'),
+    action:t.querySelector('.table-action').textContent,phase:t.dataset.chipState,pot:t.querySelector('.pot').dataset.pot,
+    flights:t.querySelectorAll('.chip-flight').length,ring:a?getComputedStyle(a).boxShadow:null,
+    animation:f?getComputedStyle(f).animationName:null,position:f?f.getBoundingClientRect().y:null,
+    destination:!!t.querySelector('.chip-arrived'),step:Number(t.dataset.stepIndex),hand:t.dataset.handId
+  }})()`);
+}
+async function screenshot(name) {
+  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  await writeFile(`${output}/${name}.png`, Buffer.from(image.data, "base64"));
 }
 await call("Page.enable");
 await call("Network.enable");
@@ -47,38 +63,35 @@ await call("Page.navigate", { url: site + "/rivals" });
 await until("location.pathname === '/rivals' && document.readyState === 'complete'");
 const status = await evaluate(`fetch('/browser-api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'blueriver',password:'local-recap-qa-only'})}).then(r=>r.status)`);
 assert.equal(status, 200, "QA login failed");
-await call("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
 await call("Page.navigate", { url: site + "/recaps/challenges/ch_recap_qa?hand=recap_qa_6" });
-await until("document.querySelector('.board .playing-card') && document.body.innerText.includes('ace-high straight')");
-assert.equal(await evaluate("document.querySelector('.win-label').innerText.includes('+840')"), true);
-assert.equal(await evaluate("document.querySelector('.pot').innerText.includes('1,680')"), true);
+await until("!!document.querySelector('.table-scene')");
 const recap = await evaluate("fetch('/browser-api/challenges/ch_recap_qa/recap').then(r=>r.json())");
 const hand = recap.highlights.find(h => h.hand_id === "recap_qa_6");
 const handIndex = recap.highlights.indexOf(hand);
-const firstPayment = hand.steps.findIndex(s => s.committed_amount > 0);
 const callStep = hand.steps.findIndex(s => s.action_kind === "call" && s.committed_amount > 0);
-const checkStep = hand.steps.findLastIndex(s => s.action_kind === "check");
-const boardStep = hand.steps.findIndex(s => !s.actor_seat && s.action_kind === null && s.street === "flop");
-const wait = ms => new Promise(r => setTimeout(r, ms));
-async function click(selector) {
-  await evaluate(`(async()=>{document.querySelector(${JSON.stringify(selector)}).click();await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)})()`);
-}
-const selectStep = index => click(`.recap-events li:nth-child(${index + 1}) button`);
-const selectHand = index => click(`.timeline button:nth-child(${index + 1})`);
-async function state() {
-  return evaluate(`(()=>{const t=document.querySelector('.table-scene'),a=t.querySelector('.seat-active'),f=t.querySelector('.chip-flight');return {
-    actor:t.dataset.actorSeat,active:[...t.querySelectorAll('.seat-active')].map(s=>Number(s.dataset.seat)),
-    action:t.querySelector('.table-action').textContent,phase:t.dataset.chipState,pot:t.querySelector('.pot').dataset.pot,
-    flights:t.querySelectorAll('.chip-flight').length,ring:a?getComputedStyle(a).boxShadow:null,
-    animation:f?getComputedStyle(f).animationName:null,position:f?f.getBoundingClientRect().y:null,
-    destination:!!t.querySelector('.chip-arrived'),step:[...document.querySelectorAll('.recap-events li button')].findIndex(b=>b.getAttribute('aria-current')==='step')
-  }})()`);
-}
 function assertActor(actual, step) {
   assert.equal(actual.actor, String(step.actor_seat ?? "none"));
   assert.deepEqual(actual.active, step.actor_seat == null ? [] : [step.actor_seat]);
-  assert.equal(actual.action, step.street === "result" ? "Hand complete" : step.action_label);
+  if (step.street !== "result") {
+    assert.equal(actual.action, step.action_label);
+    assert.deepEqual(actual.gold, []);
+    assert.equal(actual.goldResult, false);
+  }
   if (step.actor_seat != null) assert.notEqual(actual.ring, "none");
+}
+async function assertFinal(expected = hand) {
+  const current = await state();
+  assert.equal(current.hand, expected.hand_id);
+  assert.equal(current.step, expected.steps.length - 1);
+  assertActor(current, expected.steps.at(-1));
+  assert.deepEqual(current.gold, expected.players.filter(p=>expected.winners.includes(p.username)).map(p=>p.seat).sort());
+  assert.equal(current.goldResult, expected.winners.length > 0);
+  assert.equal(current.pot, String(expected.pot));
+  assert.equal(current.flights, 0);
+  const viewer = expected.players.find(p=>p.is_viewer) ?? expected.players[0];
+  const summary = await evaluate("document.querySelector('.win-label').textContent");
+  if (viewer.profit < 0) assert.ok(summary.includes("lost"));
+  if (expected.winners.length === 2) assert.ok(summary.includes("Split pot"));
 }
 async function assertFlight(index) {
   const current = await state();
@@ -98,88 +111,89 @@ async function assertSettled(index) {
   assert.equal(current.flights, 0);
   assert.equal(current.destination, true);
 }
-async function screenshot(name) {
-  const image = await call("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-  await writeFile(`${output}/${name}.png`, Buffer.from(image.data, "base64"));
+async function waitStep(index) {
+  await until(`Number(document.querySelector('.table-scene').dataset.stepIndex) === ${index}`, 45000);
 }
-for (const [label, width, height] of [["desktop", 1600, 1000], ["mobile", 390, 844]]) {
-  await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
+for (const [label, width, height] of [["desktop",1600,1000],["mobile",390,844]]) {
+  await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor:1, mobile:false });
   await evaluate("document.fonts.ready");
-  await selectStep(hand.steps.length - 1);
-  assertActor(await state(), hand.steps.at(-1));
-  // Play and manual stepping visit identical recorded states. Pausing during a
-  // flight lets that single payment settle, without scheduling another action.
-  await click(".play-button");
-  await assertFlight(firstPayment);
-  await click(".play-button");
-  await assertSettled(firstPayment);
-  await wait(1150);
-  assert.equal((await state()).step, firstPayment);
-  await click('[aria-label="Next action"]');
-  await assertFlight(firstPayment + 1);
-  await assertSettled(firstPayment + 1);
-  await click('[aria-label="Previous action"]');
-  await assertFlight(firstPayment);
-  await assertSettled(firstPayment);
-  await click(".play-button");
-  await until("document.querySelectorAll('.recap-events li button')[1].getAttribute('aria-current') === 'step'");
-  await assertFlight(firstPayment + 1);
-  await click(".play-button");
-  await assertSettled(firstPayment + 1);
-  // Neutral board steps and player checks never fly chips.
-  for (const index of [boardStep, checkStep]) {
-    await selectStep(index);
-    const current = await state();
-    assertActor(current, hand.steps[index]);
-    assert.equal(current.phase, "none");
-    assert.equal(current.flights, 0);
-    assert.equal(current.pot, String(hand.steps[index].pot));
-  }
-  await screenshot(`codex-recap-actions-${label}`);
-  // Back/forward replay of a paid raise/call, sampled in flight.
-  await selectStep(callStep - 1);
-  await click('[aria-label="Next action"]');
-  const start = await assertFlight(callStep);
-  await wait(100);
-  const moving = await state();
-  assert.notEqual(moving.position, start.position, "chip must travel toward the pot");
-  await screenshot(`codex-recap-chip-flight-${label}`);
-  await assertSettled(callStep);
-  await click('[aria-label="Previous action"]');
-  await assertFlight(callStep - 1);
-  await click('[aria-label="Next action"]');
-  await assertFlight(callStep);
-  // Switching highlights cancels the old presentation even mid-flight.
-  await selectHand(0);
+  await assertFinal();
+  const layout = await evaluate(`(()=>{const s=document.querySelector('.replay-sidebar'),t=document.querySelector('.replay-stage'),h=document.querySelector('h1');return {
+    heading:h.textContent,context:document.querySelector('.match-context').textContent,
+    controls:s.querySelectorAll('button').length,totalControls:document.querySelectorAll('.replay-page button').length,
+    removed:document.querySelectorAll('.playback,.timeline,.recap-events,.action-summary,.sidebar-note,.table-foot').length,
+    stageChildren:t.children.length,border:getComputedStyle(s).borderWidth,background:getComputedStyle(s).backgroundColor,
+    width:innerWidth,scroll:document.documentElement.scrollWidth,controlBottom:s.querySelector('.hand-playback').getBoundingClientRect().bottom,
+    titleBottom:h.getBoundingClientRect().bottom,tableTop:t.getBoundingClientRect().top,tableBottom:t.getBoundingClientRect().bottom
+  }})()`);
+  assert.equal(layout.heading,hand.label);
+  assert.ok(layout.context.includes(`Hand ${hand.hand_number} of ${recap.total_hands}`));
+  assert.ok(layout.context.includes(recap.players[0]) && layout.context.includes(recap.players[1]) && layout.context.includes("Direct challenge"));
+  assert.equal(layout.controls,4); assert.equal(layout.totalControls,4);
+  assert.equal(layout.removed,0); assert.equal(layout.stageChildren,1);
+  assert.equal(layout.border,"0px"); assert.equal(layout.background,"rgba(0, 0, 0, 0)");
+  assert.equal(layout.width,layout.scroll); assert.ok(layout.controlBottom <= height);
+  assert.ok(layout.titleBottom < layout.tableTop);
+  if (label === "mobile") { assert.ok(layout.controlBottom < layout.tableTop); assert.ok(layout.tableBottom <= height); }
+  assert.equal(await evaluate(`(()=>{const badge=document.querySelector('.bottom-seat .seat-result'),cards=document.querySelector('.hero-cards');if(!badge)return true;const b=badge.getBoundingClientRect(),c=cards.getBoundingClientRect();return b.left>=c.right||b.top>=c.bottom||b.right<=c.left||b.bottom<=c.top})()`),true,"Winner badge must not cover hole cards");
+  await screenshot(`codex-recap-simple-result-${label}`);
+  await click('[aria-label="Previous highlight"]');
+  await assertFinal(recap.highlights[handIndex - 1]);
+  assert.equal(await evaluate("document.querySelector('h1').textContent"), recap.highlights[handIndex - 1].label);
+  await click('[aria-label="Next highlight"]');
+  await assertFinal();
+  assert.equal(await evaluate("location.search.includes('hand=recap_qa_6')"),true);
+  // Replay starts the full hand at step 1, with cobalt replacing gold.
+  await click('.replay-button');
+  await assertFlight(0);
   await wait(1200);
-  const switched = await state();
-  assertActor(switched, recap.highlights[0].steps.at(-1));
-  assert.equal(switched.flights, 0);
-  assert.equal(switched.pot, String(recap.highlights[0].pot));
-  await selectHand(handIndex);
-  assert.equal(await evaluate("location.search.includes('hand=recap_qa_6')"), true);
-  // Motion preference changes during a flight settle immediately, and future
-  // steps show the destination without ever mounting a flight.
-  await selectStep(callStep);
-  await assertFlight(callStep);
-  await call("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await click('.replay-button');
+  await assertFlight(0);
+  await wait(1200);
+  assert.equal((await state()).step,0,"Replay on step 1 must reset the full action interval");
+  await click('.play-button');
+  await assertSettled(0);
+  await wait(2300);
+  assert.equal((await state()).step,0,"Pause must stop progression");
+  await click('.play-button');
+  await waitStep(1);
+  await assertFlight(1); // other physical actor, including mirrored seats
+  await waitStep(callStep);
+  await click('.play-button');
+  const start = await assertFlight(callStep);
+  await wait(150);
+  assert.notEqual((await state()).position,start.position);
+  await screenshot(`codex-recap-simple-action-${label}`);
   await assertSettled(callStep);
-  await selectStep(firstPayment);
-  await assertSettled(firstPayment);
-  await selectStep(callStep);
-  await assertSettled(callStep);
-  await screenshot(`codex-recap-reduced-motion-${label}`);
-  await call("Emulation.setEmulatedMedia", { features: [] });
-  await selectStep(hand.steps.length - 1);
-  assertActor(await state(), hand.steps.at(-1));
-  const geometry = await evaluate("({width:innerWidth,scroll:document.documentElement.scrollWidth,controls:document.querySelector('.playback').getBoundingClientRect().bottom})");
-  assert.equal(geometry.width, geometry.scroll, `${label} has horizontal overflow`);
-  assert.ok(geometry.controls <= height, `${label} controls are outside the viewport`);
-  await screenshot(`codex-recap-actions-result-${label}`);
-  console.log(`${label}: ${width}x${height}; actors, chip movement, synchronized pots, manual/Play/Pause, cancelled flights, reduced motion, neutral results, no overflow, controls visible`);
+  // Restart partway through, then cancel mid-flight with a highlight change.
+  await click('.replay-button');
+  await assertFlight(0);
+  await click('[aria-label="Next highlight"]');
+  await wait(2300);
+  await assertFinal(recap.highlights[handIndex + 1]); // real viewer loss
+  await click('[aria-label="Previous highlight"]');
+  await assertFinal();
+  await click('.replay-button');
+  await assertFlight(0);
+  await call("Emulation.setEmulatedMedia",{features:[{name:"prefers-reduced-motion",value:"reduce"}]});
+  await click('.play-button');
+  await assertSettled(0);
+  await click('.replay-button');
+  await assertSettled(0);
+  await click('.play-button');
+  await call("Emulation.setEmulatedMedia",{features:[]});
+  // Complete the unmodified cadence, checking every action/neutral state.
+  await click('.replay-button');
+  for (let index=0; index<hand.steps.length; index++) {
+    await waitStep(index);
+    assertActor(await state(),hand.steps[index]);
+  }
+  await assertFinal();
+  await until("document.querySelector('.play-button').textContent.includes('Play')");
+  console.log(`${label}: heading/context, sidebar-only controls, Replay/Play/Pause, real highlight navigation, actor/flight accounting, full 2200ms cadence, final-only gold, reduced motion, no overflow`);
 }
 await call("Network.clearBrowserCookies");
 await call("Page.reload");
 await until("document.body?.innerText.includes('Sign in to view this recap')");
-console.log("Private recap clears after sign-out. Previous / Play / Pause / Next verified.");
+console.log("Signed-out private state clearing verified.");
 ws.close();

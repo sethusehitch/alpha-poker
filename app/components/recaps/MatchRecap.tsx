@@ -64,15 +64,18 @@ function ReplayTable({ hand, step, bottom, top }: { hand: Highlight; step: Repla
   }, [actor, commits, top.seat]);
   const flying = commits && !arrived;
   const shownPot = flying ? step.pot_before : step.pot;
-  return <div ref={scene} className="table-scene" data-actor-seat={actor ?? "none"} data-chip-state={flying ? "flying" : commits ? "settled" : "none"}>
+  const final = step.street === "result";
+  const split = hand.winners.length === 2;
+  const winner = (player: ReplayPlayer) => final && hand.winners.includes(player.username);
+  const resultLabel = split ? "Split pot" : hand.winners.length === 1 ? `${hand.winners[0]} wins` : hand.outcome;
+  return <div ref={scene} className="table-scene" data-hand-id={hand.hand_id} data-step-index={hand.steps.indexOf(step)} data-actor-seat={actor ?? "none"} data-chip-state={flying ? "flying" : commits ? "settled" : "none"}>
     <div className="scene-label">HAND {hand.hand_number} <span>•</span> STEP {hand.steps.indexOf(step) + 1}/{hand.steps.length}</div><div className="street-label">{step.street}</div>
     <div className="poker-table"><div className="table-line" /><div className="table-wordmark"><AlphaPokerMark /><span>ALPHA POKER</span></div></div>
-    <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span></div><div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
-    <div className={`table-action ${actor !== null ? "player-action" : ""}`} title={step.action_label ?? step.summary} aria-live="polite">{step.street === "result" ? "Hand complete" : step.action_label ?? step.summary}</div>
-    <div className="board-area"><div ref={pot} className={`pot ${commits ? "pot-receiving" : ""}`} data-pot={shownPot ?? "unknown"}>{commits && <i className={`pot-chip ${arrived ? "chip-arrived" : ""}`} aria-hidden="true" />}<span>{step.street === "result" ? "Pot awarded" : "Pot"}</span><strong>{amount(shownPot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
-    <div data-seat={bottom.seat} className={`seat bottom-seat ${actor === bottom.seat ? "seat-active" : ""}`} aria-label={`${bottom.username}${actor === bottom.seat ? ", acting player" : ""}`}><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span></div>{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
+    <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""} ${winner(top) ? "seat-winner" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : winner(top) ? split ? ", split pot" : ", winner" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span></div>{winner(top) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}<div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
+    <div className={`table-action ${actor !== null ? "player-action" : ""} ${final && hand.winners.length ? "result-action" : ""}`} title={step.action_label ?? step.summary} aria-label={step.action_label ?? step.summary} aria-live="polite">{final ? resultLabel : step.action_label ?? step.summary}</div>
+    <div className="board-area"><div ref={pot} className={`pot ${commits ? "pot-receiving" : ""} ${final && hand.winners.length ? "pot-awarded" : ""}`} data-pot={shownPot ?? "unknown"}>{commits && <i className={`pot-chip ${arrived ? "chip-arrived" : ""}`} aria-hidden="true" />}<span>{final ? "Pot awarded" : "Pot"}</span><strong>{amount(shownPot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
+    <div data-seat={bottom.seat} className={`seat bottom-seat ${actor === bottom.seat ? "seat-active" : ""} ${winner(bottom) ? "seat-winner" : ""}`} aria-label={`${bottom.username}${actor === bottom.seat ? ", acting player" : winner(bottom) ? split ? ", split pot" : ", winner" : ""}`}><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span></div>{winner(bottom) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
     {flying && path && <div className="chip-flight" style={path} aria-hidden="true" onAnimationEnd={event => { if (event.animationName === "recap-chip-flight") setArrived(true); }}><i /><small>+{amount(step.committed_amount)}</small></div>}
-    <div className="table-foot">Play chips · Stacks reset each hand</div>
   </div>;
 }
 
@@ -112,7 +115,7 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     if (stepIndex >= hand.steps.length - 1) { setPlaying(false); return; }
     const timer = window.setTimeout(() => setStepIndex(step => step + 1), STEP_INTERVAL_MS);
     return () => window.clearTimeout(timer);
-  }, [playing, hand, stepIndex]);
+  }, [playing, hand, stepIndex, visit]);
   function select(next: number) {
     setPlaying(false);
     setIndex(next);
@@ -122,9 +125,9 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     url.searchParams.set("hand", data.highlights[next].hand_id);
     window.history.replaceState(window.history.state, "", url);
   }
-  function selectStep(next: number) {
-    setPlaying(false);
-    setStepIndex(next);
+  function replayHand() {
+    setPlaying(true);
+    setStepIndex(0);
     setVisit(value => value + 1);
   }
   const back = data.challenge ? `/rivals?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.players[1])}&result=${encodeURIComponent(data.challenge.challenge_id)}` : "/leaderboard";
@@ -138,17 +141,15 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   const outcomeLabel = tied ? "Split pot" : profit == null ? "Net result" : `${bottom.is_viewer ? "You" : bottom.username} ${won ? "won" : profit < 0 ? "lost" : "net"}`;
   return <div className="replay-page"><main className="replay-main">
     <a href={back} className="back-link">← <span>Back to {data.challenge ? "recap" : "results"}</span></a>
-    <div className="page-heading"><div><h1>{data.source === "direct_challenge" ? "Rivalry recap" : "Match recap"}</h1><p>{data.players[0]} <span>vs</span> {data.players[1]}</p></div><span className="replay-label"><i /> {data.source === "direct_challenge" ? "Direct challenge" : "Round robin"}</span></div>
+    <header className="page-heading"><div className="recap-eyebrow">{data.source === "direct_challenge" ? "Rivalry recap" : "Match recap"}</div><h1>{hand.label}</h1><p className="match-context"><span>{data.players[0]} <span className="versus">vs</span> {data.players[1]}</span><span>{data.source === "direct_challenge" ? "Direct challenge" : "Round robin"} <span className="context-dot">·</span> <strong>Hand {hand.hand_number} of {data.total_hands}</strong></span></p></header>
     {!data.complete_history && <p className="retention-note" role="status">Showing {data.retained_hands} retained hands from {data.total_hands}. Match-wide lead changes cannot be determined from partial history.</p>}
-    <div className="replay-layout"><aside className="replay-sidebar">
-      <div className="highlight"><div className="highlight-label">↗ {hand.label}</div><div className={`win-label ${won ? "" : profit != null && profit < 0 ? "loss-label" : "neutral-label"}`}>{outcomeLabel}<strong>{profit == null ? "Not retained" : `${profit > 0 ? "+" : ""}${amount(profit)}`}</strong></div><span className="highlight-note">Net play chips</span></div>
+    <div className="replay-layout"><aside className="replay-sidebar" aria-label="Recap controls and hand result">
+      <div className="highlight"><div className={`win-label ${won ? step.street === "result" ? "gold-result" : "" : profit != null && profit < 0 ? "loss-label" : "neutral-label"}`}>{outcomeLabel}<strong>{profit == null ? "Not retained" : `${profit > 0 ? "+" : ""}${amount(profit)}`}</strong></div><span className="highlight-note">Net play chips</span><p className="hand-outcome">{hand.outcome}</p></div>
       <div className="hand-selector"><button aria-label="Previous highlight" disabled={index === 0} onClick={() => select(index - 1)}><Arrow /></button><strong>Highlight {index + 1} <span>of {data.highlights.length}</span></strong><button aria-label="Next highlight" disabled={index === data.highlights.length - 1} onClick={() => select(index + 1)}><Arrow right /></button></div>
-      <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div><div className="sidebar-note">Hand {hand.hand_number} of {data.total_hands}</div>
+      <div className="hand-playback" role="group" aria-label="Hand playback"><button className="replay-button" disabled={hand.steps.length < 2} onClick={replayHand}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8a6 6 0 1 1 0 4M4 3v5h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>Replay</button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) replayHand(); else setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button></div>
+      <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div>
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>
       <ReplayTable key={`${hand.hand_id}:${stepIndex}:${visit}`} hand={hand} step={step} bottom={bottom} top={top} />
-      <div className="playback"><div className="timeline" aria-label="Highlights">{data.highlights.map((h, i) => <button key={h.hand_id} aria-label={`Highlight ${i + 1}: ${h.label}`} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : i > index ? "remaining" : ""} onClick={() => select(i)} />)}</div><div className="playback-row"><span className="playback-status">Hand {hand.hand_number} of {data.total_hands}</span><div className="playback-buttons"><button aria-label="Previous action" disabled={stepIndex === 0} onClick={() => selectStep(stepIndex - 1)}><Arrow /><span>Previous</span></button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) setStepIndex(0); setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button><button aria-label="Next action" disabled={stepIndex === hand.steps.length - 1} onClick={() => selectStep(stepIndex + 1)}><span>Next</span><Arrow right /></button></div><span className="speed">Step {stepIndex + 1} / {hand.steps.length}</span></div></div>
-      <div className="action-summary" aria-live="polite"><span>{step.street === "result" ? "Result" : "Last action"}</span><p>{step.summary}</p></div>
-      <details className="recap-events"><summary>Hand actions ({hand.steps.length})</summary><ol>{hand.steps.map((s, i) => <li key={i}><button aria-current={i === stepIndex ? "step" : undefined} onClick={() => selectStep(i)}><span>{s.street}</span>{s.summary}</button></li>)}</ol><p>Previous and Next step through actions. Use the highlight bar to switch hands. Only your cards and cards revealed at showdown are shown. Missing retained values are left unavailable.</p></details>
     </section></div></main></div>;
 }

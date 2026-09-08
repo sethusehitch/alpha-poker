@@ -43,7 +43,7 @@ const STATUS_TONE: Record<SubmissionStatus, string> = {
 const STATUS_LABEL: Record<SubmissionStatus, string> = {
   queued: "Queued",
   validating: "Checking",
-  accepted: "In the league",
+  accepted: "Accepted",
   rejected: "Rejected",
 };
 
@@ -53,11 +53,11 @@ function submissionStatus(value: string): SubmissionStatus {
     : "queued";
 }
 
-// A submission only stops moving once it is accepted or rejected, so polling
-// stays on until the bot reaches one of those two resting states.
+// Acceptance is not the end of a queued/running league evaluation.
 function isSettled(status: AccountStatus | null) {
   const state = status?.submission?.status;
-  return state === "accepted" || state === "rejected";
+  return state === "rejected" || (state === "accepted" &&
+    !["queued", "running", "awaiting_first_run", "waiting_for_players"].includes(status?.participant_state ?? ""));
 }
 
 function Plate({ children }: { children: React.ReactNode }) {
@@ -354,7 +354,7 @@ export function MyBotWorkspace() {
           ) : null}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 border-t border-zinc-200/80 bg-white/60 p-4 sm:p-5">
+        {!result ? <p className="border-t border-zinc-200/80 bg-white/60 p-6 text-center font-semibold text-zinc-600">Not rated yet</p> : <div className="grid grid-cols-3 gap-3 border-t border-zinc-200/80 bg-white/60 p-4 sm:p-5">
           <Stat
             label="ELO"
             value={result ? result.elo_rating.toLocaleString() : "—"}
@@ -364,7 +364,7 @@ export function MyBotWorkspace() {
             value={record ? `${record.wins}–${record.losses}` : "—"}
           />
           <Stat label="RANK" value={result ? `#${result.rank}` : "—"} />
-        </div>
+        </div>}
       </Plate>
 
       {record && record.draws > 0 && (

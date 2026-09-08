@@ -364,6 +364,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         else:
             participant_state = league_status["queue"]["state"]
             participant_message = league_status["queue"]["message"]
+            if active and not result:
+                if league_status["bot_count"] < league_status["minimum_bots"]:
+                    participant_state = "waiting_for_players"
+                    participant_message = "Accepted. Waiting for 1 more active bot before your first match. Sample leaderboard entries are not active opponents."
+                elif not settings.auto_run_on_accept:
+                    participant_state = "automation_paused"
+                    participant_message = "Accepted. Automatic league runs are disabled in this environment. Your bot has not been rated yet."
+                elif participant_state not in {"queued", "running", "failed"}:
+                    participant_state = "awaiting_first_run"
+                    participant_message = "Accepted. Your bot has not completed its first league run yet."
         return {
             "username": username,
             "is_operator": is_operator_username(settings, username),

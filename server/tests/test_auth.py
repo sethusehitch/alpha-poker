@@ -169,6 +169,24 @@ def test_account_status_exposes_submission_and_waiting_state(tmp_path):
         assert client.get("/v1/account/status").status_code == 401
 
 
+def test_new_bot_does_not_inherit_completed_demo_status(tmp_path):
+    settings = Settings(tmp_path, tmp_path / "db.sqlite3", tmp_path / "uploads", tmp_path / "artifacts",
+                        seed_demo_data=True, auto_run_on_accept=False, auth_required=True)
+    with TestClient(create_app(settings)) as client:
+        headers = None
+        for username in ("new-player", "opponent"):
+            token = client.post('/v1/auth/register', json={'username': username, 'password': 'local-test-password'}).json()['token']
+            current_headers = {'Authorization': f'Bearer {token}'}
+            headers = headers or current_headers
+            response = client.post('/v1/submissions', headers=current_headers, data={'bot_name': username},
+                                   files={'package': ('bot.zip', package(), 'application/zip')})
+            assert response.status_code == 202
+            status = client.get('/v1/account/status', headers=headers).json()
+            assert status['result'] is None
+            assert status['participant_state'] == ('waiting_for_players' if username == 'new-player' else 'automation_paused')
+            assert 'complete.' not in status['participant_message']
+
+
 def test_registration_conflict_does_not_reveal_password_state(tmp_path):
     with auth_client(tmp_path) as client:
         body = {"username": "maya", "password": "correct horse"}

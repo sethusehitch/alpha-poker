@@ -1145,7 +1145,9 @@ def _parser() -> argparse.ArgumentParser:
         help="cohort code; omit to enter it securely when the league requires one",
     )
     login = sub.add_parser("login", help="log in and store a revocable local token")
-    login.add_argument("username")
+    login.add_argument("username", nargs="?")
+    login.add_argument("--browser", action="store_true", help="approve login in your browser (Google or password)")
+    login.add_argument("--no-open", action="store_true", help="print the approval URL without opening a browser")
     login.add_argument("--api-url", default=DEFAULT_API_URL)
     logout = sub.add_parser("logout", help="revoke the stored session")
     logout.add_argument("--api-url", default=DEFAULT_API_URL)
@@ -1260,6 +1262,40 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _browser_login(api_url: str, no_open: bool = False) -> int:
+    base = api_url.rstrip("/")
+    parsed = urlparse(base)
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1", "::1"}):
+        raise CliError("Browser login requires HTTPS (except localhost).")
+    flow = _http_json("POST", f"{base}/auth/browser/start")
+    uri = flow.get("verification_uri", "")
+    target = urlparse(uri)
+    if target.scheme != "https" and not (target.scheme == "http" and target.hostname in {"localhost", "127.0.0.1", "::1"}):
+        raise CliError("The server returned an unsafe approval URL.")
+    if not isinstance(flow.get("device_code"), str) or not re.fullmatch(r"[A-F0-9]{4}-[A-F0-9]{4}", flow.get("user_code", "")):
+        raise CliError("The server returned an invalid browser login.")
+    print(f"Open {uri}", flush=True)
+    print(f"Enter code: {flow['user_code']}", flush=True)
+    print("Approve only the login you started. Waiting up to 10 minutes…", flush=True)
+    if not no_open:
+        try:
+            webbrowser.open(uri)
+        except Exception:
+            pass  # Printed instructions also work in remote coding agents.
+    deadline = time.monotonic() + 600
+    while time.monotonic() < deadline:
+        response = _http_json("POST", f"{base}/auth/browser/poll", {"device_code": flow["device_code"]})
+        if response.get("pending"):
+            time.sleep(3)
+            continue
+        if not isinstance(response.get("token"), str) or not isinstance(response.get("username"), str):
+            raise CliError("Authentication response is missing a token.")
+        _remember_profile(api_url, response["username"], response["token"])
+        print(f"Logged in as {response['username']}")
+        return 0
+    raise CliError("Login timed out. Nothing was submitted. Run alpha-poker login --browser again when ready.")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -1279,6 +1315,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "notifications":
             return _run_notifications(args)
         if args.command in {"register", "login"}:
+            if args.command == "login" and args.browser:
+                return _browser_login(args.api_url, args.no_open)
+            if args.command == "login" and not args.username:
+                raise CliError("Enter a username, or use alpha-poker login --browser for Google sign-in.")
             password = _prompt_password("Password: ")
             invite_code = None
             if args.command == "register":

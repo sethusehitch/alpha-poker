@@ -6,6 +6,7 @@ import { emit } from "../uiBus";
 import { CharacterPicker } from "./CharacterPicker";
 import { CharacterImage } from "./CharacterImage";
 import { type Avatar } from "./avatar";
+import { GoogleSignIn } from "../GoogleSignIn";
 
 export function ProfileWorkspace() {
   const { session, loaded } = useSession();
@@ -17,6 +18,7 @@ export function ProfileWorkspace() {
   const [saved, setSaved] = useState(false);
   const [retry, setRetry] = useState(0);
   const username = session?.username;
+  const welcomeDestination = () => new URLSearchParams(window.location.search).get("next") === "cli" ? "/authorize-cli" : "/#instructions";
   useEffect(() => {
     setWelcome(new URLSearchParams(window.location.search).get("welcome") === "1");
   }, []);
@@ -36,7 +38,7 @@ export function ProfileWorkspace() {
     emit("avatar-changed", { username: session.username, avatar });
     setSaved(true);
     setEditing(false);
-    if (welcome) window.location.assign("/#instructions");
+    if (welcome) window.location.assign(welcomeDestination());
   }
   const current = data?.username === session?.username ? data : null;
   const pickerOpen = Boolean(current && (welcome || editing));
@@ -60,7 +62,7 @@ export function ProfileWorkspace() {
       {current && <section className={welcome || editing ? "mt-8 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-8" : "mx-auto flex max-w-sm flex-col items-center py-10 sm:py-16"}>
         {welcome || editing ? <>
           <CharacterPicker key={session.username} initialAvatar={current.avatar} onSaved={finish} onPendingChange={setPending}
-            onSkip={welcome ? () => window.location.assign("/#instructions") : undefined} />
+            onSkip={welcome ? () => window.location.assign(welcomeDestination()) : undefined} />
           {!welcome && <button disabled={pending} onClick={() => setEditing(false)} className="mt-4 w-full rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50">Cancel</button>}
         </> : <div className="flex flex-col items-center text-center">
           <div className="relative h-36 w-36">
@@ -72,6 +74,7 @@ export function ProfileWorkspace() {
           <h1 className="mt-6 max-w-full break-all text-3xl font-semibold tracking-tight text-zinc-950">{session.username}</h1>
           {saved && <p role="status" className="mt-4 text-sm font-medium text-green-700">Saved.</p>}
           <a href="/my-bot" className="mt-6 text-sm font-semibold text-blue-700 hover:underline">My Bot →</a>
+          <GoogleSignIn link />
         </div>}
       </section>}
     </>}

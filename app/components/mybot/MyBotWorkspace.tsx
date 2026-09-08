@@ -43,9 +43,15 @@ const STATUS_TONE: Record<SubmissionStatus, string> = {
 const STATUS_LABEL: Record<SubmissionStatus, string> = {
   queued: "Queued",
   validating: "Checking",
-  accepted: "In the league",
+  accepted: "Accepted",
   rejected: "Rejected",
 };
+
+function PictureEdit() {
+  return <a href="/profile" aria-label="Change picture" title="Change picture" className="absolute -right-1 -top-1 grid h-9 w-9 place-items-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4"><path d="m12.5 4.5 3 3M3.5 16.5l3.7-.8 9-9a2.1 2.1 0 0 0-3-3l-9 9-.7 3.8Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  </a>;
+}
 
 function submissionStatus(value: string): SubmissionStatus {
   return value === "validating" || value === "accepted" || value === "rejected"
@@ -53,11 +59,11 @@ function submissionStatus(value: string): SubmissionStatus {
     : "queued";
 }
 
-// A submission only stops moving once it is accepted or rejected, so polling
-// stays on until the bot reaches one of those two resting states.
+// Acceptance is not the end of a queued/running league evaluation.
 function isSettled(status: AccountStatus | null) {
   const state = status?.submission?.status;
-  return state === "accepted" || state === "rejected";
+  return state === "rejected" || (state === "accepted" &&
+    !["queued", "running", "awaiting_first_run", "waiting_for_players"].includes(status?.participant_state ?? ""));
 }
 
 function Plate({ children }: { children: React.ReactNode }) {
@@ -270,22 +276,14 @@ export function MyBotWorkspace() {
       <Shell>
         <Plate>
           <div className="flex flex-col items-center gap-6 px-5 py-12 text-center sm:px-10">
-            {/* The empty seat is the memorable identity slot: the same plate the
-                submitted bot's portrait fills once a package is accepted. */}
-            <span
-              aria-hidden="true"
-              className="grid h-28 w-28 place-items-center rounded-[1.75rem] border-2 border-dashed border-blue-200 bg-white/70 text-4xl font-bold text-blue-300"
-            >
-              ?
-            </span>
+            <div className="relative"><BotAvatar name={session.username} avatar={visibleStatus.avatar} circle className="h-28 w-28" /><PictureEdit /></div>
             <div>
               <p className="text-3xl font-bold tracking-tight text-zinc-950">
-                Your seat is open
+                No bot uploaded yet
               </p>
               <p className="mt-2 text-zinc-600">
                 Two steps and your agent builds the bot.
               </p>
-              <a href="/profile" className="mt-3 inline-block text-sm font-semibold text-blue-700 hover:underline">Change character</a>
             </div>
             <Suits />
             <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
@@ -324,44 +322,40 @@ export function MyBotWorkspace() {
   const chip = submissionStatus(submission.status);
   const result = visibleStatus.result;
   const record = result?.record;
-  const progress =
-    visibleStatus.league.queue.state === "running"
-      ? visibleStatus.league.current_run?.progress
-      : null;
-  const failed = ["rejected", "failed"].includes(
-    visibleStatus.participant_state,
-  );
+  const state = visibleStatus.participant_state;
+  const statusLabel = ({
+    waiting_for_players: "Pending opponent",
+    queued: "Waiting to play",
+    running: "Playing matches",
+    validating: "Checking bot",
+    awaiting_first_run: "Waiting to play",
+    automation_paused: "Matches paused",
+    rejected: "Needs changes",
+    failed: "Run failed",
+    completed: "In the league",
+  } as Record<string, string>)[state] ?? STATUS_LABEL[chip];
+  const pending = ["waiting_for_players", "queued", "running", "validating", "awaiting_first_run"].includes(state);
 
   return (
     <Shell>
       <Plate>
         <div className="flex flex-col items-center gap-4 px-5 pt-10 pb-8 text-center sm:px-10">
-          <BotAvatar name={session.username} avatar={visibleStatus.avatar} circle className="h-28 w-28" />
-          <a href="/profile" className="text-sm font-semibold text-blue-700 hover:underline">Change character</a>
+          <div className="relative"><BotAvatar name={session.username} avatar={visibleStatus.avatar} circle className="h-28 w-28" /><PictureEdit /></div>
           <div className="min-w-0">
             <p className="truncate text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
               {submission.bot_name}
             </p>
             <span
-              className={`mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-bold tracking-wide ring-1 ${STATUS_TONE[chip]}`}
+              role="status"
+              className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ring-1 ${pending ? "bg-blue-50 text-blue-700 ring-blue-200" : STATUS_TONE[chip]}`}
             >
-              {STATUS_LABEL[chip]}
+              {statusLabel}
+              {pending && <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full border-2 border-current border-r-transparent motion-safe:animate-spin" />}
             </span>
           </div>
-          <p
-            className={`max-w-md text-sm leading-6 ${failed ? "text-red-700" : "text-zinc-600"}`}
-          >
-            {submission.error ?? visibleStatus.participant_message}
-          </p>
-          {progress ? (
-            <p className="text-xs tabular-nums text-zinc-500">
-              {progress.matchups_completed ?? 0} / {progress.matchups_total ?? 0}{" "}
-              matchups
-            </p>
-          ) : null}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 border-t border-zinc-200/80 bg-white/60 p-4 sm:p-5">
+        {result && <div className="grid grid-cols-3 gap-3 border-t border-zinc-200/80 bg-white/60 p-4 sm:p-5">
           <Stat
             label="ELO"
             value={result ? result.elo_rating.toLocaleString() : "—"}
@@ -371,7 +365,7 @@ export function MyBotWorkspace() {
             value={record ? `${record.wins}–${record.losses}` : "—"}
           />
           <Stat label="RANK" value={result ? `#${result.rank}` : "—"} />
-        </div>
+        </div>}
       </Plate>
 
       {record && record.draws > 0 && (
@@ -388,11 +382,6 @@ export function MyBotWorkspace() {
             Latest result logs
           </LogLink>
         )}
-        <LogLink
-          href={`/browser-api/submissions/${encodeURIComponent(submission.submission_id)}/logs`}
-        >
-          Validation log
-        </LogLink>
       </div>
     </Shell>
   );

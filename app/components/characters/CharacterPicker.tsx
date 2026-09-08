@@ -81,11 +81,11 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
         method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft.url.startsWith("data:") ? { image_data: draft.url } : { preset: draft.id }),
       });
-      if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to save your character." : "We couldn’t save your character. Your selection is still here. Try again.");
+      if (!response.ok) throw new Error(response.status === 401 ? "Sign in again to save your profile picture." : "We couldn’t save your picture. Your selection is still here. Try again.");
       const result = await response.json();
       if (!result.avatar || typeof result.avatar.id !== "string" || typeof result.avatar.url !== "string") throw new Error("We couldn’t confirm the save. Please try again.");
       if (mounted.current) onSaved(result.avatar);
-    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : "We couldn’t save your character. Please try again."); }
+    } catch (cause) { if (mounted.current) setError(cause instanceof Error ? cause.message : "We couldn’t save your picture. Please try again."); }
     finally { lock.current = false; if (mounted.current) setBusy(false); }
   }
   function move(event: PointerEvent<HTMLDivElement>) {
@@ -115,13 +115,13 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
       </details>
       <div className="character-actions"><button className="character-primary" disabled={busy} onClick={acceptCrop}>{busy ? "Preparing…" : "Use this crop"}</button><button className="character-secondary" disabled={busy} onClick={() => { setError(""); clearCrop(); }}>Cancel crop</button></div>
     </> : <>
-      <h2 id={`${uid}-title`}>Choose your character</h2>
-      <p>A little personality for your place at the table.</p>
+      <h2 id={`${uid}-title`}>Choose your avatar</h2>
+      <p>Pick an avatar or upload your own picture.</p>
       <div className="character-large">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={draft.url} alt={`${names[draft.id] || "Your custom character"} preview`} />
+        <img src={draft.url} alt={`${names[draft.id] || "Your profile picture"} preview`} />
       </div>
-      <div className="character-options" role="group" aria-label="Choose a character">
+      <div className="character-options" role="group" aria-label="Choose an avatar">
         {presets.map(id => <button key={id} className="character-option" aria-pressed={draft.id === id} disabled={busy} onClick={() => { setDraft({ id, url: `/characters/${id}.webp` }); setError(""); }}>
           <span className="character-tile">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -133,9 +133,9 @@ export function CharacterPicker({ initialAvatar, onSaved, onSkip, onPendingChang
           <img src={custom.url} alt="" />{draft.id === custom.id && <span className="character-check" aria-hidden="true">✓</span>}</span><span>Your image</span></button>}
         <button ref={uploadButton} className="character-option" disabled={busy} onClick={() => fileInput.current?.click()}><span className="character-tile character-upload" aria-hidden="true">+</span><span>Upload image</span></button>
       </div>
-      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload a character image" hidden onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void upload(file); }} />
+      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Upload a profile picture" hidden onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void upload(file); }} />
       <p className="character-hint">JPG, PNG, or WebP. Up to 2 MB.</p>
-      <div className="character-actions"><button className="character-primary" disabled={busy} onClick={save}>{busy ? "Please wait…" : "Save character"}</button>{onSkip && <button className="character-secondary" disabled={busy} onClick={onSkip}>Skip for now</button>}</div>
+      <div className="character-actions"><button className="character-primary" disabled={busy} onClick={save}>{busy ? "Please wait…" : "Save"}</button>{onSkip && <button className="character-secondary" disabled={busy} onClick={onSkip}>Skip for now</button>}</div>
     </>}
     {error && <p className="character-error" role="alert">{error}</p>}
   </section>;

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-location-assign-relative-destination */
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { emit, on } from "./uiBus";
 import { CharacterImage } from "./characters/CharacterImage";
 import type { Avatar } from "./characters/avatar";
@@ -161,7 +162,7 @@ export function AuthButton() {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         // The overlay itself scrolls and the panel caps at the dynamic viewport
         // height, so a short phone in landscape — or the register form with the
         // invite field — can never clip the submit button off screen.
@@ -196,7 +197,7 @@ export function AuthButton() {
                       <p className="text-xs text-zinc-500">Same account as the Alpha Poker CLI.</p>
                     </div>
                   </div>
-                  <a href="/profile" className="mt-5 block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center font-semibold text-white hover:bg-blue-700">Profile &amp; character</a>
+                  <a href="/profile" className="mt-5 block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center font-semibold text-white hover:bg-blue-700">Profile</a>
                   <button type="button" onClick={logout} className="mt-3 w-full rounded-lg border border-zinc-300 px-4 py-2.5 font-semibold text-zinc-900 hover:bg-zinc-50">
                     Log out
                   </button>
@@ -250,7 +251,8 @@ export function AuthButton() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

@@ -40,3 +40,8 @@ test('both hosted policies permit local crop previews without external image hos
     assert.match(source, /img-src 'self' data: blob: https:\/\/fastapi.tiangolo.com;/);
   }
 });
+test('account dialog escapes the blurred header containing block', async () => {
+  const source = await readFile(new URL('../app/components/AuthButton.tsx', import.meta.url), 'utf8');
+  assert.match(source, /open && createPortal\(/);
+  assert.match(source, /document\.body\s*\)/);
+});

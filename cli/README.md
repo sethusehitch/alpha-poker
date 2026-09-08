@@ -71,6 +71,38 @@ It exits when the challenge is completed, declined, cancelled, or failed. If the
 `rivals recap` prints the result; with `--output`, it downloads the evidence
 archive when available, otherwise it saves recap JSON.
 
+Completed challenges expose the same highlighted replay in the browser and CLI:
+
+```bash
+alpha-poker rivals requests --status finished
+alpha-poker rivals history theo
+alpha-poker rivals status ch_123
+alpha-poker rivals recap ch_123 --url
+alpha-poker rivals recap ch_123 --open --site-url http://localhost:3002
+alpha-poker matches list
+alpha-poker matches list --run run_123
+alpha-poker matches recap run_123 run_123_match_1 --open
+```
+
+`rivals recap CHALLENGE_ID` always prints a stable `View recap` URL after
+authenticating and fetching the completed recap. `--url` prints only that URL;
+`--open` also opens it. `--json` includes the URL alongside the full normalized
+highlight payload. Existing `--output` evidence downloads still work.
+`matches list` discovers pairings in the latest completed official run (or the
+exact run supplied with `--run`); `matches recap RUN_ID MATCHUP_ID` requests only
+that pairing. These commands authenticate using the existing API profile.
+
+The web origin defaults to `http://localhost:3002` for a local API, otherwise
+the API's origin. Set `ALPHA_POKER_SITE_URL` or `--site-url` when web and API
+origins differ. Run the normal web app and API locally to view a local recap;
+there is no second file renderer or token bridge. Sign in to the web app
+separately. Session tokens are never embedded in URLs or handed to the browser.
+
+Recaps select at most five distinct retained hands, ordered chronologically.
+Highlights use net chip profit, mirrored-seat mapping, and complete-match
+cumulative scores. Partial history never claims a match-wide comeback or lead
+change. Play steps through recorded actions; it does not rerun either bot.
+
 Notifications tell the participant when a challenge arrives, completes, or
 fails. Use `notifications list --unread` and `notifications read ID`.
 

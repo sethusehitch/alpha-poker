@@ -20,10 +20,10 @@ test("hand replay return link preserves an exact result recap", async () => {
   assert.match(page, /rival=\$\{encodeURIComponent\(query\.rival\)\}&result=/);
   assert.match(
     workspace,
-    /\?rival=\$\{encodeURIComponent\(data\.challenge\.opponent_username/,
+    /\/recaps\/challenges\/\$\{encodeURIComponent\(challenge\.challenge_id\)\}/,
   );
   assert.match(
     workspace,
-    /Completed \{time\(data\.challenge\.completed_at\)\}/,
+    /time\(challenge\.completed_at \?\? challenge\.created_at\)/,
   );
 });

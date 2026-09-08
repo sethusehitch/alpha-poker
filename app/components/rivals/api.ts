@@ -57,6 +57,7 @@ export type Challenge = {
   error?: string | null;
   bot_names: { challenger: string | null; challenged: string | null };
   recap_url?: string | null;
+  playback_url?: string | null;
   artifacts_url?: string | null;
 };
 export type RivalDetail = {
@@ -178,6 +179,8 @@ export const rivalsApi = {
         hand_number: number;
         winner?: string | null;
         pot: number;
+        label?: string;
+        outcome?: string;
       }[];
       artifacts_url?: string | null;
     }>(`challenges/${encodeURIComponent(id)}/recap`),

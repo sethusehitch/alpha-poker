@@ -8,6 +8,7 @@ import {
   type LeaderboardStandings,
 } from "../rivals/api";
 import { useSession } from "../useSession";
+import { RoundRobinRecaps } from "../recaps/RoundRobinRecaps";
 
 // The dedicated standings page shows the real league result, so it never falls
 // back to the landing page's illustrative preview data.
@@ -233,6 +234,7 @@ export function StandingsWorkspace() {
                 </time>
               </p>
             )}
+            {board?.run_id && <RoundRobinRecaps runId={board.run_id} />}
           </>
         ) : (
           <p className="mt-8 rounded-2xl border border-zinc-200 bg-white p-5 text-zinc-600">

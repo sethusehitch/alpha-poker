@@ -30,3 +30,14 @@ body {
     scroll-behavior: smooth;
   }
 }
+/* Compact history inside the narrow rival drawer. Explicit avatar dimensions
+   override BotAvatar's shared default size without depending on utility order. */
+.rival-history-row { gap: 8px; padding: 12px; }
+.rival-history-row > span:first-child { flex-shrink: 0; }
+.rival-history-portraits { flex-shrink: 0; }
+.rival-history-portraits [data-robot] { width: 26px; height: 26px; }
+.rival-history-copy { min-width: 48px; }
+.rival-history-copy > p:first-child { font-size: 11px; }
+.rival-history-copy > p:last-child { font-size: 11px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.rival-history-margin { flex-shrink: 0; max-width: 70px; font-size: 10px; text-align: right; }
+.rival-recap-button { flex-shrink: 0; white-space: nowrap; background: #1559f4; color: white; font-size: 11px; }

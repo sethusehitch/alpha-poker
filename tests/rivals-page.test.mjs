@@ -84,14 +84,10 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.doesNotMatch(workspace, /timeZone: "UTC"/);
   assert.match(workspace, /highlightedId=\{recap\}/);
   assert.match(workspace, /z-50 flex items-end/);
-  assert.match(workspace, /role="dialog"\s*aria-modal="true"\s*aria-labelledby="match-recap-title"/);
   assert.doesNotMatch(workspace, /<aside\s+ref=\{panel\}\s+role="dialog"/);
-  assert.match(workspace, /selected && !recap/);
-  assert.match(workspace, /id="match-recap-title"/);
   assert.match(handReplay, /event\.hands/);
   assert.match(handReplay, /shown\.hole_cards/);
   assert.match(handReplay, /shown\.category/);
-  assert.match(workspace, /\$\{winner\} won \$\{data\.challenge\.series_score\[winner\]/);
   assert.match(workspace, /emit\("open-account"/);
   assert.match(workspace, /workspaceGeneration/);
   assert.match(workspace, /useRef<string \| null \| undefined>\(undefined\)/);
@@ -190,8 +186,8 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(handReplay, /Big blind/);
   assert.doesNotMatch(handReplay, /event\.type\.replaceAll/);
   assert.match(handReplay, /Sign in to view this replay/);
-  assert.match(workspace, /hand\.winner \? \(/);
-  assert.match(workspace, /Hand \{hand\.hand_number\} tied/);
+  assert.doesNotMatch(workspace, /function RecapDrawer|<RecapDrawer|Match recap/);
+  assert.match(workspace, /rival-recap-button/);
   assert.match(handProxy, /hands\/\$\{encodeURIComponent\(hand_id\)\}/);
 });
 

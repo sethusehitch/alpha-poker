@@ -16,10 +16,11 @@ import sys
 import time
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 import uuid
 import zipfile
+import webbrowser
 
 from .runner import LocalBot, RunnerError
 
@@ -882,6 +883,56 @@ def _wait_for_challenge(
         delay = min(delay * 1.6, 5.0)
 
 
+def _replay_url(api_url: str, site_url: str | None, path: str) -> str:
+    api = urlparse(api_url)
+    site = site_url or os.environ.get("ALPHA_POKER_SITE_URL")
+    if not site:
+        site = "http://localhost:3002" if api.hostname in {"localhost", "127.0.0.1", "::1"} else f"{api.scheme}://{api.netloc}"
+    parsed = urlparse(site)
+    if (parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password
+            or parsed.query or parsed.fragment or parsed.path not in {"", "/"}):
+        raise CliError("--site-url must be an HTTP(S) site origin without credentials, path, query, or fragment")
+    return site.rstrip("/") + path
+
+
+def _recap_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--site-url", help="web app origin (or ALPHA_POKER_SITE_URL); local default http://localhost:3002")
+    parser.add_argument("--open", action="store_true", help="open the recap in your browser; sign in there separately")
+    parser.add_argument("--url", action="store_true", help="print only the replay URL (or include it with --json)")
+
+
+def _open_recap(url: str) -> None:
+    if not webbrowser.open(url):
+        raise CliError(f"could not open a browser; open this URL manually: {url}")
+
+
+def _run_matches(args: argparse.Namespace) -> int:
+    _, token = _authenticated(args.api_url)
+    api = args.api_url.rstrip("/")
+    if args.matches_command == "list":
+        path = f"runs/{args.run_id}/matchups" if args.run_id else "matchups"
+        response = _http_json("GET", f"{api}/{path}", token=token)
+        if args.json:
+            _print_json(response)
+        else:
+            print(f"Run: {response.get('run_id') or 'No completed run'}")
+            for match in response.get("matchups", []):
+                print(f"{match['matchup_id']}  {match['player_a']} vs {match['player_b']}  {match['hands']} hands")
+        return 0
+    response = _http_json("GET", f"{api}/runs/{args.run_id}/matchups/{args.matchup_id}/recap", token=token)
+    url = _replay_url(args.api_url, args.site_url, f"/recaps/runs/{quote(args.run_id, safe='')}/matches/{quote(args.matchup_id, safe='')}")
+    if args.json:
+        _print_json({**response, "playback_url": url})
+    elif args.url:
+        print(url)
+    else:
+        print(f"{' vs '.join(response.get('players', []))}: {len(response.get('highlights', []))} highlights")
+        print(f"View recap: {url}")
+    if args.open:
+        _open_recap(url)
+    return 0
+
+
 def _run_rivals(args: argparse.Namespace) -> int:
     username, token = _authenticated(args.api_url)
     api = args.api_url.rstrip("/")
@@ -1014,12 +1065,15 @@ def _run_rivals(args: argparse.Namespace) -> int:
         return 0
     if action == "recap":
         response = _http_json("GET", f"{api}/challenges/{args.challenge_id}/recap", token=token)
+        url = _replay_url(api, args.site_url, f"/recaps/challenges/{quote(args.challenge_id, safe='')}")
         saved: Path | None = None
         if args.output:
             saved = _write_recap(response, args.output, api, token)
         if output_format == "json":
-            payload = {**response, **({"saved_to": str(saved)} if saved else {})}
+            payload = {**response, "playback_url": url, **({"saved_to": str(saved)} if saved else {})}
             _print_json(payload)
+        elif args.url:
+            print(url)
         elif output_format == "agent":
             _print_challenge_agent(response, username)
             if isinstance(response.get("summary"), dict) and response["summary"].get("result_text"):
@@ -1048,6 +1102,9 @@ def _run_rivals(args: argparse.Namespace) -> int:
                     print("The challenge ended in a tie.")
             if saved:
                 print(f"Saved recap: {saved}")
+            print(f"View recap: {url}")
+        if args.open:
+            _open_recap(url)
         return 0
     raise CliError(f"unknown rivals command: {action}")
 
@@ -1169,6 +1226,20 @@ def _parser() -> argparse.ArgumentParser:
     rivals_recap.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_recap.add_argument("--json", action="store_true")
     rivals_recap.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
+    _recap_options(rivals_recap)
+
+    matches = sub.add_parser("matches", help="discover completed round-robin pairings and view their recaps")
+    matches_sub = matches.add_subparsers(dest="matches_command", required=True)
+    matches_list = matches_sub.add_parser("list", help="list pairings from the latest completed run or a specified run")
+    matches_list.add_argument("--run", dest="run_id", type=_resource_id)
+    matches_list.add_argument("--api-url", default=DEFAULT_API_URL)
+    matches_list.add_argument("--json", action="store_true")
+    matches_recap = matches_sub.add_parser("recap", help="view one completed pairing without mixing other hands")
+    matches_recap.add_argument("run_id", type=_resource_id)
+    matches_recap.add_argument("matchup_id", type=_resource_id)
+    matches_recap.add_argument("--api-url", default=DEFAULT_API_URL)
+    matches_recap.add_argument("--json", action="store_true")
+    _recap_options(matches_recap)
 
     notifications = sub.add_parser("notifications", help="list and read rival notifications")
     notifications_sub = notifications.add_subparsers(dest="notifications_command", required=True)
@@ -1186,6 +1257,8 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "matches":
+            return _run_matches(args)
         if args.command == "rivals":
             return _run_rivals(args)
         if args.command == "notifications":

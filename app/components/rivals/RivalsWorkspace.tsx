@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-unused-expressions */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { rivalsApi, type Challenge, type Rival, type RivalDetail } from "./api";
 import { BotAvatar } from "../BotAvatar";
 import { emit, on } from "../uiBus";
@@ -287,7 +288,7 @@ function ChallengeRow({
           : "bg-blue-100 text-blue-700";
   return (
     <li
-      className={`flex items-center gap-3 border-b border-zinc-100 px-4 py-3 last:border-0 ${highlighted ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : ""}`}
+      className={`rival-history-row flex items-center gap-3 border-b border-zinc-100 px-4 py-3 last:border-0 ${highlighted ? "bg-blue-50 ring-1 ring-inset ring-blue-200" : ""}`}
     >
       <span
         className={`grid h-6 w-6 place-items-center rounded-full text-xs font-bold ${outcomeClass}`}
@@ -301,7 +302,7 @@ function ChallengeRow({
               : "…"}
       </span>
       {portraits && (
-        <span className="hidden items-center gap-1 sm:flex">
+        <span className="rival-history-portraits hidden items-center gap-1 sm:flex">
           <BotAvatar
             name={challenge.challenger_username}
             className="h-7 w-7"
@@ -315,7 +316,7 @@ function ChallengeRow({
           />
         </span>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="rival-history-copy min-w-0 flex-1">
         <p className="text-sm font-bold tracking-wide text-zinc-800 uppercase">
           {outcome === "win"
             ? "Win"
@@ -334,7 +335,7 @@ function ChallengeRow({
       </div>
       {challenge.status === "completed" && challenge.winner_username && (
           <span
-            className={`hidden text-xs font-semibold sm:inline ${outcome === "win" ? "text-emerald-700" : outcome === "loss" ? "text-red-600" : "text-zinc-600"}`}
+            className={`rival-history-margin hidden text-xs font-semibold sm:inline ${outcome === "win" ? "text-emerald-700" : outcome === "loss" ? "text-red-600" : "text-zinc-600"}`}
           >
             {challenge.series_score[challenge.winner_username] ?? 0}-
             {challenge.series_score[
@@ -344,7 +345,11 @@ function ChallengeRow({
             ] ?? 0}
           </span>
         )}
-      {onOpen ? (
+      {challenge.status === "completed" && (challenge.playback_url || challenge.recap_url) ? (
+        <a href={`/recaps/challenges/${encodeURIComponent(challenge.challenge_id)}`} className="rival-recap-button rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700">
+          Recap
+        </a>
+      ) : onOpen ? (
         <button
           onClick={() => onOpen(challenge)}
           type="button"
@@ -358,151 +363,10 @@ function ChallengeRow({
           type="button"
           className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
         >
-          View recap
+          Recap
         </button>
       ) : null}
     </li>
-  );
-}
-
-function RecapDrawer({ id, close }: { id: string; close: () => void }) {
-  const [data, setData] = useState<Awaited<
-    ReturnType<typeof rivalsApi.recap>
-  > | null>(null);
-  const [error, setError] = useState("");
-  const panel = useRef<HTMLElement>(null);
-  const returnFocus = useRef<Element | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setData(null);
-    setError("");
-    void rivalsApi
-      .recap(id)
-      .then((result) => {
-        if (!cancelled) setData(result);
-      })
-      .catch((reason) => {
-        if (!cancelled) setError(reason.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-  useEffect(() => {
-    returnFocus.current = document.activeElement;
-    document.body.style.overflow = "hidden";
-    const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-      if (event.key === "Tab" && panel.current) {
-        const items = panel.current.querySelectorAll<HTMLElement>(
-          'button, [href], [tabindex]:not([tabindex="-1"])',
-        );
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", key);
-    window.setTimeout(() => panel.current?.querySelector<HTMLElement>("button")?.focus(), 0);
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", key);
-      (returnFocus.current as HTMLElement | null)?.focus?.();
-    };
-  }, [close]);
-  return (
-    <div
-      ref={panel}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="match-recap-title"
-      className="fixed inset-x-0 bottom-0 z-60 mx-auto max-h-[78vh] w-full max-w-3xl overflow-auto rounded-t-2xl border border-zinc-200 bg-white p-5 shadow-2xl sm:bottom-5 sm:rounded-2xl"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-bold tracking-widest text-blue-700">
-            DIRECT CHALLENGE
-          </p>
-          <h2 id="match-recap-title" className="mt-1 text-xl font-bold">Match recap</h2>
-        </div>
-        <button
-          type="button"
-          onClick={close}
-          className="rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100"
-        >
-          Close
-        </button>
-      </div>
-      {error ? (
-        <p role="alert" className="mt-5 text-sm text-red-700">
-          {error}
-        </p>
-      ) : !data ? (
-        <p className="mt-5 text-sm text-zinc-500">Loading recap…</p>
-      ) : (
-        <>
-          {(() => {
-            const winner = data.challenge.winner_username;
-            const challenger = data.challenge.challenger_username;
-            const challenged = data.challenge.challenged_username;
-            const loser = winner === challenger ? challenged : challenger;
-            return (
-              <p className="mt-5 text-2xl font-bold tracking-tight text-zinc-950">
-                {winner
-                  ? `${winner} won ${data.challenge.series_score[winner] ?? 0}-${data.challenge.series_score[loser] ?? 0}`
-                  : "Challenge ended in a tie"}
-              </p>
-            );
-          })()}
-          <p className="mt-4 text-sm text-zinc-600">
-            {data.challenge.challenger_username} and{" "}
-            {data.challenge.challenged_username} played a best-of-five
-            Pot-Limit Hold&apos;em challenge. The first bot to win three games
-            won the match. Public Elo was unchanged.
-          </p>
-          {data.challenge.completed_at && (
-            <p className="mt-2 text-xs text-zinc-500">
-              Completed {time(data.challenge.completed_at)}
-            </p>
-          )}
-          <h3 className="mt-6 font-semibold">Focused hand replay</h3>
-          <ul className="mt-2 divide-y rounded-xl border border-zinc-200">
-            {data.best_hands.map((hand) => (
-              <li key={hand.hand_id}>
-                <a
-                  href={`/hands/${encodeURIComponent(hand.hand_id)}?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.challenge.challenger_username)}&result=${encodeURIComponent(data.challenge.challenge_id)}`}
-                  className="flex items-center justify-between px-4 py-3 text-sm hover:bg-blue-50"
-                >
-                  <span>
-                    {hand.winner ? (
-                      <>
-                        Hand {hand.hand_number}{" "}
-                        <span className="text-zinc-500">
-                          won by {hand.winner}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-zinc-600">
-                        Hand {hand.hand_number} tied
-                      </span>
-                    )}
-                  </span>
-                  <span className="font-semibold text-blue-700">
-                    Open replay
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -971,6 +835,7 @@ function RivalOverlay({
 }
 
 export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
+  const router = useRouter();
   const { session, loaded } = useSession();
   const workspaceGeneration = useRef(0);
   // `undefined` is deliberately distinct from a resolved signed-out session.
@@ -1041,22 +906,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     overlayWasPushed.current = updateUrl(params, false, "overlay");
   };
   const openRecap = (challengeId: string) => {
-    setRecap(challengeId);
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("result") === challengeId) return;
-    params.set("result", challengeId);
-    recapWasPushed.current = updateUrl(params, false, "recap");
-  };
-  const closeRecap = () => {
-    setRecap(null);
-    if (recapWasPushed.current) {
-      recapWasPushed.current = false;
-      history.back();
-      return;
-    }
-    const params = new URLSearchParams(window.location.search);
-    params.delete("result");
-    updateUrl(params, true);
+    router.push(`/recaps/challenges/${encodeURIComponent(challengeId)}`);
   };
   const close = () => {
     setSelected(null);
@@ -1373,7 +1223,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
           </section>
         )}
       </div>
-      {!accountChanged && selected && !recap && (
+      {!accountChanged && selected && (
         <RivalOverlay
           key={`${viewer ?? "signed-out"}:${selected}:${challengeTarget === selected ? "challenge" : "view"}`}
           username={selected}
@@ -1384,13 +1234,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
           startWithConfirmation={challengeTarget === selected}
         />
       )}{" "}
-      {!accountChanged && recap && (
-        <RecapDrawer
-          key={`${viewer ?? "signed-out"}:${recap}`}
-          id={recap}
-          close={closeRecap}
-        />
-      )}
+
     </main>
   );
 }

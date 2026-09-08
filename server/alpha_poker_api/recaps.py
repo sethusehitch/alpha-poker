@@ -125,20 +125,34 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
         name = seat_names[seat] if seat is not None else "Player"
         street = event.get("street") if event.get("street") in ("preflop", "flop", "turn", "river", "showdown") else "preflop"
         amount = integer(event.get("amount"))
+        # `amount` is the recorded payment, whereas `to` is a street total.
+        # Never infer a flight from a raise target, stack change, or final pot.
+        pot_before = step_pot
+        actor_seat, action_kind, committed = None, None, None
         if kind in ("small_blind", "big_blind", "action"):
+            actor_seat = seat
+            action_kind = kind if kind != "action" else event.get("action")
+            if action_kind not in {"small_blind", "big_blind", "fold", "check", "call", "bet", "raise", "all_in"}:
+                action_kind = None
+            committed = 0 if action_kind in {"fold", "check"} else amount if amount is not None and amount >= 0 else None
+            amount = committed
             if seat is not None and amount is not None and amount >= 0:
                 if stacks[seat] is not None:
                     stacks[seat] -= amount
                 if step_pot is not None:
                     step_pot += amount
-            elif seat is not None and (kind != "action" or event.get("action") in {"call", "raise", "all_in"}):
+            elif seat is not None and (kind != "action" or event.get("action") in {"call", "bet", "raise", "all_in"}):
                 stacks[seat], step_pot = None, None
             if integer(event.get("pot_after")) is not None:
                 step_pot = event["pot_after"]
-            action = {"fold": "folds", "check": "checks", "call": "calls", "raise": "raises", "all_in": "goes all in"}.get(event.get("action"), "acts")
+            action = {"fold": "folds", "check": "checks", "call": "calls", "bet": "bets", "raise": "raises", "all_in": "goes all in"}.get(event.get("action"), "acts")
             if kind != "action":
                 action = "posts the " + kind.replace("_", " ")
             copy = f"{name} {action}" + (f" ({amount:,} chips paid)" if amount else "")
+            action_label = f"{name} {action}"
+            if amount:
+                # An incremental raise payment is not a raise-to amount.
+                action_label += f" · {amount:,} paid" if action_kind in {"raise", "all_in"} else f" {amount:,}"
         elif kind == "board":
             step_board = cards(event.get("cards"))
             copy = f"{street.capitalize()} dealt"
@@ -154,9 +168,12 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
             # Do not echo bot error strings or arbitrary legacy event text.
             continue
         steps.append({"street": street, "summary": copy, "board": list(step_board),
+                      "actor_seat": actor_seat, "action_kind": action_kind, "committed_amount": committed,
+                      "pot_before": pot_before, "action_label": action_label if kind in ("small_blind", "big_blind", "action") else copy,
                       "pot": step_pot, "stacks": list(stacks), "hole_cards": [list(c) for c in visible]})
     # Every replay ends at the retained final state, including legacy records.
     final = {"street": "result", "summary": outcome, "board": board, "pot": pot,
+             "actor_seat": None, "action_kind": None, "committed_amount": None, "pot_before": None, "action_label": outcome,
              "stacks": finals, "hole_cards": [p["hole_cards"] for p in players]}
     if steps and steps[-1]["street"] == "result":
         steps[-1] = final

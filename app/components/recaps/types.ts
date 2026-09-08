@@ -1,6 +1,12 @@
 export type ReplayStep = {
   street: string;
   summary: string;
+  // Optional additions to recap-v1. Older retained payloads render neutrally.
+  actor_seat?: number | null;
+  action_kind?: "small_blind" | "big_blind" | "fold" | "check" | "call" | "bet" | "raise" | "all_in" | null;
+  committed_amount?: number | null;
+  pot_before?: number | null;
+  action_label?: string;
   board: string[];
   pot: number | null;
   stacks: (number | null)[];

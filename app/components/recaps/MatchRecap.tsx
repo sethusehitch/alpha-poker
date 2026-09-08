@@ -1,11 +1,11 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { BotAvatar } from "../BotAvatar";
 import { AlphaPokerMark } from "../AlphaPokerMark";
 import { useSession } from "../useSession";
-import type { MatchRecap as Recap, ReplayPlayer } from "./types";
+import type { Highlight, MatchRecap as Recap, ReplayPlayer, ReplayStep } from "./types";
 import "./recap.css";
 
 const amount = (value: number | null | undefined) => value == null ? "Not retained" : value.toLocaleString();
@@ -28,6 +28,50 @@ function PlayerSummary({ player }: { player: ReplayPlayer }) {
     <div className="player-name"><BotAvatar name={player.username} circle /><div><strong>{player.username}</strong><span>{player.is_viewer ? "Your bot" : "Opponent"}</span></div>{player.is_viewer && <small className="you-tag">You</small>}</div>
     <div className="player-bottom"><div><strong>{amount(player.final_stack)}</strong><span>After this hand</span></div><div className="mini-cards"><HoleCards values={player.hole_cards} /></div></div>
     <span className="profit-note">Net {player.profit == null ? "not retained" : `${player.profit > 0 ? "+" : ""}${amount(player.profit)}`} play chips</span>
+  </div>;
+}
+
+// A fresh presentation for each visited step owns its animation. Unmounting on
+// manual navigation or hand selection discards the old flight, never a pot delta.
+function ReplayTable({ hand, step, bottom, top }: { hand: Highlight; step: ReplayStep; bottom: ReplayPlayer; top: ReplayPlayer }) {
+  const scene = useRef<HTMLDivElement>(null);
+  const pot = useRef<HTMLDivElement>(null);
+  const actor = step.street !== "result" && step.street !== "showdown" && (step.actor_seat === 0 || step.actor_seat === 1) ? step.actor_seat : null;
+  const commits = actor !== null && ["small_blind", "big_blind", "call", "bet", "raise", "all_in"].includes(step.action_kind ?? "") && (step.committed_amount ?? 0) > 0;
+  const [arrived, setArrived] = useState(false);
+  const [path, setPath] = useState<CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!commits) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function update() {
+      if (motion.matches) { setArrived(true); return; }
+      const table = scene.current?.getBoundingClientRect();
+      const badge = scene.current?.querySelector(`[data-seat="${actor}"]`)?.getBoundingClientRect();
+      const target = pot.current?.querySelector(".pot-chip")?.getBoundingClientRect();
+      if (!table || !badge || !target) { setArrived(true); return; }
+      setPath({
+        "--from-x": `${badge.x + badge.width / 2 - table.x}px`,
+        "--from-y": `${(actor === top.seat ? badge.bottom : badge.top) - table.y}px`,
+        "--to-x": `${target.x + target.width / 2 - table.x}px`,
+        "--to-y": `${target.y + target.height / 2 - table.y}px`,
+      } as CSSProperties);
+    }
+    update();
+    motion.addEventListener("change", update);
+    window.addEventListener("resize", update);
+    return () => { motion.removeEventListener("change", update); window.removeEventListener("resize", update); };
+  }, [actor, commits, top.seat]);
+  const flying = commits && !arrived;
+  const shownPot = flying ? step.pot_before : step.pot;
+  return <div ref={scene} className="table-scene" data-actor-seat={actor ?? "none"} data-chip-state={flying ? "flying" : commits ? "settled" : "none"}>
+    <div className="scene-label">HAND {hand.hand_number} <span>•</span> STEP {hand.steps.indexOf(step) + 1}/{hand.steps.length}</div><div className="street-label">{step.street}</div>
+    <div className="poker-table"><div className="table-line" /><div className="table-wordmark"><AlphaPokerMark /><span>ALPHA POKER</span></div></div>
+    <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span></div><div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
+    <div className={`table-action ${actor !== null ? "player-action" : ""}`} title={step.action_label ?? step.summary} aria-live="polite">{step.street === "result" ? "Hand complete" : step.action_label ?? step.summary}</div>
+    <div className="board-area"><div ref={pot} className={`pot ${commits ? "pot-receiving" : ""}`} data-pot={shownPot ?? "unknown"}>{commits && <i className={`pot-chip ${arrived ? "chip-arrived" : ""}`} aria-hidden="true" />}<span>{step.street === "result" ? "Pot awarded" : "Pot"}</span><strong>{amount(shownPot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
+    <div data-seat={bottom.seat} className={`seat bottom-seat ${actor === bottom.seat ? "seat-active" : ""}`} aria-label={`${bottom.username}${actor === bottom.seat ? ", acting player" : ""}`}><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span></div>{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
+    {flying && path && <div className="chip-flight" style={path} aria-hidden="true" onAnimationEnd={event => { if (event.animationName === "recap-chip-flight") setArrived(true); }}><i /><small>+{amount(step.committed_amount)}</small></div>}
+    <div className="table-foot">Play chips · Stacks reset each hand</div>
   </div>;
 }
 
@@ -61,6 +105,7 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   const hand = data.highlights[index];
   const [stepIndex, setStepIndex] = useState(hand ? hand.steps.length - 1 : 0);
   const [playing, setPlaying] = useState(false);
+  const [visit, setVisit] = useState(0);
   useEffect(() => {
     if (!playing || !hand) return;
     if (stepIndex >= hand.steps.length - 1) { setPlaying(false); return; }
@@ -71,9 +116,15 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     setPlaying(false);
     setIndex(next);
     setStepIndex(data.highlights[next].steps.length - 1);
+    setVisit(value => value + 1);
     const url = new URL(window.location.href);
     url.searchParams.set("hand", data.highlights[next].hand_id);
     window.history.replaceState(window.history.state, "", url);
+  }
+  function selectStep(next: number) {
+    setPlaying(false);
+    setStepIndex(next);
+    setVisit(value => value + 1);
   }
   const back = data.challenge ? `/rivals?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.players[1])}&result=${encodeURIComponent(data.challenge.challenge_id)}` : "/leaderboard";
   if (!hand) return <main className="recap-message"><a href={back}>← Back to results</a><section><h1>No retained hands</h1><p>The match completed, but detailed hand records are no longer available. Check the match artifact if one was saved.</p></section></main>;
@@ -94,14 +145,9 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
       <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div><div className="sidebar-note">Hand {hand.hand_number} of {data.total_hands}</div>
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>
-      <div className="table-scene"><div className="scene-label">HEADS-UP <span>•</span> HAND {hand.hand_number}</div><div className="street-label">{step.street}</div><div className="poker-table"><div className="table-line" /><div className="table-wordmark"><AlphaPokerMark /><span>ALPHA POKER</span></div></div>
-        <div className="seat top-seat"><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span></div><div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
-        <div className="board-area"><div className="pot"><span>{step.street === "result" ? "Pot awarded" : "Pot"}</span><strong>{amount(step.pot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
-        <div className="seat bottom-seat"><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span></div>{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
-        <div className="table-foot">Play chips · Stacks reset each hand</div>
-      </div>
-      <div className="playback"><div className="timeline" aria-label="Highlights">{data.highlights.map((h, i) => <button key={h.hand_id} aria-label={`Highlight ${i + 1}: ${h.label}`} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : i > index ? "remaining" : ""} onClick={() => select(i)} />)}</div><div className="playback-row"><span className="playback-status">Hand {hand.hand_number} of {data.total_hands}</span><div className="playback-buttons"><button disabled={index === 0} onClick={() => select(index - 1)}><Arrow /><span>Previous</span></button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) setStepIndex(0); setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button><button disabled={index === data.highlights.length - 1} onClick={() => select(index + 1)}><span>Next</span><Arrow right /></button></div><span className="speed">Step {stepIndex + 1} / {hand.steps.length}</span></div></div>
+      <ReplayTable key={`${hand.hand_id}:${stepIndex}:${visit}`} hand={hand} step={step} bottom={bottom} top={top} />
+      <div className="playback"><div className="timeline" aria-label="Highlights">{data.highlights.map((h, i) => <button key={h.hand_id} aria-label={`Highlight ${i + 1}: ${h.label}`} aria-current={i === index ? "step" : undefined} className={i === index ? "active" : i > index ? "remaining" : ""} onClick={() => select(i)} />)}</div><div className="playback-row"><span className="playback-status">Hand {hand.hand_number} of {data.total_hands}</span><div className="playback-buttons"><button aria-label="Previous action" disabled={stepIndex === 0} onClick={() => selectStep(stepIndex - 1)}><Arrow /><span>Previous</span></button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) setStepIndex(0); setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button><button aria-label="Next action" disabled={stepIndex === hand.steps.length - 1} onClick={() => selectStep(stepIndex + 1)}><span>Next</span><Arrow right /></button></div><span className="speed">Step {stepIndex + 1} / {hand.steps.length}</span></div></div>
       <div className="action-summary" aria-live="polite"><span>{step.street === "result" ? "Result" : "Last action"}</span><p>{step.summary}</p></div>
-      <details className="recap-events"><summary>Hand actions ({hand.steps.length})</summary><ol>{hand.steps.map((s, i) => <li key={i}><button aria-current={i === stepIndex ? "step" : undefined} onClick={() => {setPlaying(false); setStepIndex(i);}}><span>{s.street}</span>{s.summary}</button></li>)}</ol><p>Only your cards and cards revealed at showdown are shown. Missing retained values are left unavailable.</p></details>
+      <details className="recap-events"><summary>Hand actions ({hand.steps.length})</summary><ol>{hand.steps.map((s, i) => <li key={i}><button aria-current={i === stepIndex ? "step" : undefined} onClick={() => selectStep(i)}><span>{s.street}</span>{s.summary}</button></li>)}</ol><p>Previous and Next step through actions. Use the highlight bar to switch hands. Only your cards and cards revealed at showdown are shown. Missing retained values are left unavailable.</p></details>
     </section></div></main></div>;
 }

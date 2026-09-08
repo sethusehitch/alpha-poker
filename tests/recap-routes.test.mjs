@@ -28,3 +28,22 @@ test("discovery links use stable exact challenge and pairing IDs", async () => {
   assert.match(challengeProxy, /proxyApi\(request/);
   assert.match(pairingProxy, /proxyApi\(request/);
 });
+
+test("recap playback uses recorded actor/payment metadata and isolated step presentations", async () => {
+  const component = await readFile(new URL("../app/components/recaps/MatchRecap.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/components/recaps/recap.css", import.meta.url), "utf8");
+  const types = await readFile(new URL("../app/components/recaps/types.ts", import.meta.url), "utf8");
+  assert.match(component, /key=\{`\$\{hand.hand_id\}:\$\{stepIndex\}:\$\{visit\}`\}/);
+  assert.match(component, /aria-label="Previous action".*selectStep\(stepIndex - 1\)/);
+  assert.match(component, /aria-label="Next action".*selectStep\(stepIndex \+ 1\)/);
+  assert.match(component, /actor === top.seat \? "seat-active"/);
+  assert.match(component, /actor === bottom.seat \? "seat-active"/);
+  assert.match(component, /flying \? step.pot_before : step.pot/);
+  assert.match(component, /onAnimationEnd=.*setArrived\(true\)/);
+  assert.match(component, /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
+  assert.match(component, /motion.removeEventListener/);
+  assert.match(component, /window.clearTimeout\(timer\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css, /\.seat\.seat-active/);
+  for (const field of ["actor_seat", "action_kind", "committed_amount", "pot_before", "action_label"]) assert.ok(types.includes(`${field}?:`));
+});

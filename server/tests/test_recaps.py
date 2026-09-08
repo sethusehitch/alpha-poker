@@ -125,6 +125,74 @@ def test_missing_action_payment_does_not_invent_intermediate_stacks():
     assert result["steps"][2]["stacks"][0] is None
     assert result["steps"][2]["pot"] is None
     assert result["steps"][-1]["stacks"] == record["final_stacks"]
+    assert result["steps"][2]["committed_amount"] is None
+
+
+@pytest.mark.parametrize("mirror", [False, True])
+@pytest.mark.parametrize("kind", ["fold", "showdown", "all_in"])
+def test_action_metadata_tracks_physical_actor_and_actual_paid_chips(kind, mirror):
+    record = hand_record(kind, mirror=mirror)
+    hand = normalized(record)
+    prior_pot = 0
+    for event, step in zip(record["events"], hand["steps"]):
+        if event["type"] in {"small_blind", "big_blind", "action"}:
+            seat = event["seat"]
+            action = event.get("action", event["type"])
+            paid = 0 if action in {"check", "fold"} else event["amount"]
+            assert step["actor_seat"] == seat
+            assert step["action_kind"] == action
+            assert step["committed_amount"] == paid
+            assert step["pot_before"] == prior_pot
+            assert step["pot"] == prior_pot + paid
+            assert step["action_label"].startswith(hand["players"][seat]["username"] + " ")
+            if paid:
+                assert f"{paid:,}" in step["action_label"]
+        else:
+            assert step["actor_seat"] is None
+            assert step["action_kind"] is None
+            assert step["committed_amount"] is None
+        prior_pot = step["pot"]
+
+
+def test_raise_metadata_uses_payment_not_raise_target_and_neutral_steps_ignore_seats():
+    record = hand_record()
+    record["events"] = [
+        {"type": "small_blind", "seat": 0, "amount": 10},
+        {"type": "big_blind", "seat": 1, "amount": 20},
+        {"type": "action", "seat": 0, "action": "raise", "amount": 110, "to": 120, "pot_after": 140},
+        {"type": "action", "seat": 1, "action": "call", "amount": 100, "pot_after": 240},
+        {"type": "board", "street": "flop", "cards": ["Ts", "Jd", "Qc"], "seat": 0, "amount": 50},
+        {"type": "forfeit", "seat": 1},
+    ]
+    steps = normalized(record)["steps"]
+    assert (steps[2]["pot_before"], steps[2]["committed_amount"], steps[2]["pot"]) == (30, 110, 140)
+    assert steps[2]["action_label"] == "alice raises · 110 paid"
+    assert steps[3]["action_label"] == "bob calls 100"
+    assert all(s["actor_seat"] is None and s["committed_amount"] is None for s in steps[4:])
+
+
+@pytest.mark.parametrize("payment", [None, -10, True])
+def test_invalid_or_missing_payments_never_fabricate_a_chip_flight(payment):
+    record = hand_record()
+    record["events"][2]["amount"] = payment
+    step = normalized(record)["steps"][2]
+    assert step["actor_seat"] == 0 and step["action_kind"] == "call"
+    assert step["committed_amount"] is None
+    assert step["pot"] == record["events"][2]["pot_after"]
+    assert step["action_label"] == "alice calls"
+
+
+def test_check_fold_and_unknown_actor_do_not_move_chips():
+    record = hand_record()
+    record["events"] = [
+        {"type": "action", "seat": 0, "action": "check", "amount": 999},
+        {"type": "action", "seat": 1, "action": "fold", "amount": 999},
+        {"type": "action", "action": "call", "amount": 10},
+    ]
+    steps = normalized(record)["steps"]
+    assert [s["committed_amount"] for s in steps[:2]] == [0, 0]
+    assert [s["pot"] for s in steps[:2]] == [0, 0]
+    assert steps[2]["actor_seat"] is None
 
 
 def seed(db, *, official=False):
@@ -163,6 +231,17 @@ def test_direct_authorization_scope_discovery_and_retention(recap_client):
     assert data["playback_url"] == "/recaps/challenges/ch_1"
     assert data["complete_history"] and len(data["highlights"]) == 5
     assert data["best_hands"][0]["hand_id"] == data["highlights"][0]["hand_id"]
+    assert data["schema_version"] == "recap-v1"  # additive, backward-compatible metadata
+    for viewer in ("alice", "bob"):
+        recap = client.get(endpoint, headers=headers[viewer]).json()
+        for hand in recap["highlights"]:
+            first = hand["steps"][0]
+            actor = hand["players"][first["actor_seat"]]
+            assert first["action_kind"] == "small_blind"
+            assert first["committed_amount"] == 10 and first["pot_before"] == 0
+            assert first["action_label"] == f"{actor['username']} posts the small blind 10"
+            assert actor["username"] == ("bob" if hand["hand_number"] % 2 else "alice")
+            assert all(not values for seat, values in enumerate(first["hole_cards"]) if hand["players"][seat]["username"] != viewer)
     assert client.get("/v1/challenges/ch_1", headers=headers["alice"]).json()["playback_url"] == data["playback_url"]
     assert client.get("/v1/challenges?status=finished", headers=headers["alice"]).json()["items"][0]["playback_url"] == data["playback_url"]
     path = "/v1/runs/run_1/matchups/match_1/recap"

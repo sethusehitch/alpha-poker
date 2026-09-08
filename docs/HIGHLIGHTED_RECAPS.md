@@ -56,10 +56,25 @@ folds and bot forfeits have explicit descriptions. Missing values remain
 unavailable rather than being presented as zero. Responses are `private,
 no-store`, and the browser discards cached recap state when the account changes.
 
-Previous/Next choose highlights. Play/Pause steps through recorded events.
+Previous/Next step through actions, exactly like Play/Pause. The highlight bar
+and highlight selector switch hands.
 The expandable action list selects an exact event, and every hand initially
 opens at its final result. The pot at a result is labeled **Pot awarded**, while
 player stacks show their post-award balances.
+
+Optional `recap-v1` step fields `actor_seat`, `action_kind`, `committed_amount`,
+`pot_before`, and `action_label` make each recorded action explicit. Seats remain
+physical engine seats, with usernames mapped before rendering. Payments use
+the event's `amount`, never its raise-to target. Checks/folds commit zero; missing
+payments stay null. Unknown metadata in older payloads renders without a flight.
+Board, reveal, forfeit, and result steps have a neutral table state.
+
+The acting badge gets a cobalt ring. A recorded positive payment flies from that
+badge to the pot over 520ms; the pot changes from its recorded before-value to
+the step's after-value on arrival. Each visited step owns a keyed presentation,
+so backward/forward navigation cannot accumulate chips or retain a stale flight.
+Pausing leaves the current payment to settle, without starting another flight.
+Reduced motion skips the flight and shows the destination/pot immediately.
 
 ## Local QA
 
@@ -78,9 +93,12 @@ no separate renderer, token transfer, or local file import is needed.
 
 `qa/recap-browser.mjs` uses a separate headless Chrome profile under `.wrangler`
 and a local debugging endpoint on 9312. It logs in, checks net/gross accounting,
-exercises Previous/Play/Pause/Next, captures 1600x1000 and 390x844 screenshots,
-asserts no horizontal overflow and visible controls, then verifies signed-out
-private-state clearing. `RECAP_SCREENSHOT_DIR` controls the output directory.
+exercises Previous/Play/Pause/Next, checks both physical actors, chip-flight
+movement and synchronized before/after pots, interrupts flights with navigation,
+and changes the reduced-motion preference during playback. It captures active,
+in-flight, reduced-motion, and final states at 1600x1000 and 390x844, asserts no
+horizontal overflow and visible controls, then verifies signed-out private-state
+clearing. `RECAP_SCREENSHOT_DIR` controls the output directory.
 
 The repository's rendered-page tests expect the offline API state. Run them
 with `ALPHA_POKER_API_URL=http://127.0.0.1:9/v1` so another local API cannot alter

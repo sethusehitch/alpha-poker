@@ -22,11 +22,12 @@ def seed(tmp_path):
 
 def test_refresh_is_dry_run_by_default_and_idempotent(tmp_path):
     path, db, updates = seed(tmp_path)
-    assert len(module.refresh(path)) == 3
+    assert len(module.refresh(path)) == len(updates)
     assert all(row["status"] == "submitted" for row in db.all("SELECT status FROM feature_requests"))
-    assert len(module.refresh(path, apply=True)) == 3
+    assert len(module.refresh(path, apply=True)) == len(updates)
     assert module.refresh(path, apply=True) == []
-    assert db.one("SELECT COUNT(*) AS n FROM feature_requests")["n"] == 3
+    assert db.one("SELECT COUNT(*) AS n FROM feature_requests")["n"] == len(updates)
+    assert db.one("SELECT COUNT(*) AS n FROM feature_requests WHERE hidden=1")["n"] == 2
     assert db.one("SELECT status FROM feature_requests WHERE id=?", (updates[0]["id"],))["status"] == "shipped"
     assert len(list(tmp_path.glob("feature-requests-before-refresh-*.json"))) == 1
 

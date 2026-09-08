@@ -13,10 +13,11 @@ def refresh(database, apply=False):
         connection.execute("BEGIN IMMEDIATE" if apply else "BEGIN")
         changes = []
         for update in updates:
+            update.setdefault("hidden", 0)
             row = connection.execute("SELECT * FROM feature_requests WHERE id=?", (update["id"],)).fetchone()
             if row is None:
                 raise ValueError(f"Missing reviewed request: {update['id']}")
-            if all(row[key] == update[key] for key in ("title", "details", "status")):
+            if all(row[key] == update[key] for key in ("title", "details", "status", "hidden")):
                 continue
             if row["author_username"] != "product-team" or row["title"] != update["previous_title"] or row["status"] != "submitted" or row["hidden"]:
                 raise ValueError(f"Request changed since review: {update['id']}. Review before applying.")
@@ -29,9 +30,9 @@ def refresh(database, apply=False):
                 json.dump(changes, stream, indent=2)
             for change in changes:
                 update = change["after"]
-                connection.execute("UPDATE feature_requests SET title=?,details=?,status=?,updated_at=? WHERE id=?", (
-                    update["title"], update["details"], update["status"], datetime.now(timezone.utc).isoformat(), update["id"]))
-        return [{"id": change["after"]["id"], "title": change["after"]["title"], "status": change["after"]["status"]} for change in changes]
+                connection.execute("UPDATE feature_requests SET title=?,details=?,status=?,hidden=?,updated_at=? WHERE id=?", (
+                    update["title"], update["details"], update["status"], update["hidden"], datetime.now(timezone.utc).isoformat(), update["id"]))
+        return [{key: change["after"][key] for key in ("id", "title", "status", "hidden")} for change in changes]
 
 
 if __name__ == "__main__":

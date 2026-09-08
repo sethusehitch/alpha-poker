@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BotAvatar } from "../BotAvatar";
 import { CopyPromptButton } from "../CopyPromptButton";
-import { BUILD_BOT_PROMPT, STARTER_KIT_FILENAME } from "../agentPrompt";
+import { BUILD_BOT_PROMPT, STARTER_KIT_URL } from "../agentPrompt";
 import { emit } from "../uiBus";
 import { useSession } from "../useSession";
 
@@ -288,7 +288,7 @@ export function MyBotWorkspace() {
             <Suits />
             <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
               <a
-                href={`/${STARTER_KIT_FILENAME}`}
+                href={STARTER_KIT_URL}
                 download
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >

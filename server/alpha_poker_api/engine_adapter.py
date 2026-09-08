@@ -89,6 +89,8 @@ def validate_package(package_path: Path) -> ValidationResult:
 class PortableBot:
     """Adapt a module-level public ``decide`` function to the engine Bot shape."""
 
+    _alpha_poker_enforces_timeout = True
+
     def __init__(self, package_path: Path, timeout_seconds: float = 0.22):
         self.package_path = package_path
         self.timeout_seconds = timeout_seconds

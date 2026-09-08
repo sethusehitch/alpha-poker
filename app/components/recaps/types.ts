@@ -41,6 +41,7 @@ export type ReplayPlayer = {
   category: string | null;
 };
 export type Highlight = {
+  game_number?: number | null;
   hand_id: string;
   hand_number: number;
   label: string;

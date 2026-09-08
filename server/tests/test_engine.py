@@ -3,12 +3,26 @@ import time
 
 import pytest
 
+import alpha_poker.engine as engine_module
 from alpha_poker.engine import HoldemHand, play_hand
 
 
 class CheckCall:
     def decide(self, state):
         return {"action": "check" if "check" in state["legal_actions"] else "call"}
+
+
+def test_runner_with_its_own_deadline_does_not_create_a_thread_per_decision(monkeypatch):
+    class DeadlineBot(CheckCall):
+        _alpha_poker_enforces_timeout = True
+
+    class UnexpectedExecutor:
+        def __init__(self, *_args, **_kwargs):
+            raise AssertionError("the engine must trust the runner's process deadline")
+
+    monkeypatch.setattr(engine_module, "ThreadPoolExecutor", UnexpectedExecutor)
+    result = play_hand((DeadlineBot(), DeadlineBot()), seed=101)
+    assert result.history["events"][-1]["type"] == "result"
 
 
 def test_preflop_and_street_progression():
@@ -110,3 +124,47 @@ def test_public_bot_contract_matches_starter_kit():
     assert state["min_raise_to"] == 200 and state["max_raise_to"] == 10000
     assert state["legal_actions"] == ["fold", "call", "raise", "all_in"]
     assert state["decision_deadline_ms"] == 250 and state["bot_random_seed"] == 41
+
+
+def test_pot_limit_caps_preflop_raise_at_the_size_of_the_pot():
+    hand = HoldemHand(hand_id="plhe", seed=11, betting_limit="pot_limit")
+    legal = {action["type"]: action for action in hand.legal_actions()}
+    assert legal["raise"] == {"type": "raise", "min_to": 200, "max_to": 300}
+    assert "all_in" not in legal
+
+
+def test_persistent_unequal_stacks_are_conserved():
+    hand = HoldemHand(
+        hand_id="persistent", seed=12, betting_limit="pot_limit",
+        starting_stacks=(2_500, 17_500),
+    )
+    while not hand.finished:
+        legal = {action["type"]: action for action in hand.legal_actions()}
+        hand.act({"type": "check" if "check" in legal else "call"})
+    result = hand.result()
+    assert result.history["starting_stacks"] == [2_500, 17_500]
+    assert sum(result.history["final_stacks"]) == 20_000
+    assert sum(result.profits) == 0
+
+
+def test_short_all_in_call_returns_uncalled_chips_and_reaches_showdown():
+    result = play_hand(
+        (CheckCall(), CheckCall()), hand_id="short-call", seed=13,
+        starting_stacks=(80, 1_000), small_blind=50, big_blind=100,
+        betting_limit="pot_limit",
+    )
+    returns = [event for event in result.history["events"] if event["type"] == "uncalled_return"]
+    assert returns == [{"type": "uncalled_return", "seat": 1, "amount": 20, "street": "preflop"}]
+    assert result.history["events"][-1]["reason"] == "showdown"
+    assert sum(result.history["final_stacks"]) == 1_080
+
+
+def test_equal_forced_blinds_create_a_fair_immediate_showdown():
+    result = play_hand(
+        (CheckCall(), CheckCall()), hand_id="sudden-death", seed=14,
+        starting_stacks=(3_000, 17_000), small_blind=3_000, big_blind=3_000,
+        betting_limit="pot_limit",
+    )
+    assert result.history["pot"] == 6_000
+    assert result.history["events"][-1]["reason"] == "showdown"
+    assert sum(result.history["final_stacks"]) == 20_000

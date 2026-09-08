@@ -50,7 +50,7 @@ test("the empty state offers the starter kit and the agent instructions", async 
   assert.match(source, /Your seat is open/);
   assert.match(source, /Download starter kit/);
   assert.match(source, /label="Copy agent instructions"/);
-  assert.match(source, /href=\{`\/\$\{STARTER_KIT_FILENAME\}`\}/);
+  assert.match(source, /href=\{STARTER_KIT_URL\}/);
   assert.match(source, /text=\{BUILD_BOT_PROMPT\}/);
   // One identity slot renders in both states: the dashed empty seat and the
   // portrait that replaces it.
@@ -112,7 +112,7 @@ test("the starter kit filename and agent prompt have a single definition", async
   assert.match(prompt, /export const BUILD_BOT_PROMPT = /);
   assert.match(
     landing,
-    /import \{ BUILD_BOT_PROMPT, STARTER_KIT_FILENAME \} from "\.\/components\/agentPrompt"/,
+    /import \{ BUILD_BOT_PROMPT, STARTER_KIT_FILENAME, STARTER_KIT_URL \} from "\.\/components\/agentPrompt"/,
   );
   assert.doesNotMatch(landing, /^const BUILD_BOT_PROMPT/m);
   assert.doesNotMatch(landing, /^const STARTER_KIT_FILENAME/m);

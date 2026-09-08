@@ -84,6 +84,10 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.doesNotMatch(workspace, /timeZone: "UTC"/);
   assert.match(workspace, /highlightedId=\{recap\}/);
   assert.match(workspace, /z-50 flex items-end/);
+  assert.doesNotMatch(workspace, /<aside\s+ref=\{panel\}\s+role="dialog"/);
+  assert.match(handReplay, /event\.hands/);
+  assert.match(handReplay, /shown\.hole_cards/);
+  assert.match(handReplay, /shown\.category/);
   assert.match(workspace, /emit\("open-account"/);
   assert.match(workspace, /workspaceGeneration/);
   assert.match(workspace, /useRef<string \| null \| undefined>\(undefined\)/);
@@ -127,7 +131,9 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(api, /rivalries\/compare/);
   assert.match(header, /10_000/);
   assert.match(header, /window\.addEventListener\("focus"/);
-  assert.match(header, /You beat \$\{opponent\} by \$\{margin\} play chips/);
+  assert.match(header, /You beat \$\{opponent\}\$\{winnerFirstScore/);
+  assert.match(header, /\$\{opponent\} beat you\$\{winnerFirstScore/);
+  assert.doesNotMatch(header, /by \$\{margin\} play chips/);
   assert.match(header, /\$\{opponent\} challenged you/);
   assert.match(header, /You and \$\{opponent\} tied\./);
   assert.match(header, /params\.set\("result", challenge\.challenge_id\)/);
@@ -169,10 +175,15 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(proxy, /Idempotency-Key/);
   assert.match(api, /history\?limit=20/);
   assert.match(api, /challenge_drawn/);
+  assert.match(api, /challenges\$\{status \? `\?status=\$\{status\}` : ""\}/);
+  assert.match(workspace, /rivalsApi\s*\.challenges\(\)/);
+  assert.match(workspace, /setChallenges\(result\.items\)/);
   assert.match(handReplay, /seat_to_bot/);
   assert.match(handReplay, /hand\.events/);
   assert.match(handReplay, /eventCopy/);
   assert.match(handReplay, /eventLabel/);
+  assert.match(handReplay, /Small blind/);
+  assert.match(handReplay, /Big blind/);
   assert.doesNotMatch(handReplay, /event\.type\.replaceAll/);
   assert.match(handReplay, /Sign in to view this replay/);
   assert.doesNotMatch(workspace, /function RecapDrawer|<RecapDrawer|Match recap/);

@@ -2,6 +2,8 @@ import io
 import json
 import zipfile
 
+from alpha_poker_api.jobs import run_official_league
+
 
 def bot_zip(valid=True):
     data = io.BytesIO()
@@ -36,10 +38,10 @@ def test_public_league_leaderboard_and_results(client):
     assert board["entries"][0]["elo_rating"] == 1264
     assert board["entries"][0]["matchup_wins"] == 4
     assert board["entries"][0]["matchup_losses"] == 0
-    assert board["entries"][0]["confidence_95"] == [4.1, 12.74]
+    assert "confidence_95" not in board["entries"][0]
     assert board["top_entries"] == board["entries"][:5]
     assert board["viewer_entry"] is None
-    assert client.get("/v1/runs/run_demo").json()["reproducibility"]["seat_mirroring"] is True
+    assert client.get("/v1/runs/run_demo").json()["reproducibility"]["deterministic"] is True
     assert len(client.get("/v1/runs/run_demo/matchups").json()["matchups"]) == 3
 
 
@@ -78,17 +80,37 @@ def test_public_standings_ignore_newer_nonofficial_runs(client):
 def test_hand_and_artifact_downloads(client):
     hand = client.get("/v1/hands/hand_demo_1")
     assert hand.json()["winner"] == "maya"
-    assert "variant = 'NT'" in client.get("/v1/hands/hand_demo_1/phh").text
+    assert 'variant = "NT"' in client.get("/v1/hands/hand_demo_1/phh").text
     artifact = client.get("/v1/runs/run_demo/artifacts")
     assert artifact.headers["content-type"] == "application/zip"
     with zipfile.ZipFile(io.BytesIO(artifact.content)) as archive:
-        assert set(archive.namelist()) == {"hands.jsonl", "hands.phh", "hands.csv", "manifest.json", "summary.json"}
+        assert set(archive.namelist()) == {"result.txt", "summary.json", "hands.phhs", "hands.jsonl"}
         summary = json.loads(archive.read("summary.json"))
-        assert summary["methodology"]["seat_mirroring"] is True
+        assert summary["methodology"]["rating_period"] == "once per completed best-of-five series"
         assert "RiverRat" in summary["overview"]
     public_summary = client.get("/v1/runs/run_demo/summary")
     assert public_summary.status_code == 200
     assert "RiverRat" in public_summary.json()["overview"]
+
+
+def test_competition_phh_contains_pot_limit_extension_and_action_sequence(client):
+    for username in ("maya", "theo"):
+        upload = client.post(
+            "/v1/submissions",
+            data={"username": username, "bot_name": f"{username}-bot"},
+            files={"package": ("bot.zip", bot_zip(), "application/zip")},
+        )
+        assert upload.status_code == 202
+    response = client.post("/v1/admin/runs", json={"seed": 1717})
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+    phh = client.app.state.db.one(
+        "SELECT phh FROM hands WHERE run_id=? ORDER BY hand_number LIMIT 1", (run_id,)
+    )["phh"]
+    assert '# Alpha Poker PHH extension: PT = pot-limit Texas hold\'em' in phh
+    assert 'variant = "PT"' in phh
+    assert "actions = [" in phh
+    assert "d dh p" in phh
 
 
 def test_upload_activates_valid_bot_and_preserves_it_after_rejection(client):
@@ -252,9 +274,10 @@ def test_can_queue_official_run(client):
     assert client.get(f"/v1/runs/{run_id}").json()["seed"] == 42
 
 
-def test_official_run_requires_an_even_mirrored_hand_count(client):
+def test_official_run_accepts_legacy_hand_count_without_using_it_as_a_cap(client):
     response = client.post("/v1/admin/runs", json={"hand_count_per_pairing": 3, "seed": 42})
-    assert response.status_code == 422
+    assert response.status_code == 202
+    assert response.json()["format"] == "best_of_five_plhe"
 
 
 def test_official_run_uses_active_uploaded_bots(client):
@@ -268,7 +291,8 @@ def test_official_run_uses_active_uploaded_bots(client):
     run_id = response.json()["run_id"]
     assert client.get(f"/v1/runs/{run_id}").json()["status"] == "completed"
     result = client.get(f"/v1/runs/{run_id}/matchups").json()
-    assert result["matchups"][0]["hands"] == 2
+    assert 3 <= sum(result["matchups"][0]["series_score"]) <= 5
+    assert result["matchups"][0]["hands"] > 0
     hand_id = client.app.state.db.one("SELECT id FROM hands WHERE run_id=? LIMIT 1", (run_id,))["id"]
     phh = client.get(f"/v1/hands/{hand_id}/phh").text
     assert "blinds_or_straddles = [50, 100]" in phh
@@ -283,6 +307,43 @@ def test_official_run_uses_active_uploaded_bots(client):
     assert detail["heartbeat_at"]
     assert detail["progress"]["matchups_completed"] == 1
     assert detail["progress"]["matchups_total"] == 1
+    history = client.app.state.db.all(
+        "SELECT username,rating_before,rating_after,k_factor FROM elo_history WHERE run_id=? ORDER BY username",
+        (run_id,),
+    )
+    assert len(history) == 2
+    assert {row["k_factor"] for row in history} == {40}
+    assert {row["rating_before"] for row in history} == {1200}
+    run_official_league(client.app.state.db, run_id, 2)
+    assert client.app.state.db.one("SELECT COUNT(*) AS n FROM elo_history WHERE run_id=?", (run_id,))["n"] == 2
+
+
+def test_replacing_a_bot_keeps_the_players_elo_and_updates_once_per_series(client):
+    submission_ids = {}
+    for username in ("left", "right"):
+        response = client.post(
+            "/v1/submissions", data={"username": username, "bot_name": f"{username} bot"},
+            files={"package": ("bot.zip", bot_zip(), "application/zip")},
+        )
+        submission_ids[username] = response.json()["submission_id"]
+    first_run = client.post("/v1/admin/runs", json={"seed": 717}).json()["run_id"]
+    first_after = {
+        row["username"]: row["rating_after"]
+        for row in client.app.state.db.all("SELECT username,rating_after FROM elo_history WHERE run_id=?", (first_run,))
+    }
+    replacement = client.post(
+        "/v1/submissions", data={"username": "left", "bot_name": "left replacement"},
+        files={"package": ("bot.zip", bot_zip(), "application/zip")},
+    ).json()["submission_id"]
+    assert replacement != submission_ids["left"]
+    second_run = client.post("/v1/admin/runs", json={"seed": 718}).json()["run_id"]
+    second_history = client.app.state.db.all(
+        "SELECT username,submission_id,rating_before FROM elo_history WHERE run_id=? ORDER BY username",
+        (second_run,),
+    )
+    assert len(second_history) == 2
+    assert {row["username"]: row["rating_before"] for row in second_history} == first_after
+    assert next(row for row in second_history if row["username"] == "left")["submission_id"] == replacement
 
 
 def test_official_run_and_leaderboard_support_twenty_active_bots(client):
@@ -305,7 +366,7 @@ def test_official_run_and_leaderboard_support_twenty_active_bots(client):
     assert len(board["entries"]) == 20
     assert [entry["rank"] for entry in board["entries"]] == list(range(1, 21))
     assert {entry["username"] for entry in board["entries"]} == usernames
-    assert {entry["hands"] for entry in board["entries"]} == {38}
+    assert all(entry["hands"] > 0 for entry in board["entries"])
     assert {
         entry["matchup_wins"] + entry["matchup_losses"] + entry["matchup_draws"]
         for entry in board["entries"]

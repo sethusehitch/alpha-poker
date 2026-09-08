@@ -119,16 +119,42 @@ def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None
         )
     run_id = challenge.get("run_id")
     can_view_recap = viewer is None or _is_participant(challenge, viewer)
+    winner = challenge.get("winner_username")
+    viewer_result = None
+    if viewer and challenge["status"] == "completed":
+        viewer_result = "draw" if winner is None else "win" if viewer == winner else "loss"
+    winner_first_score = None
+    if winner:
+        winner_score = int((
+            challenge.get("series_score_a")
+            if winner == challenge["challenger_username"]
+            else challenge.get("series_score_b")
+        ) or 0)
+        loser_score = int((
+            challenge.get("series_score_b")
+            if winner == challenge["challenger_username"]
+            else challenge.get("series_score_a")
+        ) or 0)
+        winner_first_score = [winner_score, loser_score]
     return {
         "challenge_id": challenge["id"],
         "challenger_username": challenge["challenger_username"],
         "challenged_username": challenge["challenged_username"],
         "opponent_username": opponent,
         "status": challenge["status"],
-        "hand_count": int(challenge["hand_count"]),
+        "format": challenge.get("format") or "best_of_five_plhe",
+        "best_of": 5,
+        "series_score": {
+            challenge["challenger_username"]: int(challenge.get("series_score_a") or 0),
+            challenge["challenged_username"]: int(challenge.get("series_score_b") or 0),
+        },
+        "games_completed": int(challenge.get("games_completed") or 0),
+        "hands_played": int(challenge.get("hands_played") or 0),
+        "current_game": challenge.get("current_game"),
         "seed": challenge.get("seed"),
-        "winner_username": challenge.get("winner_username"),
-        "margin_play_chips": challenge.get("margin_play_chips"),
+        "winner_username": winner,
+        "viewer_result": viewer_result,
+        "winner_first_score": winner_first_score,
         "run_id": run_id,
         "created_at": challenge["created_at"],
         "accepted_at": challenge.get("accepted_at"),
@@ -136,7 +162,7 @@ def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None
         "completed_at": challenge.get("completed_at"),
         "updated_at": challenge["updated_at"],
         "error": (
-            "The match could not finish. It is safe to try a new challenge."
+            "The match could not finish. Check the details, then try a new challenge."
             if challenge.get("error") else None
         ),
         "bot_names": _bot_names(db, challenge),
@@ -465,7 +491,7 @@ def register_rival_routes(
             with db.connect() as conn:
                 conn.execute(
                     "INSERT INTO rival_challenges(id,challenger_username,challenged_username,status,hand_count,seed,"
-                    "idempotency_key,created_at,updated_at) VALUES(?,?,?,'pending',200,?,?,?,?)",
+                    "idempotency_key,created_at,updated_at) VALUES(?,?,?,'pending',0,?,?,?,?)",
                     (challenge_id, username, opponent, secrets.randbelow(2**31), idempotency_key, timestamp, timestamp),
                 )
                 created = dict(conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone())
@@ -631,6 +657,7 @@ def register_rival_routes(
         if not matchup:
             raise HTTPException(404, {"code": "recap_unavailable", "message": "The completed match record is unavailable"})
         recap = match_recap(db, matchup, username, challenge_id=challenge_id)
+        from .jobs import summarize_run
         return {
             **recap,
             "challenge": public_challenge(db, challenge, username),
@@ -638,6 +665,7 @@ def register_rival_routes(
             "best_hands": [{"hand_id": h["hand_id"], "hand_number": h["hand_number"],
                             "winner": h["winners"][0] if len(h["winners"]) == 1 else None,
                             "pot": h["pot"], "label": h["label"], "outcome": h["outcome"]} for h in recap["highlights"]],
+            "summary": summarize_run(db, challenge["run_id"]),
             "artifacts_url": f"/v1/runs/{challenge['run_id']}/artifacts",
         }
 

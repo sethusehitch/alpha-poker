@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from .db import Database, now_iso
-import csv
 import io
 import itertools
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import monotonic
 import zipfile
 import secrets
 
 from .engine_adapter import load_bot, validate_package
-from .ratings import BASE_RATING, calculate_round_robin_elo
+from .ratings import BASE_RATING, ESTABLISHED_K_FACTOR, PROVISIONAL_K_FACTOR, PROVISIONAL_MATCHES, calculate_elo_result
 
 
 def prune_submission_packages(db: Database) -> list[str]:
@@ -88,11 +88,26 @@ def validate_submission(db: Database, submission_id: str) -> None:
 def run_official_league(
     db: Database,
     run_id: str,
-    hand_count_per_pairing: int,
+    hand_count_per_pairing: int | None,
     timeout_seconds: int = 900,
 ) -> None:
-    """Run every active bot head-to-head using the deterministic engine."""
-    from alpha_poker import play_match
+    """Run every active bot through one rated best-of-five series."""
+    from alpha_poker import play_tournament_series
+
+    existing = db.one("SELECT status FROM runs WHERE id=?", (run_id,))
+    if not existing:
+        raise KeyError(run_id)
+    if existing["status"] == "completed":
+        return
+    # A retry after interruption starts the same run from a clean checkpoint.
+    # Elo is only published through the completed leaderboard, so partial rows
+    # can be removed without changing a player's prior public rating.
+    with db.connect() as conn:
+        conn.execute("DELETE FROM elo_history WHERE run_id=?", (run_id,))
+        conn.execute("DELETE FROM tournament_series WHERE run_id=?", (run_id,))
+        conn.execute("DELETE FROM matchups WHERE run_id=?", (run_id,))
+        conn.execute("DELETE FROM hands WHERE run_id=?", (run_id,))
+        conn.execute("DELETE FROM leaderboard WHERE run_id=?", (run_id,))
 
     # Publish the running state before snapshotting package paths. Submission
     # pruning checks this state, so an upload cannot delete a package between
@@ -111,20 +126,23 @@ def run_official_league(
         )
         return
     run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
-    aggregate: dict[str, list[int]] = {row["username"]: [] for row in submissions}
     bot_names = {row["username"]: row["bot_name"] for row in submissions}
     submission_ids = {row["username"]: row["id"] for row in submissions}
-    starting_ratings: dict[str, int] = {}
+    ratings: dict[str, int] = {}
+    rated_matches: dict[str, int] = {}
+    records = {row["username"]: [0, 0, 0] for row in submissions}
+    hands_by_player = {row["username"]: 0 for row in submissions}
     for row in submissions:
         previous = db.one(
             "SELECT l.elo_rating FROM leaderboard l "
             "JOIN runs r ON r.id=l.run_id "
-            "WHERE l.submission_id=? AND r.status='completed' AND r.official=1 "
+            "WHERE l.username=? AND r.status='completed' AND r.official=1 "
             "ORDER BY r.completed_at DESC,r.requested_at DESC LIMIT 1",
-            (row["id"],),
+            (row["username"],),
         )
-        starting_ratings[row["username"]] = previous["elo_rating"] if previous else BASE_RATING
-    elo_results: list[tuple[str, str, float]] = []
+        ratings[row["username"]] = int(previous["elo_rating"]) if previous else BASE_RATING
+        count = db.one("SELECT COUNT(*) AS count FROM elo_history WHERE username=?", (row["username"],))
+        rated_matches[row["username"]] = int(count["count"] if count else 0)
     hand_number = 0
     deadline = monotonic() + timeout_seconds
     try:
@@ -138,67 +156,76 @@ def run_official_league(
                 load_bot(Path(right["package_path"])),
             )
             try:
-                result = play_match(
+                result = play_tournament_series(
                     bots,
-                    pairs=max(1, hand_count_per_pairing // 2), seed=int(run["seed"]) + match_index * 100000,
+                    seed=int(run["seed"]) + match_index * 1_000_000,
                     bot_names=(left["username"], right["username"]), match_id=match_id,
                     timeout_seconds=0.25,
                 )
             finally:
                 for bot in bots:
                     bot.close()
-            wins_a = wins_b = ties = 0
-            for history in result.hand_histories:
-                hand_number += 1
-                profits = history["bot_profits"]
-                aggregate[left["username"]].append(int(profits[0]))
-                aggregate[right["username"]].append(int(profits[1]))
-                if profits[0] > 0: wins_a += 1
-                elif profits[1] > 0: wins_b += 1
-                else: ties += 1
-                winner = left["username"] if profits[0] > 0 else right["username"] if profits[1] > 0 else None
-                hand_id = history.get("hand_id", f"{match_id}_{hand_number}")
-                record = {**history, "id": hand_id, "run_id": run_id, "players": [left["username"], right["username"]], "winner": winner}
-                db.execute(
-                    "INSERT INTO hands VALUES(?,?,?,?,?,?,?,?,?)",
-                    (hand_id, run_id, hand_number, left["username"], right["username"], winner,
-                     int(history.get("pot", 0)), json.dumps(record), Database._to_phh({
-                         "id": hand_id, "players": [left["username"], right["username"]],
-                         "board": history.get("board", []), "pot": history.get("pot", 0), "winner": winner,
-                         "blinds": history.get("blinds", {"small": 50, "big": 100}),
-                         "starting_stacks": history.get("starting_stacks", [10000, 10000]),
-                     })),
+            score_a = 1.0 if result.winner == 0 else 0.0
+            before_a, before_b = ratings[left["username"]], ratings[right["username"]]
+            after_a, after_b, ka, kb = calculate_elo_result(
+                before_a, before_b, score_a,
+                rated_matches_a=rated_matches[left["username"]],
+                rated_matches_b=rated_matches[right["username"]],
+            )
+            ratings[left["username"]], ratings[right["username"]] = after_a, after_b
+            rated_matches[left["username"]] += 1
+            rated_matches[right["username"]] += 1
+            records[left["username"]][0 if score_a == 1.0 else 1] += 1
+            records[right["username"]][1 if score_a == 1.0 else 0] += 1
+            hands_by_player[left["username"]] += result.hands
+            hands_by_player[right["username"]] += result.hands
+            hand_rows = []
+            for game in result.games:
+                for history in game.hand_histories:
+                    hand_number += 1
+                    winners = history.get("winners", [])
+                    winner = left["username"] if winners == [0] else right["username"] if winners == [1] else None
+                    hand_id = history.get("hand_id", f"{match_id}_{hand_number}")
+                    record = {
+                        **history, "id": hand_id, "run_id": run_id,
+                        "players": [left["username"], right["username"]], "winner": winner,
+                    }
+                    hand_rows.append((
+                        hand_id, run_id, hand_number, left["username"], right["username"], winner,
+                        int(history.get("pot", 0)), json.dumps(record), Database._to_phh(record),
+                    ))
+            completed_at = now_iso()
+            with db.connect() as conn:
+                conn.executemany("INSERT INTO hands VALUES(?,?,?,?,?,?,?,?,?)", hand_rows)
+                conn.execute(
+                    "INSERT INTO matchups VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (match_id, run_id, left["username"], right["username"], result.hands,
+                     1.0 if score_a == 1.0 else -1.0, 0.0, 0.0,
+                     result.score[0], result.score[1], 0),
                 )
-            db.execute(
-                "INSERT INTO matchups VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                (match_id, run_id, left["username"], right["username"], result.hands,
-                 result.bb_per_100[0], result.confidence_95[0][0], result.confidence_95[0][1], wins_a, wins_b, ties),
-            )
-            match_score = 1.0 if result.bb_per_100[0] > 0 else 0.0 if result.bb_per_100[0] < 0 else 0.5
-            elo_results.append((left["username"], right["username"], match_score))
-            db.execute(
-                "UPDATE runs SET completed_matchups=?,heartbeat_at=? WHERE id=?",
-                (match_index, now_iso(), run_id),
-            )
-        scores = []
-        from alpha_poker.match import summarize_profits
-        elo_standings = calculate_round_robin_elo(starting_ratings, elo_results)
-        for username, profits in aggregate.items():
-            summary = summarize_profits(profits, big_blind=100, cluster_size=2)
-            scores.append((
-                username,
-                elo_standings[username],
-                summary["bb_per_100"],
-                summary["confidence_95"][0],
-                summary["confidence_95"][1],
-                summary["hands"],
-            ))
-        scores.sort(key=lambda item: (-item[1].rating, -item[2], item[0]))
-        for rank, (username, elo, score, low, high, hands) in enumerate(scores, start=1):
+                conn.execute(
+                    "INSERT INTO tournament_series(matchup_id,run_id,score_a,score_b,result_json) VALUES(?,?,?,?,?)",
+                    (match_id, run_id, result.score[0], result.score[1], json.dumps(result.to_dict())),
+                )
+                for username, submission_id, before, after, score, factor in (
+                    (left["username"], left["id"], before_a, after_a, score_a, ka),
+                    (right["username"], right["id"], before_b, after_b, 1.0 - score_a, kb),
+                ):
+                    conn.execute(
+                        "INSERT INTO elo_history VALUES(?,?,?,?,?,?,?,?,?)",
+                        (run_id, match_id, username, submission_id, before, after, score, factor, completed_at),
+                    )
+                conn.execute(
+                    "UPDATE runs SET completed_matchups=?,heartbeat_at=? WHERE id=?",
+                    (match_index, completed_at, run_id),
+                )
+        scores = sorted(submission_ids, key=lambda username: (-ratings[username], -records[username][0], username))
+        for rank, username in enumerate(scores, start=1):
+            wins, losses, draws = records[username]
             db.execute(
                 "INSERT INTO leaderboard(run_id,rank,username,bot_name,bb_per_100,ci_low,ci_high,hands,submission_id,elo_rating,matchup_wins,matchup_losses,matchup_draws) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (run_id, rank, username, bot_names[username], score, low, high, hands,
-                 submission_ids[username], elo.rating, elo.wins, elo.losses, elo.draws),
+                (run_id, rank, username, bot_names[username], 0.0, 0.0, 0.0, hands_by_player[username],
+                 submission_ids[username], ratings[username], wins, losses, draws),
             )
         timestamp = now_iso()
         db.execute("UPDATE runs SET status='completed',heartbeat_at=?,completed_at=? WHERE id=?", (timestamp, timestamp, run_id))
@@ -225,6 +252,10 @@ def _challenge_notification_payload(
         "opponent_username": opponent,
         "winner_username": challenge.get("winner_username"),
         "margin_play_chips": challenge.get("margin_play_chips"),
+        "series_score": {
+            challenge["challenger_username"]: int(challenge.get("series_score_a") or 0),
+            challenge["challenged_username"]: int(challenge.get("series_score_b") or 0),
+        },
         "status": challenge["status"],
         "notification_type": notification_type,
     }
@@ -263,26 +294,36 @@ def finalize_rival_challenge(db: Database, challenge_id: str) -> bool:
         return False
     run = db.one("SELECT status FROM runs WHERE id=?", (challenge["run_id"],))
     matchup = db.one("SELECT * FROM matchups WHERE run_id=?", (challenge["run_id"],))
+    series = db.one("SELECT * FROM tournament_series WHERE run_id=?", (challenge["run_id"],))
     if not run or run["status"] != "completed" or not matchup:
         return False
-    # The stored per-hand profit is authoritative and avoids reconstructing a
-    # chip margin from a rounded bb/100 value.
-    total_a = 0
-    for row in db.all("SELECT record_json FROM hands WHERE run_id=?", (challenge["run_id"],)):
-        record = json.loads(row["record_json"])
-        profits = record.get("bot_profits", [0, 0])
-        total_a += int(profits[0])
-    winner = (
-        challenge["challenger_username"] if total_a > 0
-        else challenge["challenged_username"] if total_a < 0
-        else None
-    )
+    if series:
+        series_result = json.loads(series["result_json"])
+        winner = series_result["winner"]
+        score_a, score_b = int(series["score_a"]), int(series["score_b"])
+        hands = int(matchup["hands"])
+    else:
+        # Legacy fixed-hand challenges remain recoverable during migration.
+        total_a = 0
+        for row in db.all("SELECT record_json FROM hands WHERE run_id=?", (challenge["run_id"],)):
+            record = json.loads(row["record_json"])
+            profits = record.get("bot_profits", [0, 0])
+            total_a += int(profits[0])
+        winner = (
+            challenge["challenger_username"] if total_a > 0
+            else challenge["challenged_username"] if total_a < 0
+            else None
+        )
+        score_a = 1 if total_a > 0 else 0
+        score_b = 1 if total_a < 0 else 0
+        hands = int(matchup["hands"])
     timestamp = now_iso()
     with db.connect() as conn:
         conn.execute(
-            "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=?,"
+            "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=NULL,"
+            "series_score_a=?,series_score_b=?,games_completed=?,hands_played=?,current_game=NULL,"
             "completed_at=COALESCE(completed_at,?),updated_at=?,error=NULL WHERE id=?",
-            (winner, abs(total_a), timestamp, timestamp, challenge_id),
+            (winner, score_a, score_b, score_a + score_b, hands, timestamp, timestamp, challenge_id),
         )
         completed = dict(conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone())
         for username in (completed["challenger_username"], completed["challenged_username"]):
@@ -316,8 +357,8 @@ def recover_rival_challenges(db: Database) -> int:
 
 
 def run_rival_challenge(db: Database, challenge_id: str, timeout_seconds: int = 900) -> bool:
-    """Atomically claim and execute one 200-hand, unranked direct challenge."""
-    from alpha_poker import play_match
+    """Atomically claim and execute one unranked best-of-five challenge."""
+    from alpha_poker import play_tournament_series
 
     timestamp = now_iso()
     with db.connect() as conn:
@@ -340,82 +381,81 @@ def run_rival_challenge(db: Database, challenge_id: str, timeout_seconds: int = 
         db.execute(
             "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,started_at,"
             "heartbeat_at,hand_count_per_pairing,total_matchups,completed_matchups) "
-            "VALUES(?,'running',0,'prototype-0.1','heads-up-v1',?,?,?,?,?,1,0)",
-            (run_id, challenge["seed"], challenge["accepted_at"] or timestamp, timestamp, timestamp, challenge["hand_count"]),
+            "VALUES(?,'running',0,'prototype-0.2','plhe-tournament-v1',?,?,?,?,?,1,0)",
+            (run_id, challenge["seed"], challenge["accepted_at"] or timestamp, timestamp, timestamp, None),
         )
-        db.execute("UPDATE rival_challenges SET run_id=?,updated_at=? WHERE id=?", (run_id, now_iso(), challenge_id))
+        db.execute(
+            "UPDATE rival_challenges SET run_id=?,format='best_of_five_plhe',series_score_a=0,series_score_b=0,"
+            "games_completed=0,hands_played=0,current_game=1,updated_at=? WHERE id=?",
+            (run_id, now_iso(), challenge_id),
+        )
         bots = (load_bot(Path(left["package_path"])), load_bot(Path(right["package_path"])))
         try:
-            result = play_match(
+            def game_completed(game, score):
+                db.execute(
+                    "UPDATE rival_challenges SET series_score_a=?,series_score_b=?,games_completed=?,"
+                    "hands_played=hands_played+?,current_game=?,updated_at=? WHERE id=?",
+                    (score[0], score[1], game.game_number, game.hands,
+                     None if max(score) == 3 else game.game_number + 1, now_iso(), challenge_id),
+                )
+
+            result = play_tournament_series(
                 bots,
-                pairs=max(1, int(challenge["hand_count"]) // 2),
                 seed=int(challenge["seed"]),
                 bot_names=(challenge["challenger_username"], challenge["challenged_username"]),
                 match_id=f"{run_id}_match_1",
                 timeout_seconds=0.25,
+                on_game_completed=game_completed,
             )
         finally:
             for bot in bots:
                 bot.close()
-        total_a = wins_a = wins_b = ties = 0
         hand_rows = []
-        for hand_number, history in enumerate(result.hand_histories, start=1):
-            profits = history["bot_profits"]
-            total_a += int(profits[0])
-            if profits[0] > 0:
-                wins_a += 1
-            elif profits[1] > 0:
-                wins_b += 1
-            else:
-                ties += 1
-            winner = (
-                challenge["challenger_username"] if profits[0] > 0
-                else challenge["challenged_username"] if profits[1] > 0
-                else None
-            )
-            hand_id = history.get("hand_id", f"{run_id}_match_1_{hand_number}")
-            record = {
-                **history,
-                "id": hand_id,
-                "run_id": run_id,
-                "players": [challenge["challenger_username"], challenge["challenged_username"]],
-                "winner": winner,
-            }
-            hand_rows.append((
-                hand_id, run_id, hand_number,
-                challenge["challenger_username"], challenge["challenged_username"], winner,
-                int(history.get("pot", 0)), json.dumps(record), Database._to_phh({
-                    "id": hand_id,
-                    "players": record["players"],
-                    "board": history.get("board", []),
-                    "pot": history.get("pot", 0),
+        hand_number = 0
+        for game in result.games:
+            for history in game.hand_histories:
+                hand_number += 1
+                winners = history.get("winners", [])
+                winner = (
+                    challenge["challenger_username"] if winners == [0]
+                    else challenge["challenged_username"] if winners == [1]
+                    else None
+                )
+                hand_id = history.get("hand_id", f"{run_id}_match_1_{hand_number}")
+                record = {
+                    **history, "id": hand_id, "run_id": run_id,
+                    "players": [challenge["challenger_username"], challenge["challenged_username"]],
                     "winner": winner,
-                    "blinds": history.get("blinds", {"small": 50, "big": 100}),
-                    "starting_stacks": history.get("starting_stacks", [10000, 10000]),
-                }),
-            ))
+                }
+                hand_rows.append((
+                    hand_id, run_id, hand_number,
+                    challenge["challenger_username"], challenge["challenged_username"], winner,
+                    int(history.get("pot", 0)), json.dumps(record), Database._to_phh(record),
+                ))
         completed_at = now_iso()
-        winner_username = (
-            challenge["challenger_username"] if total_a > 0
-            else challenge["challenged_username"] if total_a < 0
-            else None
-        )
+        winner_username = result.bot_names[result.winner]
         with db.connect() as conn:
             conn.executemany("INSERT INTO hands VALUES(?,?,?,?,?,?,?,?,?)", hand_rows)
             conn.execute(
                 "INSERT INTO matchups VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (f"{run_id}_match_1", run_id, challenge["challenger_username"], challenge["challenged_username"],
-                 result.hands, result.bb_per_100[0], result.confidence_95[0][0], result.confidence_95[0][1],
-                 wins_a, wins_b, ties),
+                 result.hands, 1.0 if result.winner == 0 else -1.0, 0.0, 0.0,
+                 result.score[0], result.score[1], 0),
+            )
+            conn.execute(
+                "INSERT INTO tournament_series(matchup_id,run_id,score_a,score_b,result_json) VALUES(?,?,?,?,?)",
+                (f"{run_id}_match_1", run_id, result.score[0], result.score[1], json.dumps(result.to_dict())),
             )
             conn.execute(
                 "UPDATE runs SET status='completed',heartbeat_at=?,completed_at=?,completed_matchups=1 WHERE id=?",
                 (completed_at, completed_at, run_id),
             )
             conn.execute(
-                "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=?,"
+                "UPDATE rival_challenges SET status='completed',winner_username=?,margin_play_chips=NULL,"
+                "series_score_a=?,series_score_b=?,games_completed=?,hands_played=?,current_game=NULL,"
                 "completed_at=?,updated_at=?,error=NULL WHERE id=?",
-                (winner_username, abs(total_a), completed_at, completed_at, challenge_id),
+                (winner_username, result.score[0], result.score[1], len(result.games), result.hands,
+                 completed_at, completed_at, challenge_id),
             )
             completed = dict(conn.execute("SELECT * FROM rival_challenges WHERE id=?", (challenge_id,)).fetchone())
             for username in (completed["challenger_username"], completed["challenged_username"]):
@@ -449,19 +489,13 @@ def build_run_artifact(db: Database, run_id: str) -> bytes:
     if not run:
         raise KeyError(run_id)
     rows = db.all("SELECT * FROM hands WHERE run_id=? ORDER BY hand_number", (run_id,))
+    summary = summarize_run(db, run_id, rows)
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        archive.writestr("result.txt", summary["result_text"] + "\n")
+        archive.writestr("summary.json", json.dumps(summary, indent=2) + "\n")
         archive.writestr("hands.jsonl", "".join(row["record_json"] + "\n" for row in rows))
-        archive.writestr("hands.phh", "\n".join(row["phh"] for row in rows))
-        csv_buffer = io.StringIO()
-        writer = csv.writer(csv_buffer)
-        writer.writerow(["hand_id", "hand_number", "player_a", "player_b", "winner", "pot"])
-        writer.writerows(
-            [[row["id"], row["hand_number"], row["player_a"], row["player_b"], row["winner"], row["pot"]] for row in rows]
-        )
-        archive.writestr("hands.csv", csv_buffer.getvalue())
-        archive.writestr("manifest.json", json.dumps(run, indent=2))
-        archive.writestr("summary.json", json.dumps(summarize_run(db, run_id, rows), indent=2))
+        archive.writestr("hands.phhs", "\n".join(row["phh"] for row in rows))
     return buffer.getvalue()
 
 
@@ -471,6 +505,7 @@ def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> 
         challenge = db.one("SELECT * FROM rival_challenges WHERE run_id=?", (run_id,))
         if challenge:
             matchup = db.one("SELECT * FROM matchups WHERE run_id=?", (run_id,))
+            series_row = db.one("SELECT * FROM tournament_series WHERE run_id=?", (run_id,))
             submission_names: dict[str, str | None] = {}
             for username, submission_key in (
                 (challenge["challenger_username"], "challenger_submission_id"),
@@ -482,24 +517,33 @@ def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> 
                 ) if challenge[submission_key] else None
                 submission_names[username] = submission["bot_name"] if submission else None
             winner = challenge["winner_username"]
-            margin = int(challenge["margin_play_chips"] or 0)
             challenger = challenge["challenger_username"]
             challenged = challenge["challenged_username"]
-            hands = int(matchup["hands"]) if matchup else int(challenge["hand_count"])
+            series = json.loads(series_row["result_json"]) if series_row else {}
+            score = [
+                int(series_row["score_a"]) if series_row else int(challenge["series_score_a"] or 0),
+                int(series_row["score_b"]) if series_row else int(challenge["series_score_b"] or 0),
+            ]
+            games = list(series.get("games", []))
+            hands = int(matchup["hands"]) if matchup else int(challenge["hands_played"] or 0)
             if winner:
                 loser = challenged if winner == challenger else challenger
-                overview = (
-                    f"{submission_names[winner] or winner} ({winner}) beat "
-                    f"{submission_names[loser] or loser} ({loser}) by {margin:,} play chips "
-                    f"across {hands} mirrored hands."
-                )
+                winner_score = score[0] if winner == challenger else score[1]
+                loser_score = score[1] if winner == challenger else score[0]
+                overview = f"{submission_names[winner] or winner} defeated {submission_names[loser] or loser} {winner_score}-{loser_score}."
             else:
-                overview = (
-                    f"{submission_names[challenger] or challenger} ({challenger}) and "
-                    f"{submission_names[challenged] or challenged} ({challenged}) drew "
-                    f"after {hands} mirrored hands."
-                )
+                overview = f"{submission_names[challenger] or challenger} and {submission_names[challenged] or challenged} did not finish."
+            game_count = len(games) or sum(score)
+            all_ins = [sum(int(game.get("all_ins_won", [0, 0])[index]) for game in games) for index in range(2)]
+            game_word = "game" if game_count == 1 else "games"
+            result_lines = [overview, "", f"{hands:,} hands across {game_count} {game_word}."]
+            total_all_ins = sum(all_ins)
+            if winner and total_all_ins:
+                winner_index = 0 if winner == challenger else 1
+                result_lines.append(f"{submission_names[winner] or winner} won {all_ins[winner_index]} of {total_all_ins} all-in pots.")
+            result_lines.extend(["", "Highlights are ready. Say \"show me the highlights\" or \"open game 2.\""])
             return {
+                "schema_version": "2.0",
                 "run_id": run_id,
                 "challenge_id": challenge["id"],
                 "kind": "direct_rival_challenge",
@@ -508,31 +552,37 @@ def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> 
                 "affects_elo": False,
                 "play_money_only": True,
                 "overview": overview,
+                "result_text": "\n".join(result_lines),
                 "outcome": {
                     "winner_username": winner,
                     "is_draw": winner is None,
-                    "margin_play_chips": margin,
+                    "series_score": {challenger: score[0], challenged: score[1]},
+                    "games": game_count,
                     "hands": hands,
                 },
                 "players": {
                     challenger: {
                         "bot_name": submission_names[challenger],
                         "role": "challenger",
-                        "hands_won": int(matchup["wins_a"]) if matchup else None,
+                        "games_won": score[0],
+                        "all_in_pots_won": all_ins[0],
                     },
                     challenged: {
                         "bot_name": submission_names[challenged],
                         "role": "challenged",
-                        "hands_won": int(matchup["wins_b"]) if matchup else None,
+                        "games_won": score[1],
+                        "all_in_pots_won": all_ins[1],
                     },
                 },
+                "games": games,
                 "methodology": {
-                    "format": "heads-up no-limit hold'em",
-                    "seat_mirroring": True,
-                    "duplicate_deal_pairs": hands // 2,
-                    "winner_metric": "aggregate_play_chip_profit",
+                    "format": "best-of-five heads-up pot-limit hold'em tournament games",
+                    "starting_stack_per_game": 10_000,
+                    "win_condition": "first bot to win three games; bankruptcy wins a game",
+                    "blinds": "start at 50/100, double every 10 hands, then use current-stack-sized sudden death until one bot is bankrupt",
                     "ranking_effect": "Direct challenges do not change public Elo.",
                 },
+                "artifacts": ["result.txt", "summary.json", "hands.phhs", "hands.jsonl"],
             }
     rows = rows if rows is not None else db.all(
         "SELECT * FROM hands WHERE run_id=? ORDER BY hand_number", (run_id,)
@@ -549,8 +599,6 @@ def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> 
                 "losses": standing["matchup_losses"],
                 "draws": standing["matchup_draws"],
             },
-            "bb_per_100": standing["bb_per_100"],
-            "confidence_95": [standing["ci_low"], standing["ci_high"]],
             "hands": standing["hands"],
             "hands_won": 0,
             "showdown_wins": 0,
@@ -585,39 +633,33 @@ def summarize_run(db: Database, run_id: str, rows: list[dict] | None = None) -> 
                 players[username]["actions"][action] += 1
 
     leader = standings[0] if standings else None
-    runner_up = standings[1] if len(standings) > 1 else None
-    intervals_overlap = True
-    if leader and runner_up:
-        intervals_overlap = not (leader["ci_low"] > runner_up["ci_high"])
     if leader:
-        overview = (
-            f"{leader['bot_name']} ({leader['username']}) finished first with "
-            f"{leader['elo_rating']:,} Elo and a "
-            f"{leader['matchup_wins']}-{leader['matchup_losses']} round-robin record. "
-            "Match results use mirrored seats and identical duplicate deals."
-        )
-        confidence_note = (
-            "The first- and second-place 95% intervals overlap, so more hands are needed before treating the ordering as conclusive."
-            if runner_up and intervals_overlap
-            else "The first-place 95% interval is separated from second place in this run."
-        )
+        overview = f"{leader['bot_name']} leads at {leader['elo_rating']:,} Elo with {leader['matchup_wins']} wins and {leader['matchup_losses']} losses."
     else:
         overview = "This run has no completed standings."
-        confidence_note = "No statistical comparison is available."
+    result_lines = [overview]
+    if standings:
+        result_lines.extend(["", "Standings:"])
+        result_lines.extend(
+            f"{standing['rank']}. {standing['bot_name']} ({standing['username']}): {standing['elo_rating']:,} Elo, {standing['matchup_wins']}-{standing['matchup_losses']}"
+            for standing in standings
+        )
     return {
+        "schema_version": "2.0",
         "run_id": run_id,
         "overview": overview,
-        "confidence_note": confidence_note,
+        "result_text": "\n".join(result_lines),
         "methodology": {
             "ranking_metric": "elo",
             "starting_rating": BASE_RATING,
-            "k_factor": 32,
-            "rating_period": "one complete round robin",
-            "seat_mirroring": True,
-            "confidence_level": 0.95,
-            "confidence_clusters": "duplicate deal pairs",
+            "provisional_k_factor": PROVISIONAL_K_FACTOR,
+            "established_k_factor": ESTABLISHED_K_FACTOR,
+            "provisional_matches": PROVISIONAL_MATCHES,
+            "rating_period": "once per completed best-of-five series",
+            "format": "heads-up pot-limit hold'em tournament games",
         },
         "players": players,
+        "artifacts": ["result.txt", "summary.json", "hands.phhs", "hands.jsonl"],
     }
 
 
@@ -649,3 +691,71 @@ def archive_and_prune(
     for row in completed[retained_artifact_runs:]:
         (artifact_dir / f"{row['id']}.zip").unlink(missing_ok=True)
     return removed
+
+
+def cleanup_raw_histories(
+    db: Database,
+    artifact_dir: Path,
+    *,
+    now: datetime | None = None,
+    dry_run: bool = True,
+) -> dict[str, list[str]]:
+    """Apply time-based raw-history retention without deleting summaries.
+
+    Every run is archived and checked before its hand rows can be removed.
+    Official results keep at least the newest three runs even after 30 days;
+    challenge hands keep 90 days. Training scratch data keeps 14 days.
+    """
+    now = now or datetime.now(UTC)
+    cutoffs = {
+        "official": (now - timedelta(days=30)).isoformat().replace("+00:00", "Z"),
+        "challenge": (now - timedelta(days=90)).isoformat().replace("+00:00", "Z"),
+        "training": (now - timedelta(days=14)).isoformat().replace("+00:00", "Z"),
+    }
+    result: dict[str, list[str]] = {"official_runs": [], "challenge_runs": [], "training_sessions": []}
+    newest_official = {
+        row["id"] for row in db.all(
+            "SELECT id FROM runs WHERE official=1 AND status='completed' "
+            "ORDER BY completed_at DESC,requested_at DESC LIMIT 3"
+        )
+    }
+    candidates = db.all(
+        "SELECT r.id,r.official,r.completed_at,rc.id AS challenge_id FROM runs r "
+        "LEFT JOIN rival_challenges rc ON rc.run_id=r.id "
+        "WHERE r.status='completed' AND EXISTS(SELECT 1 FROM hands h WHERE h.run_id=r.id)"
+    )
+    for row in candidates:
+        if row["official"]:
+            eligible = row["id"] not in newest_official and str(row["completed_at"] or "") < cutoffs["official"]
+            bucket = "official_runs"
+        elif row["challenge_id"]:
+            eligible = str(row["completed_at"] or "") < cutoffs["challenge"]
+            bucket = "challenge_runs"
+        else:
+            eligible = False
+            bucket = "challenge_runs"
+        if not eligible:
+            continue
+        result[bucket].append(row["id"])
+        if dry_run:
+            continue
+        destination = artifact_dir / f"{row['id']}.zip"
+        if not destination.exists():
+            archive_run(db, row["id"], artifact_dir)
+        with zipfile.ZipFile(destination) as archive:
+            if archive.testzip() is not None:
+                raise RuntimeError(f"artifact verification failed for {row['id']}")
+        db.execute("DELETE FROM hands WHERE run_id=?", (row["id"],))
+
+    sessions = db.all(
+        "SELECT id FROM training_sessions WHERE status IN ('completed','expired','failed') AND created_at<?",
+        (cutoffs["training"],),
+    )
+    result["training_sessions"] = [row["id"] for row in sessions]
+    if not dry_run:
+        for row in sessions:
+            with db.connect() as conn:
+                conn.execute("DELETE FROM training_actions WHERE session_id=?", (row["id"],))
+                conn.execute("DELETE FROM training_events WHERE session_id=?", (row["id"],))
+                conn.execute("DELETE FROM training_hands WHERE session_id=?", (row["id"],))
+    return result

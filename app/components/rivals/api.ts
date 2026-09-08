@@ -38,10 +38,16 @@ export type Challenge = {
     | "declined"
     | "cancelled"
     | "failed";
-  hand_count: number;
+  format: "best_of_five_plhe";
+  best_of: 5;
+  series_score: Record<string, number>;
+  games_completed: number;
+  hands_played: number;
+  current_game?: number | null;
   seed: number;
   winner_username?: string | null;
-  margin_play_chips?: number | null;
+  viewer_result?: "win" | "loss" | "draw" | null;
+  winner_first_score?: [number, number] | null;
   run_id?: string | null;
   created_at: string;
   accepted_at?: string | null;
@@ -143,9 +149,9 @@ export const rivalsApi = {
     request<Compare>(
       `rivalries/compare?player_a=${encodeURIComponent(a)}&player_b=${encodeURIComponent(b)}&limit=20`,
     ),
-  challenges: (status: "incoming" | "running" | "finished") =>
+  challenges: (status?: "incoming" | "running" | "finished") =>
     request<{ items: Challenge[]; next_cursor: string | null }>(
-      `challenges?status=${status}`,
+      `challenges${status ? `?status=${status}` : ""}`,
     ),
   challenge: (id: string) =>
     request<Challenge>(`challenges/${encodeURIComponent(id)}`),
@@ -167,6 +173,7 @@ export const rivalsApi = {
     request<{
       challenge: Challenge;
       matchup: unknown;
+      summary: { result_text: string; overview: string };
       best_hands: {
         hand_id: string;
         hand_number: number;

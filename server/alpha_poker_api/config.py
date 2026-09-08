@@ -16,7 +16,7 @@ class Settings:
     auto_run_hand_count: int = 200
     auto_run_timeout_seconds: int = 900
     auth_required: bool = False
-    retained_hand_runs: int = 2
+    retained_hand_runs: int = 3
     retained_artifact_runs: int = 30
     invite_code: str | None = None
     operator_token: str | None = None
@@ -49,7 +49,7 @@ class Settings:
             auto_run_hand_count=int(os.environ.get("ALPHA_POKER_AUTO_RUN_HANDS", "200")),
             auto_run_timeout_seconds=int(os.environ.get("ALPHA_POKER_AUTO_RUN_TIMEOUT_SECONDS", "900")),
             auth_required=os.environ.get("ALPHA_POKER_AUTH_REQUIRED", "true").lower() == "true",
-            retained_hand_runs=int(os.environ.get("ALPHA_POKER_RETAINED_HAND_RUNS", "2")),
+            retained_hand_runs=int(os.environ.get("ALPHA_POKER_RETAINED_HAND_RUNS", "3")),
             retained_artifact_runs=int(os.environ.get("ALPHA_POKER_RETAINED_ARTIFACT_RUNS", "30")),
             invite_code=os.environ.get("ALPHA_POKER_INVITE_CODE") or None,
             operator_token=os.environ.get("ALPHA_POKER_OPERATOR_TOKEN") or None,

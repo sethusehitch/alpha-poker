@@ -330,16 +330,19 @@ function ChallengeRow({
           {challenge.opponent_username ??
             `${challenge.challenger_username} vs ${challenge.challenged_username}`}{" "}
           · {time(challenge.completed_at ?? challenge.created_at)} ·{" "}
-          {challenge.hand_count} hands
+          Best of 5 · {challenge.hands_played.toLocaleString()} hands
         </p>
       </div>
-      {challenge.margin_play_chips !== null &&
-        challenge.margin_play_chips !== undefined && (
+      {challenge.status === "completed" && challenge.winner_username && (
           <span
             className={`rival-history-margin hidden text-xs font-semibold sm:inline ${outcome === "win" ? "text-emerald-700" : outcome === "loss" ? "text-red-600" : "text-zinc-600"}`}
           >
-            {outcome === "win" ? "+" : ""}
-            {challenge.margin_play_chips.toLocaleString()} play chips
+            {challenge.series_score[challenge.winner_username] ?? 0}-
+            {challenge.series_score[
+              challenge.winner_username === challenge.challenger_username
+                ? challenge.challenged_username
+                : challenge.challenger_username
+            ] ?? 0}
           </span>
         )}
       {challenge.status === "completed" && (challenge.playback_url || challenge.recap_url) ? (
@@ -798,8 +801,8 @@ function RivalOverlay({
                     Challenge {detail.rival.username}?
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-zinc-600">
-                    This starts an asynchronous, unranked 200-hand direct
-                    challenge. Public Elo will not change.
+                    This starts an asynchronous, unranked best-of-five poker
+                    series. Public Elo will not change.
                   </p>
                   <div className="mt-5 flex justify-end gap-2">
                     <button
@@ -1031,14 +1034,13 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     setError("");
     if (tab === "challenges") {
       setBusy(true);
-      void Promise.all([
-        rivalsApi.challenges("incoming"),
-        rivalsApi.challenges("running"),
-        rivalsApi.challenges("finished"),
-      ])
-        .then((sets) => {
+      void rivalsApi
+        .challenges()
+        .then((result) => {
           if (stale()) return;
-          setChallenges(sets.flatMap((set) => set.items));
+          // The unfiltered participant feed includes incoming and outgoing
+          // pending requests, as well as running and finished challenges.
+          setChallenges(result.items);
           setBusy(false);
         })
         .catch((reason) => {

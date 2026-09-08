@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import time
 import zipfile
+from datetime import UTC, datetime, timedelta
 import pytest
 
 from fastapi.testclient import TestClient
@@ -93,15 +94,109 @@ def test_old_hand_rows_are_archived_and_artifact_count_is_bounded(tmp_path):
             row["run_id"]: row["n"]
             for row in client.app.state.db.all("SELECT run_id,count(*) AS n FROM hands GROUP BY run_id")
         }
-        assert hands_by_run == {run_ids[-1]: 2}
+        assert set(hands_by_run) == {run_ids[-1]}
+        assert hands_by_run[run_ids[-1]] > 0
         assert client.get(f"/v1/runs/{run_ids[0]}/artifacts").status_code == 410
         artifact = client.get(f"/v1/runs/{run_ids[1]}/artifacts")
         assert artifact.status_code == 200
         with zipfile.ZipFile(io.BytesIO(artifact.content)) as archive:
-            assert len(archive.read("hands.jsonl").splitlines()) == 2
+            assert len(archive.read("hands.jsonl").splitlines()) > 0
             summary = json.loads(archive.read("summary.json"))
             assert summary["players"]
-            assert "more hands" in summary["confidence_note"] or "separated" in summary["confidence_note"]
+            assert summary["methodology"]["format"] == "heads-up pot-limit hold'em tournament games"
+
+
+def test_time_based_cleanup_keeps_latest_three_official_runs_and_summaries(tmp_path):
+    settings = settings_for(tmp_path, auto=False, retained=4, artifacts=10)
+    with TestClient(create_app(settings)) as client:
+        accepted_submissions(client)
+        run_ids = [
+            client.post("/v1/admin/runs", json={"seed": seed}).json()["run_id"]
+            for seed in (31, 32, 33, 34)
+        ]
+        old = (datetime.now(UTC) - timedelta(days=45)).isoformat().replace("+00:00", "Z")
+        for run_id in run_ids:
+            client.app.state.db.execute("UPDATE runs SET completed_at=? WHERE id=?", (old, run_id))
+        preview = jobs.cleanup_raw_histories(
+            client.app.state.db, settings.artifact_dir, now=datetime.now(UTC), dry_run=True
+        )
+        assert set(preview["official_runs"]) == {run_ids[0]}
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (run_ids[0],))["n"] > 0
+        removed = jobs.cleanup_raw_histories(
+            client.app.state.db, settings.artifact_dir, now=datetime.now(UTC), dry_run=False
+        )
+        assert set(removed["official_runs"]) == {run_ids[0]}
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (run_ids[0],))["n"] == 0
+        assert (settings.artifact_dir / f"{run_ids[0]}.zip").exists()
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM leaderboard WHERE run_id=?", (run_ids[0],))["n"] == 2
+
+
+def test_time_based_cleanup_archives_old_challenge_hands_but_keeps_result(tmp_path):
+    settings = settings_for(tmp_path, auto=False, retained=4, artifacts=10)
+    with TestClient(create_app(settings)) as client:
+        accepted_submissions(client)
+        timestamp = now_iso()
+        for username in ("alice", "bob"):
+            client.app.state.db.execute(
+                "INSERT INTO users(username,password_hash,created_at,updated_at) VALUES(?,?,?,?)",
+                (username, "test-only", timestamp, timestamp),
+            )
+        alice = client.app.state.db.one("SELECT id FROM submissions WHERE username='alice' AND active=1")["id"]
+        bob = client.app.state.db.one("SELECT id FROM submissions WHERE username='bob' AND active=1")["id"]
+        client.app.state.db.execute(
+            "INSERT INTO rival_challenges(id,challenger_username,challenged_username,challenger_submission_id,"
+            "challenged_submission_id,status,hand_count,seed,created_at,accepted_at,updated_at) "
+            "VALUES('old_challenge','alice','bob',?,?,'queued',200,77,?,?,?)",
+            (alice, bob, timestamp, timestamp, timestamp),
+        )
+        assert jobs.run_rival_challenge(client.app.state.db, "old_challenge")
+        challenge = client.app.state.db.one("SELECT * FROM rival_challenges WHERE id='old_challenge'")
+        run_id = challenge["run_id"]
+        old = (datetime.now(UTC) - timedelta(days=100)).isoformat().replace("+00:00", "Z")
+        client.app.state.db.execute("UPDATE runs SET completed_at=? WHERE id=?", (old, run_id))
+        removed = jobs.cleanup_raw_histories(
+            client.app.state.db, settings.artifact_dir, now=datetime.now(UTC), dry_run=False
+        )
+        assert removed["challenge_runs"] == [run_id]
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (run_id,))["n"] == 0
+        assert client.app.state.db.one("SELECT status,series_score_a,series_score_b FROM rival_challenges WHERE id='old_challenge'") == {
+            "status": "completed", "series_score_a": challenge["series_score_a"], "series_score_b": challenge["series_score_b"]
+        }
+        assert (settings.artifact_dir / f"{run_id}.zip").exists()
+
+
+def test_time_based_cleanup_removes_only_old_training_scratch_rows(tmp_path):
+    settings = settings_for(tmp_path, auto=False)
+    with TestClient(create_app(settings)) as client:
+        old = (datetime.now(UTC) - timedelta(days=15)).isoformat().replace("+00:00", "Z")
+        future = (datetime.now(UTC) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        client.app.state.db.execute(
+            "INSERT INTO training_sessions(id,username,opponent,leader_username,hand_limit,status,token,schema_version,created_at,expires_at) "
+            "VALUES('old_training','learner','leader','leader',400,'completed','old-token','2026-09-01',?,?)",
+            (old, future),
+        )
+        client.app.state.db.execute(
+            "INSERT INTO training_events(session_id,seq,payload) VALUES('old_training',1,'{}')"
+        )
+        client.app.state.db.execute(
+            "INSERT INTO training_actions(session_id,client_action_id,response) VALUES('old_training','action-1','{}')"
+        )
+        client.app.state.db.execute(
+            "INSERT INTO training_hands(session_id,hand_number,hand_id,client_seat,client_profit,record_json) "
+            "VALUES('old_training',1,'hand-1',0,25,'{}')"
+        )
+        preview = jobs.cleanup_raw_histories(
+            client.app.state.db, settings.artifact_dir, now=datetime.now(UTC), dry_run=True
+        )
+        assert preview["training_sessions"] == ["old_training"]
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM training_hands WHERE session_id='old_training'")["n"] == 1
+        jobs.cleanup_raw_histories(
+            client.app.state.db, settings.artifact_dir, now=datetime.now(UTC), dry_run=False
+        )
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM training_events WHERE session_id='old_training'")["n"] == 0
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM training_actions WHERE session_id='old_training'")["n"] == 0
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM training_hands WHERE session_id='old_training'")["n"] == 0
+        assert client.app.state.db.one("SELECT status FROM training_sessions WHERE id='old_training'")["status"] == "completed"
 
 
 def test_inactive_packages_are_pruned_after_published_leader_moves(tmp_path):

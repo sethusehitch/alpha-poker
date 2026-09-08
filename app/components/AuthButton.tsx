@@ -33,6 +33,7 @@ type Session = { username: string };
 
 export function AuthButton() {
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [username, setUsername] = useState("");
@@ -66,7 +67,8 @@ export function AuthButton() {
           emit("session-changed", { username: result.username, isOperator: Boolean(result.is_operator) });
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setSessionLoaded(true));
   }, []);
 
   useEffect(() => on("open-account", () => setOpen(true)), []);
@@ -129,11 +131,15 @@ export function AuthButton() {
         data-testid="account-trigger"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={!sessionLoaded ? "Checking account" : undefined}
+        disabled={!sessionLoaded}
         onClick={() => setOpen(true)}
-        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 min-[380px]:gap-2 min-[380px]:px-3.5"
+        className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-wait disabled:text-zinc-400 min-[380px]:gap-2 min-[380px]:px-3.5"
       >
         <PersonIcon />
-        {session ? (
+        {!sessionLoaded ? (
+          <span>Account</span>
+        ) : session ? (
           <>
             {/* Narrower cap below 380px so the lockup, menu toggle, and chip
                 all fit a 320px header row without wrapping. */}

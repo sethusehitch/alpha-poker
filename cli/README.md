@@ -12,7 +12,7 @@ pip install -e ./cli
 alpha-poker register maya
 alpha-poker validate ./starter-kit
 alpha-poker submit ./starter-kit
-alpha-poker train ./starter-kit --hands 5000
+alpha-poker train ./starter-kit --hands 400
 alpha-poker train ./starter-kit --hands 10 --output ./training-logs
 alpha-poker status
 alpha-poker logs --output ./alpha-poker-logs
@@ -50,7 +50,7 @@ environment variable in bot code or commit it to source control.
 
 ## Rival challenges
 
-Rival challenges are asynchronous, play-money, 200-hand heads-up matches.
+Rival challenges are asynchronous, play-money, best-of-five heads-up Pot-Limit Hold'em tournament series. Each game starts both bots at 10,000 chips, carries stacks between hands, escalates blinds, and ends when one bot is bankrupt. The first bot to win three games wins the challenge.
 They are separate from official round robins and do not change public Elo.
 Only direct challenges appear in rival history.
 
@@ -67,7 +67,7 @@ before using `--yes`. Creation and state-changing requests carry an
 
 `rivals status CHALLENGE_ID --wait` polls with bounded backoff for at most five
 minutes by default. Use `--timeout SECONDS` to choose a bound from 1 to 3600.
-It exits when the challenge is completed, declined, cancelled, or failed.
+It exits when the challenge is completed, declined, cancelled, or failed. If the wait bound expires, the command exits normally with a message explaining that the server is still working and provides the exact check-later command.
 `rivals recap` prints the result; with `--output`, it downloads the evidence
 archive when available, otherwise it saves recap JSON.
 
@@ -106,6 +106,4 @@ change. Play steps through recorded actions; it does not rerun either bot.
 Notifications tell the participant when a challenge arrives, completes, or
 fails. Use `notifications list --unread` and `notifications read ID`.
 
-Every Rivals and Notifications leaf command supports `--json`. It writes one
-stable JSON object to stdout. Human progress goes to stderr, and credentials
-are never printed. This is the preferred interface for coding agents.
+Rivals result commands support `--format human|agent|json`; `--json` remains a backwards-compatible alias. Human output is concise prose, agent output uses stable `key=value` facts, and JSON writes one object to stdout. A completed agent result reports `score` in winner-loser order, names that order explicitly, and includes the viewer's win/loss result. Progress goes to stderr for machine-readable modes, and credentials are never printed.

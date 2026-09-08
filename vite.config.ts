@@ -13,7 +13,14 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
 const localBindingConfig = {
   main: "./worker/index.ts",
-  compatibility_flags: ["nodejs_compat"],
+  compatibility_flags: ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  vars: {
+    // Vinext's Cloudflare runtime does not inherit arbitrary host process
+    // variables unless they are exposed as Worker bindings. Docker builds use
+    // the internal API service; local QA can override this at build time.
+    ALPHA_POKER_API_URL:
+      process.env.ALPHA_POKER_API_URL ?? "http://api:8000/v1",
+  },
   d1_databases: d1
     ? [
         {
@@ -44,6 +51,14 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    define: {
+      // Server-route bundles run inside workerd, where the host's process.env
+      // is not reliably available. Bake the internal API endpoint selected by
+      // the build so local QA and Docker cannot silently talk to another API.
+      "process.env.ALPHA_POKER_API_URL": JSON.stringify(
+        process.env.ALPHA_POKER_API_URL ?? "http://api:8000/v1",
+      ),
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,

@@ -94,7 +94,7 @@ function ReplayTable({ hand, step, bottom, top }: { hand: Highlight; step: Repla
   const winner = (player: ReplayPlayer) => final && hand.winners.includes(player.username);
   const resultLabel = split ? "Split pot" : hand.winners.length === 1 ? `${hand.winners[0]} wins` : hand.outcome;
   return <div ref={scene} className="table-scene" data-hand-id={hand.hand_id} data-step-index={hand.steps.indexOf(step)} data-actor-seat={actor ?? "none"} data-chip-state={flying ? sweeping ? "sweeping" : "flying" : transfers.length ? "settled" : "none"}>
-    <div className="scene-label">HAND {hand.hand_number} <span>•</span> STEP {hand.steps.indexOf(step) + 1}/{hand.steps.length}</div><div className="street-label">{step.street}</div>
+    <div className="scene-label">{hand.game_number ? `GAME ${hand.game_number} · ` : ""}HAND {hand.hand_number} <span>•</span> STEP {hand.steps.indexOf(step) + 1}/{hand.steps.length}</div><div className="street-label">{step.street}</div>
     <div className="poker-table"><div className="table-line" /><div className="table-wordmark"><AlphaPokerMark /><span>ALPHA POKER</span></div></div>
     <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""} ${winner(top) ? "seat-winner" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : winner(top) ? split ? ", split pot" : ", winner" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span><WinChance step={step} seat={top.seat} /></div>{winner(top) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}<div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
     <div className={`table-action ${actor !== null ? "player-action" : ""} ${final && hand.winners.length ? "result-action" : ""}`} title={step.action_label ?? step.summary} aria-label={step.action_label ?? step.summary} aria-live="polite">{final ? resultLabel : step.action_label ?? step.summary}</div>
@@ -188,9 +188,9 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>
       <ReplayTable key={`${hand.hand_id}:${stepIndex}:${visit}`} hand={hand} step={step} bottom={bottom} top={top} />
-      {intro && <div className="hand-intro" role="status" aria-label={`${hand.label}. Hand ${hand.hand_number} of ${data.total_hands}`}>
+      {intro && <div className="hand-intro" role="status" aria-label={`${hand.label}. ${hand.game_number ? `Game ${hand.game_number}. ` : ""}Hand ${hand.hand_number}${hand.game_number ? "" : ` of ${data.total_hands}`}`}>
         <div key={`${hand.hand_id}:${visit}`} className="hand-intro-flight" style={{ animationPlayState: playing ? "running" : "paused" }} onAnimationEnd={event => { if (event.target === event.currentTarget) setIntro(false); }}>
-          <div className="hand-intro-banner"><strong>{hand.label}</strong><span>Hand {hand.hand_number} of {data.total_hands}</span><div className="hand-intro-match">{data.players[0]} <small>vs</small> {data.players[1]}</div></div>
+          <div className="hand-intro-banner"><strong>{hand.label}</strong><span>{hand.game_number ? `Game ${hand.game_number} · Hand ${hand.hand_number}` : `Hand ${hand.hand_number} of ${data.total_hands}`}</span><div className="hand-intro-match">{data.players[0]} <small>vs</small> {data.players[1]}</div></div>
         </div>
       </div>}
     </section></div></main></div>;

@@ -74,6 +74,7 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
     known_profit = all(p is not None for p in profits) and sum(profits) == 0
     metadata = {
         "hand_id": row["id"], "hand_number": integer(record.get("hand_number")) or row["hand_number"],
+        "game_number": integer(record.get("game_number")),
         "pot": pot, "winners": [seat_names[s] for s in winners],
         "reason": reason if reason in ("showdown", "fold", "bot_forfeit") else None,
         "profit_a": profits[seat_names.index(names[0])] if known_profit else None,
@@ -202,7 +203,7 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
 
 def select_highlights(hands: list[dict], *, complete: bool) -> list[dict]:
     """Earliest tie-breaks, category deduplication, chronological display, max 5."""
-    hands = sorted({h["hand_id"]: h for h in hands}.values(), key=lambda h: (h["hand_number"], h["hand_id"]))
+    hands = sorted({h["hand_id"]: h for h in hands}.values(), key=lambda h: (h.get("game_number") or 0, h["hand_number"], h["hand_id"]))
     if not hands:
         return []
     chosen: dict[int, list[str]] = {}
@@ -289,11 +290,13 @@ def match_recap(db, matchup: dict, viewer: str | None, *, challenge_id: str | No
             if not isinstance(record, dict) or record.get("match_id", matchup["id"] if pair_count == 1 else None) != matchup["id"]:
                 continue
             normalized = normalize_hand(record, row, matchup, viewer, include_steps=False)
-            hands.append({key: normalized[key] for key in ("hand_id", "hand_number", "profit_a", "pot", "big_blind", "winners", "reason")})
+            hands.append({key: normalized[key] for key in ("hand_id", "hand_number", "game_number", "profit_a", "pot", "big_blind", "winners", "reason")})
         complete = len(hands) == matchup["hands"]
         highlights = []
         equity_cache = {}
-        for selected in select_highlights(hands, complete=complete):
+        # Tournament stacks reset between games; do not label cumulative
+        # cross-game chip totals as a series lead or comeback.
+        for selected in select_highlights(hands, complete=complete and not any(h.get("game_number") for h in hands)):
             row = dict(conn.execute("SELECT * FROM hands WHERE id=? AND run_id=?", (selected["hand_id"], matchup["run_id"])).fetchone())
             normalized = normalize_hand(json.loads(row["record_json"]), row, matchup, viewer, equity_cache=equity_cache)
             highlights.append({**normalized, "label": selected["label"], "labels": selected["labels"]})

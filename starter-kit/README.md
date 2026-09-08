@@ -47,8 +47,9 @@ ZIP containing the hand logs into the current directory.
 ## Challenge a rival
 
 Ask your coding agent to show available rivals or search for a classmate. A
-direct challenge always uses the current active bot for each player and plays
-200 mirrored heads-up hands after the recipient accepts. It is play-money only,
+direct challenge snapshots each player's active bot when the recipient accepts,
+then plays a best-of-five Pot-Limit Hold'em series. Each 10,000-chip game ends
+when one bot is bankrupt. It is play-money only,
 does not change Elo, and appears in the head-to-head history for those two
 players. Your agent can monitor the request, explain whether you won or lost,
 download the recap, and help you inspect evidence before you decide what to

@@ -59,7 +59,7 @@ def test_accepting_second_bot_automatically_runs_serialized_league(tmp_path):
 
         assert len(board["entries"]) == 2
         assert {entry["username"] for entry in board["entries"]} == {"alice", "bob"}
-        assert all(entry["hands"] == 2 for entry in board["entries"])
+        assert all(entry["hands"] > 0 for entry in board["entries"])
         assert all("elo_rating" in entry for entry in board["entries"])
         assert all(
             entry["matchup_wins"] + entry["matchup_losses"] + entry["matchup_draws"] == 1

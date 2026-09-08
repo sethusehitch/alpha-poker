@@ -216,14 +216,24 @@ export function AppHeader({ currentPath }: { currentPath: string }) {
 
   function notificationCopy(note: Notification) {
     const opponent = opponentFrom(note) ?? "Your rival";
-    const margin = Number(
-      note.payload?.margin_play_chips ?? 0,
-    ).toLocaleString();
+    const score =
+      note.payload?.series_score &&
+      typeof note.payload.series_score === "object"
+        ? (note.payload.series_score as Record<string, unknown>)
+        : null;
+    const viewerScore = session?.username ? Number(score?.[session.username]) : NaN;
+    const opponentScore = Number(score?.[opponent]);
+    const winnerFirstScore =
+      Number.isFinite(viewerScore) && Number.isFinite(opponentScore)
+        ? note.type === "challenge_won"
+          ? `${viewerScore}-${opponentScore}`
+          : `${opponentScore}-${viewerScore}`
+        : null;
     if (note.type === "challenge_received") return `${opponent} challenged you`;
     if (note.type === "challenge_won")
-      return `You beat ${opponent} by ${margin} play chips`;
+      return `You beat ${opponent}${winnerFirstScore ? ` ${winnerFirstScore}` : ""}`;
     if (note.type === "challenge_lost")
-      return `${opponent} beat you by ${margin} play chips`;
+      return `${opponent} beat you${winnerFirstScore ? ` ${winnerFirstScore}` : ""}`;
     if (note.type === "challenge_drawn") return `You and ${opponent} tied.`;
     return `Your challenge with ${opponent} could not finish`;
   }

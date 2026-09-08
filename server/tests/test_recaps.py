@@ -61,6 +61,17 @@ def test_ties_and_short_matches_do_not_invent_momentum():
     assert set(one[0]["labels"]) == {"Largest single-hand swing", "Opening momentum", "Final scoring hand"}
 
 
+def test_tournament_highlights_order_games_before_repeated_hand_numbers():
+    hands = series([100, -200, 300, -400])
+    for hand, game, number in zip(hands, [2, 1, 2, 1], [1, 2, 2, 1]):
+        hand.update(game_number=game, hand_number=number)
+    selected = select_highlights(hands, complete=False)
+    assert [(h["game_number"], h["hand_number"]) for h in selected] == [(1, 1), (1, 2), (2, 1), (2, 2)]
+    record = hand_record()
+    record["game_number"] = 3
+    assert normalized(record)["game_number"] == 3
+
+
 def test_equal_swings_choose_earliest_and_final_draw_is_explicit():
     result = select_highlights(series([100, -100, 100, -100]), complete=True)
     swing = next(h for h in result if "Largest single-hand swing" in h["labels"])

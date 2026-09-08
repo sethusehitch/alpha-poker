@@ -18,6 +18,7 @@ FILES = (
     (ROOT / "cli" / "alpha_poker_cli" / "__init__.py", "cli/alpha_poker_cli/__init__.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "__main__.py", "cli/alpha_poker_cli/__main__.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "main.py", "cli/alpha_poker_cli/main.py"),
+    (ROOT / "cli" / "alpha_poker_cli" / "runner.py", "cli/alpha_poker_cli/runner.py"),
 )
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
 

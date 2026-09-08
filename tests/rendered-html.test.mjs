@@ -59,8 +59,9 @@ test("the landing page prefers live server-rendered standings", async () => {
   );
 
   assert.match(source, /await serverFetchJson\("leaderboard", null\)/);
-  assert.match(source, /liveLeaderboard\?\.entries/);
-  assert.match(source, /: previewLeaderboard/);
+  assert.match(source, /liveLeaderboard === null/);
+  assert.match(source, /\? previewLeaderboard/);
+  assert.match(source, /Array\.isArray\(liveLeaderboard\.entries\)/);
 });
 
 test("orders hero, leaderboard, and instructions sections", async () => {
@@ -129,9 +130,11 @@ test("renders working account entry and hero links to real sections", async () =
   const html = await response.text();
 
   assert.match(html, /data-testid="account-trigger"/);
-  assert.match(html, /<span>Log in<\/span>/);
+  assert.match(html, /aria-label="Checking account"/);
+  assert.match(html, /<span>Account<\/span>/);
   const authSource = await readFile(new URL("../app/components/AuthButton.tsx", import.meta.url), "utf8");
-  assert.doesNotMatch(authSource, /<span>Account<\/span>/);
+  assert.match(authSource, /!sessionLoaded \? \(\s*<span>Account<\/span>/);
+  assert.match(authSource, /:\s*\(\s*<span>Log in<\/span>/);
   assert.doesNotMatch(html, /aria-disabled="true"[^>]*>\s*Log in/);
   assert.match(html, /href="#instructions"/);
   assert.match(html, /href="#leaderboard"/);
@@ -154,7 +157,7 @@ test("instructions download the kit and hand the complete workflow to a coding a
   const response = await render();
   const html = await response.text();
 
-  assert.match(html, /href="\/alpha-poker-starter\.zip"/);
+  assert.match(html, /href="\/alpha-poker-starter\.zip\?v=competition-mvp-3"/);
   assert.match(html, /download/);
   assert.match(html, /alpha-poker-starter\.zip/g);
   assert.match(html, /most recently modified file matching alpha-poker-starter\*\.zip/);

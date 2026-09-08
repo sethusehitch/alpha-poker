@@ -63,7 +63,7 @@ test("highlight heading and all controls are above or beside the table, without 
   const css = await readFile(new URL("../app/components/recaps/recap.css", import.meta.url), "utf8");
   assert.match(source, /<strong>\{hand.label\}<\/strong>/);
   assert.doesNotMatch(source, /<h1>\{hand.label\}<\/h1>/);
-  assert.match(source, /Hand \{hand.hand_number\} of \{data.total_hands\}/);
+  assert.match(source, /Game \$\{hand.game_number\} · Hand \$\{hand.hand_number\}/);
   const sidebar = source.match(/<aside[\s\S]*?<\/aside>/)[0];
   for (const control of ["Previous highlight", "Next highlight", "replay-button", "play-button"]) assert.ok(sidebar.includes(control));
   const tableSection = source.match(/<section className="replay-stage"[\s\S]*?<\/section>/)[0];

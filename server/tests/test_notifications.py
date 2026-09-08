@@ -19,7 +19,7 @@ def test_notification_fanout_unread_and_authorization(tmp_path):
         completed = wait_for_challenge(client, created["challenge_id"], alice)
         assert completed["status"] == "completed"
         assert completed["winner_username"] in {"alice", "bob", None}
-        assert completed["margin_play_chips"] >= 0
+        assert max(completed["series_score"].values()) == 3
         alice_types = {row["type"] for row in client.get("/v1/notifications", headers=alice).json()["items"]}
         bob_types = {row["type"] for row in client.get("/v1/notifications", headers=bob).json()["items"]}
         assert alice_types & {"challenge_won", "challenge_lost", "challenge_drawn"}
@@ -31,4 +31,5 @@ def test_notification_fanout_unread_and_authorization(tmp_path):
         assert result_notification["payload"]["bot_names"] == {
             "challenger": "alice-bot", "challenged": "bob-bot"
         }
+        assert result_notification["payload"]["series_score"] == completed["series_score"]
         assert client.post("/v1/notifications/read-all", headers=alice).json()["read_count"] >= 1

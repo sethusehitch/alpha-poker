@@ -48,16 +48,18 @@ memory. No database migration is required.
 
 ## Visibility and playback
 
-The API strips unrevealed opponents' cards. A participant can see their own
-cards throughout; other cards appear only at a recorded showdown. Spectators
-of official matches see only shown cards. Detailed bot-error strings are not
+Completed recaps show both players' retained hole cards throughout, including
+folded hands. Direct challenge access remains limited to participants.
+Game and hand numbers distinguish tournament hands, and ordering is chronological
+by game then hand. Cross-game cumulative chip lead labels are disabled because
+stacks reset between tournament games. Detailed bot-error strings are not
 included. Poker categories are evaluated from actual revealed cards and board;
 folds and bot forfeits have explicit descriptions. Missing values remain
 unavailable rather than being presented as zero. Responses are `private,
 no-store`, and the browser discards cached recap state when the account changes.
 
-The current highlight is the main heading, with the real matchup/source and
-**Hand N of TOTAL** context. One sidebar control area contains previous/next
+The current highlight title appears on an animated banner with game/hand context.
+One sidebar control area below the player cards contains previous/next
 highlight arrows, Replay (restart the whole hand at step 1), and Play/Pause.
 Every hand initially opens at its final result. There is no bottom control bar,
 timeline, or duplicated action history. Compact step progress and the current

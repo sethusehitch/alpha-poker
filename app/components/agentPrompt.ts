@@ -2,6 +2,7 @@
 // two artifacts, so the kit filename and the agent prompt live in one place
 // rather than drifting between the public and authenticated surfaces.
 export const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
+export const STARTER_KIT_URL = `/${STARTER_KIT_FILENAME}?v=competition-mvp-3`;
 
 export const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything.
 
@@ -17,7 +18,7 @@ Your first response after inspecting the kit must be short and follow this order
 | Build a bot | Choose a name and playing style, then create and validate it | No |
 | Train | Practice against the current leader and improve using hand logs | No |
 | Compete | Upload the bot and enter the official round-robin league | Yes |
-| Challenge someone | Play a direct 200-hand match after the other player accepts | No |
+| Challenge someone | Play a best-of-five poker series after the other player accepts | No |
 | Review hands | Examine interesting decisions and find improvements | No |
 | Check progress | See validation, matches, Elo, record, and leaderboard position | No |
 

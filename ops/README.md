@@ -72,7 +72,6 @@ Copy `.env.example` to `.env` and adjust values there. Important defaults:
 - `API_HEALTH_PATH=/api/health`
 - `MATCH_CONCURRENCY=1`
 - `ALPHA_POKER_AUTO_RUN=true`
-- `ALPHA_POKER_AUTO_RUN_HANDS=200`
 - `ALPHA_POKER_AUTO_RUN_TIMEOUT_SECONDS=900`
 - `ALPHA_POKER_AUTH_REQUIRED=true`
 - `ALPHA_POKER_RETAINED_HAND_RUNS=2`

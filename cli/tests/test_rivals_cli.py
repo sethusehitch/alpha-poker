@@ -40,6 +40,7 @@ class RivalsCliTests(unittest.TestCase):
         response = {
             "username": "theo", "bot_name": "PocketRocket", "elo_rating": 1589,
             "record": {"wins": 4, "losses": 5}, "is_nemesis": True,
+            "current_challenge": {"challenge_id": "ch_pending", "status": "pending"},
         }
         with self.authenticated(), patch.object(cli, "_http_json", return_value=response), contextlib.redirect_stdout(output):
             code = cli.main(["rivals", "show", "theo", "--api-url", API])
@@ -48,6 +49,26 @@ class RivalsCliTests(unittest.TestCase):
         self.assertIn("1,589", output.getvalue())
         self.assertIn("4-5", output.getvalue())
         self.assertIn("Nemesis", output.getvalue())
+        self.assertIn("Current challenge: pending (ch_pending)", output.getvalue())
+
+    def test_show_agent_format_emits_stable_key_value_facts(self):
+        output = io.StringIO()
+        response = {
+            "rival": {"username": "theo", "bot_name": "PocketRocket", "elo_rating": 1589},
+            "direct_record": {"wins": 4, "losses": 5, "draws": 0},
+            "is_nemesis": True,
+            "current_challenge": {"challenge_id": "ch_pending", "status": "pending"},
+        }
+        with self.authenticated(), patch.object(cli, "_http_json", return_value=response), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "show", "theo", "--format", "agent", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            output.getvalue().splitlines(),
+            [
+                "username=theo", "bot_name=PocketRocket", "elo=1589", "direct_record=4-5",
+                "is_nemesis=true", "current_challenge_id=ch_pending", "current_challenge_status=pending",
+            ],
+        )
 
     def test_challenge_reviews_fixed_format_and_sends_idempotency_key(self):
         responses = [
@@ -59,7 +80,7 @@ class RivalsCliTests(unittest.TestCase):
         with self.authenticated(), patch.object(cli, "_http_json", side_effect=responses) as request, contextlib.redirect_stdout(output):
             code = cli.main(["rivals", "challenge", "theo", "--yes", "--api-url", API])
         self.assertEqual(code, 0)
-        self.assertIn("200-hand direct challenge", output.getvalue())
+        self.assertIn("best-of-five Pot-Limit Hold'em challenge", output.getvalue())
         self.assertIn("Challenge sent: ch_123", output.getvalue())
         mutation = request.call_args_list[2]
         self.assertEqual(mutation.args[:4], ("POST", f"{API}/challenges", {"opponent_username": "theo"}, "session-secret"))
@@ -93,7 +114,7 @@ class RivalsCliTests(unittest.TestCase):
             code = cli.main(["rivals", "accept", "ch_123", "--yes", "--api-url", API, "--json"])
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(output.getvalue())["status"], "queued")
-        self.assertIn("200-hand direct challenge", error.getvalue())
+        self.assertIn("best-of-five Pot-Limit Hold'em challenge", error.getvalue())
         mutation = request.call_args_list[1]
         self.assertEqual(mutation.args[1], f"{API}/challenges/ch_123/accept")
         self.assertRegex(mutation.args[4]["Idempotency-Key"], r"^cli-accept-")
@@ -102,7 +123,11 @@ class RivalsCliTests(unittest.TestCase):
         responses = [
             {"id": "ch_123", "status": "queued"},
             {"id": "ch_123", "status": "running"},
-            {"id": "ch_123", "status": "completed", "winner_username": "maya", "margin_play_chips": 840},
+            {
+                "id": "ch_123", "status": "completed",
+                "challenger_username": "maya", "challenged_username": "theo",
+                "winner_username": "maya", "series_score": {"maya": 3, "theo": 1},
+            },
         ]
         output, error = io.StringIO(), io.StringIO()
         with self.authenticated(), patch.object(cli, "_http_json", side_effect=responses) as request, patch.object(
@@ -113,7 +138,7 @@ class RivalsCliTests(unittest.TestCase):
         self.assertEqual(request.call_count, 3)
         self.assertIn("queued", error.getvalue())
         self.assertIn("running", error.getvalue())
-        self.assertIn("winner maya", output.getvalue())
+        self.assertIn("you won", output.getvalue())
 
     def test_status_wait_json_is_exactly_one_stdout_object(self):
         response = {"id": "ch_123", "status": "completed", "winner_username": "maya"}
@@ -134,6 +159,86 @@ class RivalsCliTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("requires a CHALLENGE_ID", error.getvalue())
 
+    def test_status_wait_timeout_exits_cleanly_and_says_how_to_check_later(self):
+        response = {
+            "challenge_id": "ch_123", "status": "running", "current_game": 2,
+            "series_score": {"maya": 1, "theo": 0}, "hands_played": 73,
+            "challenger_username": "maya", "challenged_username": "theo",
+        }
+        output = io.StringIO()
+        with self.authenticated(), patch.object(cli, "_http_json", return_value=response), patch.object(
+            cli.time, "monotonic", side_effect=[0, 2]
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "status", "ch_123", "--wait", "--timeout", "1", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertIn("Alpha Poker will keep working", output.getvalue())
+        self.assertIn("rivals status ch_123 --wait", output.getvalue())
+
+    def test_status_wait_timeout_names_pending_state(self):
+        response = {
+            "challenge_id": "ch_123", "status": "pending",
+            "challenger_username": "maya", "challenged_username": "theo",
+        }
+        output = io.StringIO()
+        with self.authenticated(), patch.object(cli, "_http_json", return_value=response), patch.object(
+            cli.time, "monotonic", side_effect=[0, 2]
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "status", "ch_123", "--wait", "--timeout", "1", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertIn("Still pending after 1 seconds", output.getvalue())
+        self.assertIn("waiting for the other player", output.getvalue())
+        self.assertNotIn("Still running", output.getvalue())
+
+    def test_agent_format_emits_compact_stable_facts(self):
+        response = {
+            "challenge_id": "ch_123", "status": "completed", "format": "best_of_five_plhe",
+            "challenger_username": "maya", "challenged_username": "theo",
+            "series_score": {"maya": 3, "theo": 1}, "games_completed": 4,
+            "hands_played": 214, "winner_username": "maya", "artifacts_url": "/artifacts",
+        }
+        output = io.StringIO()
+        with self.authenticated(), patch.object(cli, "_http_json", return_value=response), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "status", "ch_123", "--format", "agent", "--api-url", API])
+        self.assertEqual(code, 0)
+        assert "status=completed" in output.getvalue()
+        assert "score=3-1" in output.getvalue()
+        assert "score_order=winner-loser" in output.getvalue()
+        assert "viewer_result=win" in output.getvalue()
+        assert "hands_played=214" in output.getvalue()
+
+    def test_agent_completed_score_is_winner_first_for_loser(self):
+        response = {
+            "challenge_id": "ch_123", "status": "completed", "format": "best_of_five_plhe",
+            "challenger_username": "maya", "challenged_username": "theo",
+            "series_score": {"maya": 3, "theo": 0}, "games_completed": 3,
+            "hands_played": 180, "winner_username": "maya",
+        }
+        output = io.StringIO()
+        with patch.object(cli, "_identity", return_value=("theo", "session-secret")), patch.object(
+            cli, "_http_json", return_value=response
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "status", "ch_123", "--format", "agent", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertIn("score=3-0", output.getvalue())
+        self.assertIn("score_order=winner-loser", output.getvalue())
+        self.assertIn("viewer_result=loss", output.getvalue())
+
+    def test_human_completed_status_uses_winner_and_loser_score_for_recipient(self):
+        response = {
+            "challenge_id": "ch_123", "status": "completed", "format": "best_of_five_plhe",
+            "challenger_username": "maya", "challenged_username": "theo",
+            "series_score": {"maya": 3, "theo": 0}, "games_completed": 3,
+            "hands_played": 275, "winner_username": "maya",
+        }
+        output = io.StringIO()
+        with patch.object(cli, "_identity", return_value=("theo", "session-secret")), patch.object(
+            cli, "_http_json", return_value=response
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "status", "ch_123", "--format", "human", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertIn("you lost; maya won 3-0", output.getvalue())
+        self.assertNotIn("3-3", output.getvalue())
+
     def test_recap_downloads_artifact_without_printing_token(self):
         response = {
             "challenge_id": "ch_123", "winner_username": "maya", "margin_play_chips": 840,
@@ -153,6 +258,23 @@ class RivalsCliTests(unittest.TestCase):
             self.assertEqual(download.call_args.args[2], "session-secret")
             self.assertNotIn("session-secret", output.getvalue())
             self.assertIn("alpha-poker-rival-ch_123.zip", output.getvalue())
+
+    def test_human_recap_names_viewer_loss_and_winner_first_score(self):
+        response = {
+            "challenge": {
+                "challenge_id": "ch_123", "challenger_username": "maya",
+                "challenged_username": "theo", "winner_username": "maya",
+                "series_score": {"maya": 3, "theo": 1},
+            },
+            "summary": {"result_text": "RiverRat defeated PocketRocket 3-1."},
+        }
+        output = io.StringIO()
+        with patch.object(cli, "_identity", return_value=("theo", "session-secret")), patch.object(
+            cli, "_http_json", return_value=response
+        ), contextlib.redirect_stdout(output):
+            code = cli.main(["rivals", "recap", "ch_123", "--format", "human", "--api-url", API])
+        self.assertEqual(code, 0)
+        self.assertIn("You lost; maya won 3-1.", output.getvalue())
 
     def test_notifications_list_and_read(self):
         listing = {
@@ -179,7 +301,10 @@ class RivalsCliTests(unittest.TestCase):
             "items": [{
                 "notification_id": "nt_2",
                 "type": "challenge_lost",
-                "payload": {"opponent_username": "theo", "margin_play_chips": 320},
+                "payload": {
+                    "opponent_username": "theo",
+                    "series_score": {"maya": 1, "theo": 3},
+                },
                 "read_at": None,
             }],
             "unread_count": 1,
@@ -188,7 +313,7 @@ class RivalsCliTests(unittest.TestCase):
         with self.authenticated(), patch.object(cli, "_http_json", return_value=response), contextlib.redirect_stdout(output):
             code = cli.main(["notifications", "list", "--api-url", API])
         self.assertEqual(code, 0)
-        self.assertIn("theo beat you by 320 play chips", output.getvalue())
+        self.assertIn("theo beat you 3-1", output.getvalue())
 
     def test_draw_notification_has_plain_language_copy(self):
         response = {

@@ -1,4 +1,4 @@
-import { BUILD_BOT_PROMPT, STARTER_KIT_FILENAME } from "./components/agentPrompt";
+import { BUILD_BOT_PROMPT, STARTER_KIT_FILENAME, STARTER_KIT_URL } from "./components/agentPrompt";
 import { CopyPromptButton } from "./components/CopyPromptButton";
 import { Leaderboard, type LeaderboardEntry } from "./components/Leaderboard";
 import { SiteHeader } from "./components/SiteHeader";
@@ -64,9 +64,11 @@ const previewLeaderboard: LeaderboardEntry[] = [
 
 export default async function Home() {
   const liveLeaderboard = await serverFetchJson("leaderboard", null);
-  const initialLeaderboard = Array.isArray(liveLeaderboard?.entries) && liveLeaderboard.entries.length > 0
-    ? liveLeaderboard.entries as LeaderboardEntry[]
-    : previewLeaderboard;
+  const initialLeaderboard = liveLeaderboard === null
+    ? previewLeaderboard
+    : Array.isArray(liveLeaderboard.entries)
+      ? liveLeaderboard.entries as LeaderboardEntry[]
+      : [];
 
   return (
     <>
@@ -147,7 +149,7 @@ export default async function Home() {
                   Save <code className="rounded bg-zinc-100 px-1.5 py-0.5 text-sm">{STARTER_KIT_FILENAME}</code> to your Downloads folder.
                 </p>
                 <a
-                  href={`/${STARTER_KIT_FILENAME}`}
+                  href={STARTER_KIT_URL}
                   download
                   className="mt-6 inline-flex min-h-11 items-center justify-center gap-2.5 rounded-[5px] border border-blue-600 bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.08)] transition-colors hover:border-blue-700 hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-blue-600"
                 >

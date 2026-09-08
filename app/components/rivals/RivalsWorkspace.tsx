@@ -329,16 +329,19 @@ function ChallengeRow({
           {challenge.opponent_username ??
             `${challenge.challenger_username} vs ${challenge.challenged_username}`}{" "}
           · {time(challenge.completed_at ?? challenge.created_at)} ·{" "}
-          {challenge.hand_count} hands
+          Best of 5 · {challenge.hands_played.toLocaleString()} hands
         </p>
       </div>
-      {challenge.margin_play_chips !== null &&
-        challenge.margin_play_chips !== undefined && (
+      {challenge.status === "completed" && challenge.winner_username && (
           <span
             className={`hidden text-xs font-semibold sm:inline ${outcome === "win" ? "text-emerald-700" : outcome === "loss" ? "text-red-600" : "text-zinc-600"}`}
           >
-            {outcome === "win" ? "+" : ""}
-            {challenge.margin_play_chips.toLocaleString()} play chips
+            {challenge.series_score[challenge.winner_username] ?? 0}-
+            {challenge.series_score[
+              challenge.winner_username === challenge.challenger_username
+                ? challenge.challenged_username
+                : challenge.challenger_username
+            ] ?? 0}
           </span>
         )}
       {onOpen ? (
@@ -367,6 +370,8 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
     ReturnType<typeof rivalsApi.recap>
   > | null>(null);
   const [error, setError] = useState("");
+  const panel = useRef<HTMLElement>(null);
+  const returnFocus = useRef<Element | null>(null);
   useEffect(() => {
     let cancelled = false;
     setData(null);
@@ -383,9 +388,40 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
       cancelled = true;
     };
   }, [id]);
+  useEffect(() => {
+    returnFocus.current = document.activeElement;
+    document.body.style.overflow = "hidden";
+    const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+      if (event.key === "Tab" && panel.current) {
+        const items = panel.current.querySelectorAll<HTMLElement>(
+          'button, [href], [tabindex]:not([tabindex="-1"])',
+        );
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", key);
+    window.setTimeout(() => panel.current?.querySelector<HTMLElement>("button")?.focus(), 0);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", key);
+      (returnFocus.current as HTMLElement | null)?.focus?.();
+    };
+  }, [close]);
   return (
-    <aside
-      aria-label="Challenge recap"
+    <div
+      ref={panel}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="match-recap-title"
       className="fixed inset-x-0 bottom-0 z-60 mx-auto max-h-[78vh] w-full max-w-3xl overflow-auto rounded-t-2xl border border-zinc-200 bg-white p-5 shadow-2xl sm:bottom-5 sm:rounded-2xl"
     >
       <div className="flex items-start justify-between">
@@ -393,7 +429,7 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
           <p className="text-xs font-bold tracking-widest text-blue-700">
             DIRECT CHALLENGE
           </p>
-          <h2 className="mt-1 text-xl font-bold">Match recap</h2>
+          <h2 id="match-recap-title" className="mt-1 text-xl font-bold">Match recap</h2>
         </div>
         <button
           type="button"
@@ -411,11 +447,24 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
         <p className="mt-5 text-sm text-zinc-500">Loading recap…</p>
       ) : (
         <>
+          {(() => {
+            const winner = data.challenge.winner_username;
+            const challenger = data.challenge.challenger_username;
+            const challenged = data.challenge.challenged_username;
+            const loser = winner === challenger ? challenged : challenger;
+            return (
+              <p className="mt-5 text-2xl font-bold tracking-tight text-zinc-950">
+                {winner
+                  ? `${winner} won ${data.challenge.series_score[winner] ?? 0}-${data.challenge.series_score[loser] ?? 0}`
+                  : "Challenge ended in a tie"}
+              </p>
+            );
+          })()}
           <p className="mt-4 text-sm text-zinc-600">
             {data.challenge.challenger_username} and{" "}
-            {data.challenge.challenged_username} played{" "}
-            {data.challenge.hand_count} deterministic, unranked hands. Public
-            Elo was unchanged.
+            {data.challenge.challenged_username} played a best-of-five
+            Pot-Limit Hold&apos;em challenge. The first bot to win three games
+            won the match. Public Elo was unchanged.
           </p>
           {data.challenge.completed_at && (
             <p className="mt-2 text-xs text-zinc-500">
@@ -453,7 +502,7 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
           </ul>
         </>
       )}
-    </aside>
+    </div>
   );
 }
 
@@ -888,8 +937,8 @@ function RivalOverlay({
                     Challenge {detail.rival.username}?
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-zinc-600">
-                    This starts an asynchronous, unranked 200-hand direct
-                    challenge. Public Elo will not change.
+                    This starts an asynchronous, unranked best-of-five poker
+                    series. Public Elo will not change.
                   </p>
                   <div className="mt-5 flex justify-end gap-2">
                     <button
@@ -1135,14 +1184,13 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
     setError("");
     if (tab === "challenges") {
       setBusy(true);
-      void Promise.all([
-        rivalsApi.challenges("incoming"),
-        rivalsApi.challenges("running"),
-        rivalsApi.challenges("finished"),
-      ])
-        .then((sets) => {
+      void rivalsApi
+        .challenges()
+        .then((result) => {
           if (stale()) return;
-          setChallenges(sets.flatMap((set) => set.items));
+          // The unfiltered participant feed includes incoming and outgoing
+          // pending requests, as well as running and finished challenges.
+          setChallenges(result.items);
           setBusy(false);
         })
         .catch((reason) => {
@@ -1325,7 +1373,7 @@ export function RivalsWorkspace({ initialTab = "mine" }: { initialTab?: Tab }) {
           </section>
         )}
       </div>
-      {!accountChanged && selected && (
+      {!accountChanged && selected && !recap && (
         <RivalOverlay
           key={`${viewer ?? "signed-out"}:${selected}:${challengeTarget === selected ? "challenge" : "view"}`}
           username={selected}

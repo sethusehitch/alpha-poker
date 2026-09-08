@@ -8,6 +8,9 @@ from typing import Iterable
 
 BASE_RATING = 1200
 K_FACTOR = 32
+PROVISIONAL_K_FACTOR = 40
+ESTABLISHED_K_FACTOR = 20
+PROVISIONAL_MATCHES = 10
 
 
 @dataclass(frozen=True)
@@ -20,6 +23,30 @@ class EloStanding:
 
 def expected_score(rating: int, opponent_rating: int) -> float:
     return 1.0 / (1.0 + 10.0 ** ((opponent_rating - rating) / 400.0))
+
+
+def k_factor(rated_matches: int) -> int:
+    if rated_matches < 0:
+        raise ValueError("rated_matches cannot be negative")
+    return PROVISIONAL_K_FACTOR if rated_matches < PROVISIONAL_MATCHES else ESTABLISHED_K_FACTOR
+
+
+def calculate_elo_result(
+    rating_a: int,
+    rating_b: int,
+    score_a: float,
+    *,
+    rated_matches_a: int = 0,
+    rated_matches_b: int = 0,
+) -> tuple[int, int, int, int]:
+    """Apply one chess-style result with per-player provisional K factors."""
+    if score_a not in {0.0, 0.5, 1.0}:
+        raise ValueError("score must be 0, 0.5, or 1")
+    score_b = 1.0 - score_a
+    ka, kb = k_factor(rated_matches_a), k_factor(rated_matches_b)
+    after_a = round(rating_a + ka * (score_a - expected_score(rating_a, rating_b)))
+    after_b = round(rating_b + kb * (score_b - expected_score(rating_b, rating_a)))
+    return after_a, after_b, ka, kb
 
 
 def calculate_round_robin_elo(

@@ -4,6 +4,8 @@ import time
 import zipfile
 
 from alpha_poker_api.engine_adapter import validate_package
+from alpha_poker_api import bot_runner as server_runner
+from alpha_poker_cli import runner as local_runner
 
 
 def bot_package(tmp_path, source: str):
@@ -74,3 +76,9 @@ def test_bot_output_is_bounded(tmp_path):
     )
     assert not result.accepted
     assert "output exceeded 4 KB" in result.error
+
+
+def test_local_and_server_runner_policies_match():
+    assert local_runner.BLOCKED_AUDIT_PREFIXES == server_runner.BLOCKED_AUDIT_PREFIXES
+    assert local_runner.MAX_ACTION_BYTES == server_runner.MAX_ACTION_BYTES
+    assert local_runner.MAX_CAPTURE_BYTES == server_runner.MAX_CAPTURE_BYTES

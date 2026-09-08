@@ -4,7 +4,6 @@ import argparse
 import base64
 import getpass
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -15,13 +14,14 @@ import ssl
 import struct
 import sys
 import time
-from types import ModuleType
-from typing import Any, Callable
+from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 import uuid
 import zipfile
+
+from .runner import LocalBot, RunnerError
 
 API_VERSION = "2026-09-01"
 DEFAULT_API_URL = os.environ.get("ALPHA_POKER_API_URL", "http://localhost:8000/v1")
@@ -140,6 +140,7 @@ def _sample_states() -> list[dict[str, Any]]:
     return [
         {**common, "street": "preflop", "to_call": 1, "min_raise_to": 4, "max_raise_to": 200, "legal_actions": ["fold", "call", "raise", "all_in"]},
         {**common, "street": "flop", "community_cards": ["7c", "Js", "2d"], "pot": 12, "to_call": 0, "min_raise_to": 2, "max_raise_to": 198, "legal_actions": ["check", "raise", "all_in"]},
+        {**common, "street": "turn", "community_cards": ["7c", "Js", "2d", "Tc"], "pot": 36, "to_call": 12, "min_raise_to": 48, "max_raise_to": 186, "legal_actions": ["fold", "call", "raise", "all_in"]},
         {**common, "street": "river", "community_cards": ["7c", "Js", "2d", "Tc", "3h"], "pot": 80, "to_call": 40, "min_raise_to": None, "max_raise_to": None, "legal_actions": ["fold", "call"]},
     ]
 
@@ -178,21 +179,11 @@ def _check_package(root: Path) -> dict[str, Any]:
     return _load_manifest(root)
 
 
-def _load_bot(root: Path) -> tuple[ModuleType, Callable[[dict[str, Any]], dict[str, Any]]]:
-    bot_path = root / "bot.py"
-    module_name = f"alpha_poker_bot_{uuid.uuid4().hex}"
-    spec = importlib.util.spec_from_file_location(module_name, bot_path)
-    if spec is None or spec.loader is None:
-        raise CliError("could not load bot.py")
-    module = importlib.util.module_from_spec(spec)
+def _load_bot(root: Path) -> LocalBot:
     try:
-        spec.loader.exec_module(module)
-    except Exception as exc:
-        raise CliError(f"bot.py failed to import: {type(exc).__name__}: {exc}") from exc
-    decide = getattr(module, "decide", None)
-    if not callable(decide):
-        raise CliError("bot.py must export decide(state)")
-    return module, decide
+        return LocalBot(root)
+    except RunnerError as exc:
+        raise CliError(str(exc)) from exc
 
 
 def validate_action(action: Any, state: dict[str, Any]) -> dict[str, Any]:
@@ -226,19 +217,20 @@ def validate_action(action: Any, state: dict[str, Any]) -> dict[str, Any]:
 
 def validate_bot(root: Path) -> dict[str, Any]:
     manifest = _check_package(root)
-    _, decide = _load_bot(root)
+    bot = _load_bot(root)
     timings: list[float] = []
-    for state in _sample_states():
-        started = time.perf_counter()
-        try:
-            action = decide(dict(state))
-        except Exception as exc:
-            raise CliError(f"decide(state) crashed: {type(exc).__name__}: {exc}") from exc
-        elapsed = time.perf_counter() - started
-        timings.append(elapsed)
-        if elapsed > DECISION_LIMIT_SECONDS:
-            raise CliError(f"decision took {elapsed * 1000:.1f} ms; limit is 250 ms")
-        validate_action(action, state)
+    try:
+        for state in _sample_states():
+            started = time.perf_counter()
+            try:
+                action = bot.decide(dict(state))
+            except RunnerError as exc:
+                raise CliError(str(exc)) from exc
+            elapsed = time.perf_counter() - started
+            timings.append(elapsed)
+            validate_action(action, state)
+    finally:
+        bot.close()
     return {"manifest": manifest, "checks": len(timings), "max_decision_ms": max(timings) * 1000}
 
 
@@ -395,8 +387,7 @@ def _challenge_preview(value: dict[str, Any], username: str, action: str) -> str
     own_bot = own_bot or value.get("challenger_bot_name") or value.get("your_bot_name") or value.get("caller_bot_name")
     opponent_bot = opponent_bot or value.get("challenged_bot_name") or value.get("opponent_bot_name") or value.get("bot_name")
     bots = f" ({own_bot} vs {opponent_bot})" if own_bot and opponent_bot else ""
-    hands = int(value.get("hand_count") or 200)
-    return f"{action} {opponent}{bots} in one {hands}-hand direct challenge."
+    return f"{action} {opponent}{bots} in a best-of-five Pot-Limit Hold'em challenge."
 
 
 def _format_record(record: Any) -> str:
@@ -604,7 +595,6 @@ def _training_output_path(output: Path | None, session_id: str) -> Path:
 
 def run_training(root: Path, api_url: str, opponent: str, hands: int, output: Path | None, username: str = "local", auth_token: str | None = None) -> Path:
     _check_package(root)
-    _, decide = _load_bot(root)
     session_url = f"{api_url.rstrip('/')}/training/sessions"
     session_payload = {"username": username, "opponent": opponent, "hand_limit": hands, "client_schema_version": API_VERSION}
     session = _http_json("POST", session_url, session_payload, auth_token) if auth_token else _http_json("POST", session_url, session_payload)
@@ -612,69 +602,73 @@ def run_training(root: Path, api_url: str, opponent: str, hands: int, output: Pa
     websocket_url = session.get("websocket_url")
     if not isinstance(session_id, str) or not isinstance(websocket_url, str):
         raise CliError("training session response is missing session_id or websocket_url")
+    bot = _load_bot(root)
     token = session.get("training_token")
     last_seq = 0
     completed: dict[str, Any] | None = None
-    for attempt in range(3):
-        ws: WebSocket | None = None
-        try:
-            connect_url = websocket_url
-            if last_seq:
-                parsed = urlparse(websocket_url)
-                query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-                query["after_seq"] = str(last_seq)
-                connect_url = urlunparse(parsed._replace(query=urlencode(query)))
-            ws = WebSocket(connect_url, token if isinstance(token, str) else None)
-            while True:
-                message = ws.receive_json()
-                seq = message.get("seq")
-                if isinstance(seq, int):
-                    last_seq = max(last_seq, seq)
-                message_type = message.get("type")
-                if message_type == "action.requested":
-                    payload = message.get("payload", {})
-                    state = payload.get("state")
-                    if not isinstance(state, dict):
-                        raise CliError("action.requested is missing state")
-                    started = time.perf_counter()
-                    try:
-                        proposed = decide(dict(state))
-                    except Exception as exc:
-                        raise CliError(f"decide(state) crashed: {type(exc).__name__}: {exc}") from exc
-                    action = validate_action(proposed, state)
-                    elapsed = time.perf_counter() - started
-                    if elapsed > DECISION_LIMIT_SECONDS:
-                        raise CliError(f"decision took {elapsed * 1000:.1f} ms; limit is 250 ms")
-                    ws.send_json({
-                        "type": "action.submit", "session_id": session_id,
-                        "hand_id": payload.get("hand_id"), "turn_id": payload.get("turn_id"),
-                        "turn_token": payload.get("turn_token"), "client_action_id": str(uuid.uuid4()),
-                        **action,
-                    })
-                elif message_type == "action.rejected":
-                    raise CliError(f"server rejected action: {message.get('payload', message)}")
-                elif message_type == "error":
-                    raise CliError(f"training error: {message.get('payload', message)}")
-                elif message_type == "session.completed":
-                    completed = message.get("payload", {})
+    try:
+        for attempt in range(3):
+            ws: WebSocket | None = None
+            try:
+                connect_url = websocket_url
+                if last_seq:
+                    parsed = urlparse(websocket_url)
+                    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+                    query["after_seq"] = str(last_seq)
+                    connect_url = urlunparse(parsed._replace(query=urlencode(query)))
+                ws = WebSocket(connect_url, token if isinstance(token, str) else None)
+                while True:
+                    message = ws.receive_json()
+                    seq = message.get("seq")
+                    if isinstance(seq, int):
+                        last_seq = max(last_seq, seq)
+                    message_type = message.get("type")
+                    if message_type == "action.requested":
+                        payload = message.get("payload", {})
+                        state = payload.get("state")
+                        if not isinstance(state, dict):
+                            raise CliError("action.requested is missing state")
+                        started = time.perf_counter()
+                        try:
+                            proposed = bot.decide(dict(state))
+                        except RunnerError as exc:
+                            raise CliError(str(exc)) from exc
+                        action = validate_action(proposed, state)
+                        elapsed = time.perf_counter() - started
+                        if elapsed > DECISION_LIMIT_SECONDS:
+                            raise CliError(f"decision took {elapsed * 1000:.1f} ms; limit is 250 ms")
+                        ws.send_json({
+                            "type": "action.submit", "session_id": session_id,
+                            "hand_id": payload.get("hand_id"), "turn_id": payload.get("turn_id"),
+                            "turn_token": payload.get("turn_token"), "client_action_id": str(uuid.uuid4()),
+                            **action,
+                        })
+                    elif message_type == "action.rejected":
+                        raise CliError(f"server rejected action: {message.get('payload', message)}")
+                    elif message_type == "error":
+                        raise CliError(f"training error: {message.get('payload', message)}")
+                    elif message_type == "session.completed":
+                        completed = message.get("payload", {})
+                        break
+                if completed is not None:
                     break
-            if completed is not None:
-                break
-        except (OSError, TimeoutError, CliError) as exc:
-            if attempt == 2:
-                if isinstance(exc, CliError):
-                    raise
-                raise CliError(
-                    "The training connection timed out after three attempts. Try again in a moment; "
-                    "your local bot files are unchanged."
-                ) from exc
-            time.sleep(0.25 * (attempt + 1))
-        finally:
-            if ws is not None:
-                try:
-                    ws.close()
-                except OSError:
-                    pass
+            except (OSError, TimeoutError, CliError) as exc:
+                if attempt == 2:
+                    if isinstance(exc, CliError):
+                        raise
+                    raise CliError(
+                        "The training connection timed out after three attempts. Try again in a moment; "
+                        "your local bot files are unchanged."
+                    ) from exc
+                time.sleep(0.25 * (attempt + 1))
+            finally:
+                if ws is not None:
+                    try:
+                        ws.close()
+                    except OSError:
+                        pass
+    finally:
+        bot.close()
     destination = _training_output_path(output, session_id)
     artifacts_url = completed.get("artifacts_url") if completed else None
     if not isinstance(artifacts_url, str):
@@ -700,6 +694,42 @@ def _print_rivals(response: dict[str, Any]) -> None:
         print(f"{username}: {bot} ({suffix})")
 
 
+def _print_rivals_agent(response: dict[str, Any]) -> None:
+    rivals = _items(response, "rivals", "items")
+    print(f"count={len(rivals)}")
+    for index, rival in enumerate(rivals, start=1):
+        elo = rival.get("elo") if rival.get("elo") is not None else rival.get("elo_rating")
+        record = rival.get("direct_record") or rival.get("record") or rival.get("head_to_head")
+        fields = {
+            "username": _name(rival, "username"),
+            "bot_name": _name(rival, "bot_name", fallback=""),
+            "elo": int(elo) if isinstance(elo, (int, float)) else "",
+            "direct_record": _format_record(record),
+            "is_nemesis": str(bool(rival.get("is_nemesis"))).lower(),
+        }
+        print(f"rival_{index}=" + json.dumps(fields, sort_keys=True, separators=(",", ":")))
+
+
+def _print_rival_agent(response: dict[str, Any], fallback_username: str) -> None:
+    rival = response.get("rival") if isinstance(response.get("rival"), dict) else response
+    elo = rival.get("elo") if rival.get("elo") is not None else rival.get("elo_rating")
+    record = response.get("direct_record") or rival.get("direct_record") or rival.get("record") or rival.get("head_to_head")
+    fields = {
+        "username": _name(rival, "username", fallback=fallback_username),
+        "bot_name": _name(rival, "bot_name", fallback=""),
+        "elo": int(elo) if isinstance(elo, (int, float)) else "",
+        "direct_record": _format_record(record),
+        "is_nemesis": str(bool(response.get("is_nemesis") or rival.get("is_nemesis"))).lower(),
+    }
+    current = response.get("current_challenge") if isinstance(response.get("current_challenge"), dict) else {}
+    fields.update({
+        "current_challenge_id": _name(current, "challenge_id", "id", fallback=""),
+        "current_challenge_status": _challenge_status(current) if current else "",
+    })
+    for key, value in fields.items():
+        print(f"{key}={value}")
+
+
 def _print_challenges(response: dict[str, Any], username: str) -> None:
     challenges = _items(response, "challenges", "items")
     if not challenges and (response.get("id") or response.get("challenge_id")):
@@ -711,14 +741,80 @@ def _print_challenges(response: dict[str, Any], username: str) -> None:
         identifier = _name(challenge, "id", "challenge_id")
         opponent = _challenge_opponent(challenge, username)
         status = _challenge_status(challenge)
+        bot_names = challenge.get("bot_names") if isinstance(challenge.get("bot_names"), dict) else {}
+        challenger = _name(challenge, "challenger_username", fallback="")
+        if challenger.lower() == username.lower():
+            own_bot, opponent_bot = bot_names.get("challenger"), bot_names.get("challenged")
+        else:
+            own_bot, opponent_bot = bot_names.get("challenged"), bot_names.get("challenger")
+        context = "best of 5 PLHE"
+        if own_bot and opponent_bot:
+            context = f"{own_bot} vs {opponent_bot}, {context}"
         result = ""
         winner = challenge.get("winner_username") or challenge.get("winner")
-        margin = challenge.get("margin_play_chips") or challenge.get("margin")
+        score = challenge.get("series_score")
         if winner:
-            result = f", winner {winner}"
-            if isinstance(margin, (int, float)):
-                result += f" by {abs(int(margin)):,} play chips"
-        print(f"{identifier}: {opponent} — {status}{result}")
+            if isinstance(score, dict):
+                participants = [
+                    _name(challenge, "challenger_username", fallback=""),
+                    _name(challenge, "challenged_username", fallback=""),
+                ]
+                loser = next(
+                    (participant for participant in participants if participant and participant.lower() != str(winner).lower()),
+                    username if username.lower() != str(winner).lower() else opponent,
+                )
+                winner_score = int(score.get(winner, 0))
+                loser_score = int(score.get(loser, 0))
+                if username.lower() == str(winner).lower():
+                    result = f", you won {winner_score}-{loser_score}"
+                else:
+                    result = f", you lost; {winner} won {winner_score}-{loser_score}"
+            else:
+                result = f", winner {winner}"
+        elif status == "running":
+            result = f", game {challenge.get('current_game') or '?'}"
+            if isinstance(score, dict):
+                result += f", score {int(score.get(username, 0))}-{int(score.get(opponent, 0))}"
+        print(f"{identifier}: {opponent} ({context}) — {status}{result}")
+
+
+def _output_format(args: argparse.Namespace) -> str:
+    return "json" if getattr(args, "json", False) else getattr(args, "output_format", "human")
+
+
+def _print_challenge_agent(response: dict[str, Any], username: str) -> None:
+    challenge = response.get("challenge") if isinstance(response.get("challenge"), dict) else response
+    opponent = _challenge_opponent(challenge, username)
+    score = challenge.get("series_score") if isinstance(challenge.get("series_score"), dict) else {}
+    winner = challenge.get("winner_username") or ""
+    if winner:
+        participants = [
+            _name(challenge, "challenger_username", fallback=""),
+            _name(challenge, "challenged_username", fallback=""),
+        ]
+        loser = next((name for name in participants if name and name != winner), opponent)
+        formatted_score = f"{int(score.get(winner, 0))}-{int(score.get(loser, 0))}"
+        score_order = "winner-loser"
+        viewer_result = "win" if username == winner else "loss"
+    else:
+        formatted_score = f"{int(score.get(username, 0))}-{int(score.get(opponent, 0))}"
+        score_order = "viewer-opponent"
+        viewer_result = "pending"
+    fields = {
+        "challenge_id": _name(challenge, "challenge_id", "id"),
+        "status": _challenge_status(challenge),
+        "opponent": opponent,
+        "format": challenge.get("format") or "best_of_five_plhe",
+        "score": formatted_score,
+        "score_order": score_order,
+        "viewer_result": viewer_result,
+        "games_completed": int(challenge.get("games_completed") or 0),
+        "hands_played": int(challenge.get("hands_played") or 0),
+        "winner": winner,
+        "artifacts_url": challenge.get("artifacts_url") or response.get("artifacts_url") or "",
+    }
+    for key, value in fields.items():
+        print(f"{key}={value}")
 
 
 def _notification_message(item: dict[str, Any]) -> str:
@@ -727,19 +823,23 @@ def _notification_message(item: dict[str, Any]) -> str:
         return message
     payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
     opponent = _name(payload, "opponent_username", fallback="Your rival")
+    series_score = payload.get("series_score") if isinstance(payload.get("series_score"), dict) else {}
+    numeric_scores = sorted(
+        (int(value) for value in series_score.values() if isinstance(value, (int, float))),
+        reverse=True,
+    )
+    score = f" {numeric_scores[0]}-{numeric_scores[1]}" if len(numeric_scores) >= 2 else ""
     kind = item.get("type")
-    margin = payload.get("margin_play_chips")
-    margin_text = f" by {abs(int(margin)):,} play chips" if isinstance(margin, (int, float)) else ""
     if kind == "challenge_received":
         return f"{opponent} challenged you."
     if kind == "challenge_won":
-        return f"You beat {opponent}{margin_text}."
+        return f"You beat {opponent}{score}."
     if kind == "challenge_lost":
-        return f"{opponent} beat you{margin_text}."
+        return f"{opponent} beat you{score}."
     if kind == "challenge_drawn":
         return f"Your challenge with {opponent} ended in a draw."
     if kind == "challenge_failed":
-        return f"Your challenge with {opponent} could not finish. It is safe to check or retry."
+        return f"Your challenge with {opponent} could not finish. Check the details, then retry."
     return _name(item, "type", fallback="Notification")
 
 
@@ -748,7 +848,7 @@ def _wait_for_challenge(
     challenge_id: str,
     token: str,
     timeout_seconds: float,
-    json_output: bool,
+    quiet_progress: bool,
 ) -> dict[str, Any]:
     if not 1 <= timeout_seconds <= 3600:
         raise CliError("--timeout must be between 1 and 3600 seconds")
@@ -759,13 +859,25 @@ def _wait_for_challenge(
     while True:
         response = _http_json("GET", f"{api_url.rstrip('/')}/challenges/{challenge_id}", token=token)
         status = _challenge_status(response)
-        if not json_output and status != last_status:
+        if not quiet_progress and status != last_status:
             print(f"Challenge {challenge_id}: {status}", file=sys.stderr)
             last_status = status
         if status in terminal:
             return response
         if time.monotonic() >= deadline:
-            raise CliError(f"challenge {challenge_id} did not finish within {int(timeout_seconds)} seconds; check it later with rivals status")
+            return {
+                **response,
+                "wait_timed_out": True,
+                "wait_message": (
+                    (
+                        f"Still pending after {int(timeout_seconds)} seconds. "
+                        "The challenge is waiting for the other player to respond. "
+                    )
+                    if status == "pending"
+                    else f"Still {status} after {int(timeout_seconds)} seconds. Alpha Poker will keep working. "
+                )
+                + f"Check later with: alpha-poker rivals status {challenge_id} --wait",
+            }
         time.sleep(min(delay, max(0.0, deadline - time.monotonic())))
         delay = min(delay * 1.6, 5.0)
 
@@ -774,14 +886,22 @@ def _run_rivals(args: argparse.Namespace) -> int:
     username, token = _authenticated(args.api_url)
     api = args.api_url.rstrip("/")
     action = args.rivals_command
+    output_format = _output_format(args)
     if action == "list":
         response = _http_json("GET", _query_url(f"{api}/rivals", source=args.source, q=args.search), token=token)
-        _print_json(response) if args.json else _print_rivals(response)
+        if output_format == "json":
+            _print_json(response)
+        elif output_format == "agent":
+            _print_rivals_agent(response)
+        else:
+            _print_rivals(response)
         return 0
     if action == "show":
         response = _http_json("GET", f"{api}/rivals/{args.username}", token=token)
-        if args.json:
+        if output_format == "json":
             _print_json(response)
+        elif output_format == "agent":
+            _print_rival_agent(response, args.username)
         else:
             rival = response.get("rival") if isinstance(response.get("rival"), dict) else response
             elo = rival.get("elo") if rival.get("elo") is not None else rival.get("elo_rating")
@@ -792,20 +912,39 @@ def _run_rivals(args: argparse.Namespace) -> int:
             print(f"Direct challenge record: {_format_record(record)}")
             if response.get("is_nemesis") or rival.get("is_nemesis"):
                 print("Relationship: Nemesis")
+            current = response.get("current_challenge") if isinstance(response.get("current_challenge"), dict) else None
+            if current:
+                print(
+                    f"Current challenge: {_challenge_status(current)} "
+                    f"({_name(current, 'challenge_id', 'id')})"
+                )
         return 0
     if action == "history":
         response = _http_json(
             "GET", _query_url(f"{api}/rivals/{args.username}/history", limit=args.limit), token=token
         )
-        if args.json:
+        if output_format == "json":
             _print_json(response)
+        elif output_format == "agent":
+            history = _items(response, "history", "challenges", "items")
+            print(f"count={len(history)}")
+            for challenge in history:
+                _print_challenge_agent(challenge, username)
         else:
             history = _items(response, "history", "challenges", "items")
             _print_challenges({"challenges": history}, username)
         return 0
     if action == "requests":
         response = _http_json("GET", _query_url(f"{api}/challenges", status=args.status), token=token)
-        _print_json(response) if args.json else _print_challenges(response, username)
+        if output_format == "json":
+            _print_json(response)
+        elif output_format == "agent":
+            challenges = _items(response, "challenges", "items")
+            print(f"count={len(challenges)}")
+            for challenge in challenges:
+                _print_challenge_agent(challenge, username)
+        else:
+            _print_challenges(response, username)
         return 0
     if action == "challenge":
         rival = _http_json("GET", f"{api}/rivals/{args.username}", token=token)
@@ -815,11 +954,10 @@ def _run_rivals(args: argparse.Namespace) -> int:
         preview = {
             **preview,
             "opponent": args.username,
-            "hand_count": 200,
             "your_bot_name": submission.get("bot_name") or "your active bot",
             "opponent_bot_name": preview.get("bot_name") or "their active bot",
         }
-        print(_challenge_preview(preview, username, "Challenge"), file=sys.stderr if args.json else sys.stdout)
+        print(_challenge_preview(preview, username, "Challenge"), file=sys.stderr if output_format == "json" else sys.stdout)
         _confirm("Send this challenge?", args.yes)
         response = _http_json(
             "POST",
@@ -828,15 +966,17 @@ def _run_rivals(args: argparse.Namespace) -> int:
             token,
             {"Idempotency-Key": f"cli-challenge-{uuid.uuid4()}"},
         )
-        if args.json:
+        if output_format == "json":
             _print_json(response)
+        elif output_format == "agent":
+            _print_challenge_agent(response, username)
         else:
             print(f"Challenge sent: {_name(response, 'id', 'challenge_id')}")
         return 0
     if action in {"accept", "decline", "cancel"}:
         challenge = _http_json("GET", f"{api}/challenges/{args.challenge_id}", token=token)
         verb = {"accept": "Accept", "decline": "Decline", "cancel": "Cancel"}[action]
-        print(_challenge_preview(challenge, username, verb), file=sys.stderr if args.json else sys.stdout)
+        print(_challenge_preview(challenge, username, verb), file=sys.stderr if output_format == "json" else sys.stdout)
         _confirm(f"{verb} this challenge?", args.yes)
         response = _http_json(
             "POST",
@@ -845,34 +985,67 @@ def _run_rivals(args: argparse.Namespace) -> int:
             token,
             {"Idempotency-Key": f"cli-{action}-{uuid.uuid4()}"},
         )
-        _print_json(response) if args.json else _print_challenges(response, username)
+        if output_format == "json":
+            _print_json(response)
+        elif output_format == "agent":
+            _print_challenge_agent(response, username)
+        else:
+            _print_challenges(response, username)
         return 0
     if action == "status":
         if args.wait and not args.challenge_id:
             raise CliError("rivals status --wait requires a CHALLENGE_ID")
         if args.challenge_id:
             response = (
-                _wait_for_challenge(api, args.challenge_id, token, args.timeout, args.json)
+                _wait_for_challenge(api, args.challenge_id, token, args.timeout, output_format != "human")
                 if args.wait
                 else _http_json("GET", f"{api}/challenges/{args.challenge_id}", token=token)
             )
         else:
             response = _http_json("GET", f"{api}/challenges", token=token)
-        _print_json(response) if args.json else _print_challenges(response, username)
+        if output_format == "json":
+            _print_json(response)
+        elif output_format == "agent":
+            _print_challenge_agent(response, username)
+        else:
+            _print_challenges(response, username)
+            if response.get("wait_timed_out"):
+                print(response["wait_message"])
         return 0
     if action == "recap":
         response = _http_json("GET", f"{api}/challenges/{args.challenge_id}/recap", token=token)
         saved: Path | None = None
         if args.output:
             saved = _write_recap(response, args.output, api, token)
-        if args.json:
+        if output_format == "json":
             payload = {**response, **({"saved_to": str(saved)} if saved else {})}
             _print_json(payload)
+        elif output_format == "agent":
+            _print_challenge_agent(response, username)
+            if isinstance(response.get("summary"), dict) and response["summary"].get("result_text"):
+                print("result_text=" + json.dumps(response["summary"]["result_text"]))
         else:
+            summary = response.get("summary") if isinstance(response.get("summary"), dict) else {}
             challenge = response.get("challenge") if isinstance(response.get("challenge"), dict) else response
-            winner = challenge.get("winner_username") or challenge.get("winner") or "No winner"
-            margin = challenge.get("margin_play_chips") or challenge.get("margin")
-            print(f"Winner: {winner}" + (f" by {abs(int(margin)):,} play chips" if isinstance(margin, (int, float)) else ""))
+            winner = challenge.get("winner_username") or challenge.get("winner")
+            score = challenge.get("series_score") if isinstance(challenge.get("series_score"), dict) else {}
+            if winner:
+                participants = [
+                    _name(challenge, "challenger_username", fallback=""),
+                    _name(challenge, "challenged_username", fallback=""),
+                ]
+                loser = next((name for name in participants if name and name != winner), _challenge_opponent(challenge, username))
+                winner_score = int(score.get(winner, 0))
+                loser_score = int(score.get(loser, 0))
+                if username == winner:
+                    print(f"You won {winner_score}-{loser_score}.")
+                else:
+                    print(f"You lost; {winner} won {winner_score}-{loser_score}.")
+            if summary.get("result_text"):
+                print(summary["result_text"])
+            else:
+                if not winner:
+                    print("The challenge ended in a tie.")
             if saved:
                 print(f"Saved recap: {saved}")
         return 0
@@ -928,6 +1101,7 @@ def _parser() -> argparse.ArgumentParser:
     logs.add_argument("--output", type=Path, default=Path.cwd(), help="destination directory")
     validate = sub.add_parser("validate", help="validate a local bot")
     validate.add_argument("path", nargs="?", default=".")
+    validate.add_argument("--verbose", action="store_true", help="show runner compatibility details")
     submit = sub.add_parser("submit", help="validate, package, and submit a bot")
     submit.add_argument("path", nargs="?", default=".")
     submit.add_argument("--api-url", default=DEFAULT_API_URL)
@@ -937,7 +1111,7 @@ def _parser() -> argparse.ArgumentParser:
     train.add_argument("--api-url", default=DEFAULT_API_URL)
     train.add_argument("--username")
     train.add_argument("--opponent", default="leader", choices=["leader"])
-    train.add_argument("--hands", type=int, default=5000)
+    train.add_argument("--hands", type=int, default=400, help="number of practice hands (1-400, default: 400)")
     train.add_argument("--output", type=Path, help="destination directory or .zip file")
 
     rivals = sub.add_parser("rivals", help="find rivals and manage direct challenges")
@@ -948,22 +1122,26 @@ def _parser() -> argparse.ArgumentParser:
     rivals_list.add_argument("--search")
     rivals_list.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_list.add_argument("--json", action="store_true")
+    rivals_list.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
     rivals_show = rivals_sub.add_parser("show", help="show one rival and your direct-challenge record")
     rivals_show.add_argument("username", type=_username_argument)
     rivals_show.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_show.add_argument("--json", action="store_true")
+    rivals_show.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
     rivals_history = rivals_sub.add_parser("history", help="show direct challenges against one rival")
     rivals_history.add_argument("username", type=_username_argument)
     rivals_history.add_argument("--limit", type=_history_limit, default=20, metavar="N")
     rivals_history.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_history.add_argument("--json", action="store_true")
+    rivals_history.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
     rivals_requests = rivals_sub.add_parser("requests", help="list incoming, running, or finished challenges")
     rivals_requests.add_argument("--status", choices=["incoming", "running", "finished"])
     rivals_requests.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_requests.add_argument("--json", action="store_true")
+    rivals_requests.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
 
     for command, help_text in (
-        ("challenge", "send a 200-hand direct challenge"),
+        ("challenge", "send a best-of-five Pot-Limit Hold'em challenge"),
         ("accept", "accept and queue an incoming challenge"),
         ("decline", "decline an incoming challenge"),
         ("cancel", "cancel a challenge you sent"),
@@ -976,6 +1154,7 @@ def _parser() -> argparse.ArgumentParser:
         mutation.add_argument("--yes", action="store_true", help="confirm after reviewing the action")
         mutation.add_argument("--api-url", default=DEFAULT_API_URL)
         mutation.add_argument("--json", action="store_true")
+        mutation.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
 
     rivals_status = rivals_sub.add_parser("status", help="show or wait for rival challenge status")
     rivals_status.add_argument("challenge_id", nargs="?", type=_resource_id)
@@ -983,11 +1162,13 @@ def _parser() -> argparse.ArgumentParser:
     rivals_status.add_argument("--timeout", type=float, default=300, metavar="SECONDS")
     rivals_status.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_status.add_argument("--json", action="store_true")
+    rivals_status.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
     rivals_recap = rivals_sub.add_parser("recap", help="show a completed challenge recap and save evidence")
     rivals_recap.add_argument("challenge_id", type=_resource_id)
     rivals_recap.add_argument("--output", type=Path)
     rivals_recap.add_argument("--api-url", default=DEFAULT_API_URL)
     rivals_recap.add_argument("--json", action="store_true")
+    rivals_recap.add_argument("--format", dest="output_format", choices=["human", "agent", "json"], default="human")
 
     notifications = sub.add_parser("notifications", help="list and read rival notifications")
     notifications_sub = notifications.add_subparsers(dest="notifications_command", required=True)
@@ -1115,8 +1296,16 @@ def main(argv: list[str] | None = None) -> int:
 
         root = Path(args.path).expanduser().resolve()
         if args.command == "validate":
+            print("Checking your bot...")
             result = validate_bot(root)
-            print(f"Valid: {result['manifest']['name']} ({result['checks']} contract checks, max {result['max_decision_ms']:.2f} ms)")
+            print("✓ Bot check passed")
+            print("Ready to train or compete.")
+            if args.verbose:
+                print(
+                    f"Runner policy: local-v1; Python: {sys.version_info.major}.{sys.version_info.minor}; "
+                    f"{result['checks']} contract checks; slowest decision: {result['max_decision_ms']:.2f} ms"
+                )
+                print("The server will repeat these checks after upload.")
         elif args.command == "submit":
             username, token = _identity(args.api_url, args.username)
             result = validate_bot(root)
@@ -1133,8 +1322,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{state.capitalize()} {result['manifest']['name']}: {response.get('submission_id', 'accepted')}")
         elif args.command == "train":
             username, token = _identity(args.api_url, args.username)
-            if not 1 <= args.hands <= 10000:
-                raise CliError("--hands must be between 1 and 10000")
+            if not 1 <= args.hands <= 400:
+                raise CliError("--hands must be between 1 and 400")
             destination = run_training(root, args.api_url, args.opponent, args.hands, args.output, username, token)
             print(f"Training complete. Logs: {destination}")
         return 0

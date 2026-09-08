@@ -42,7 +42,7 @@ accounts gate joining, submissions, training, and other mutations.
 | `GET` | `/v1/rivals/{username}` | Rival summary, direct record, current challenge, and first history page |
 | `GET` | `/v1/rivals/{username}/history` | Paginated completed direct-challenge history |
 | `GET` | `/v1/rivalries/compare` | Read the direct-challenge record between two cohort players |
-| `POST` | `/v1/challenges` | Send one unranked 200-hand direct challenge |
+| `POST` | `/v1/challenges` | Send one unranked best-of-five PLHE challenge |
 | `GET` | `/v1/challenges` | List incoming, running, or finished direct challenges |
 | `GET` | `/v1/challenges/{challenge_id}` | Read one challenge as a participant |
 | `POST` | `/v1/challenges/{challenge_id}/accept` | Accept and queue a challenge |
@@ -128,15 +128,14 @@ metadata remains available for auditability.
 
 ## Run the league
 
-The hand count is per head-to-head pairing and must be even because deals are
-mirrored with seats reversed.
+Official competition is a round robin of best-of-five heads-up Pot-Limit Hold'em series. Each game starts 10,000 to 10,000 and ends at bankruptcy; blinds escalate every 10 hands, followed by a current-stack-sized sudden-death level, so a game cannot stall forever.
 
 ```bash
 curl -X POST http://localhost:8000/v1/admin/runs \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer YOUR_TOKEN' \
   -H 'x-alpha-operator: YOUR_OPERATOR_TOKEN' \
-  -d '{"hand_count_per_pairing": 2000, "seed": 424242}'
+  -d '{"seed": 424242}'
 ```
 
 Manual runs are disabled when authentication is enabled unless the server has
@@ -146,22 +145,14 @@ schedule official runs automatically.
 
 This returns a `run_id`. Poll `GET /v1/runs/{run_id}`. Once completed, use the
 leaderboard, matchup, hand, and artifact endpoints. Reusing the same active bot
-packages, rules version, hand count, and seed reproduces the deal schedule and
+packages, rules version, and seed reproduces the deal schedule and
 results.
 
 Leaderboard entries contain the public ranking fields `rank`, `username`,
 `bot_name`, `elo_rating`, `matchup_wins`, `matchup_losses`, and `matchup_draws`.
-Every new bot version starts at 1,200 Elo. One complete heads-up round robin is
-treated as a single, order-independent rating period with K=32; a win is based on
-positive total chips across that matchup's mirrored deals. Reusing the exact same
-active submission carries its rating into the next league, while replacing the bot
-starts the new version at 1,200.
+Every player starts at 1,200 Elo. Their rating carries into the next league even after replacing their bot. Elo updates once per completed best-of-five series using chess-style expected scores, K=40 for the first 10 rated series, then K=20.
 
-The response also retains the technical analysis fields `bb_per_100`,
-`confidence_95`, and `hands` for agents and downloaded reports. Confidence
-intervals are computed from hand-level profits while keeping each mirrored deal
-pair in the same statistical cluster. These fields are intentionally omitted from
-the public landing-page leaderboard.
+The response includes total hands for diagnostics, but the public result stays focused on Elo and the win-loss record.
 
 ## Download hand logs
 
@@ -171,16 +162,12 @@ curl -OJ http://localhost:8000/v1/runs/run_abc123/artifacts
 
 The ZIP contains:
 
-- `hands.jsonl`: complete machine-readable action histories
-- `hands.phh`: lightweight PHH-style hand summaries
-- `hands.csv`: one summary row per hand
-- `manifest.json`: run seed, versions, status, and timestamps
-- `summary.json`: plain-language winner explanation, uncertainty note, per-bot
-  win types, and action counts
+- `result.txt`: concise human-readable result
+- `summary.json`: structured result for agents and other tools
+- `hands.jsonl`: lossless machine-readable hand records and action histories
+- `hands.phhs`: human-readable PHH-style records. `PT` is an explicit Alpha Poker extension because the published PHH variant registry does not currently include Pot-Limit Texas Hold'em.
 
-Completed runs are archived before detailed hand rows exceed the configured
-retention window. The newest 30 run ZIPs remain downloadable after individual
-hand rows are removed from SQLite. Older artifact requests return HTTP 410.
+Completed runs are archived and verified before raw hand rows are removed. Official raw hands keep at least the newest three runs and 30 days; challenge hands keep 90 days; training scratch data keeps 14 days. Compact summaries, official Elo history, and challenge outcomes remain in SQLite.
 
 ## Train against the leader
 
@@ -230,11 +217,7 @@ alpha-poker train ./my-bot --hands 100
 
 ## Challenge a rival
 
-Rivals are asynchronous, unranked heads-up matches. Each accepted challenge
-plays exactly 200 deterministic hands as 100 mirrored deal pairs. The server
-snapshots both active bot versions when the challenged player accepts, queues
-the match, and determines the result from aggregate play-chip profit. Rival
-results never change public Elo.
+Rivals are asynchronous, unranked best-of-five heads-up Pot-Limit Hold'em series. The server snapshots both active bot versions when the challenged player accepts. Each game starts both bots with 10,000 chips; stacks persist within the game, blinds escalate, and bankruptcy decides the game. First to three games wins. Rival results never change public Elo.
 
 Create a challenge with an idempotency key so a retry cannot create a second
 open match:

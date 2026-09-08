@@ -139,6 +139,24 @@ def wait_for_challenge(client, challenge_id: str, headers: dict[str, str]) -> di
     raise AssertionError("challenge did not finish")
 
 
+def test_accept_snapshots_immediately_while_official_execution_is_busy(tmp_path):
+    with auth_client(tmp_path) as client:
+        alice = participant(client, "alice", "call")
+        bob = participant(client, "bob", "fold")
+        created = client.post(
+            "/v1/challenges", headers=alice, json={"opponent_username": "bob"}
+        ).json()
+        started = time.monotonic()
+        with client.app.state.league_execution_lock:
+            accepted = client.post(
+                f"/v1/challenges/{created['challenge_id']}/accept", headers=bob
+            )
+        assert accepted.status_code == 200
+        assert accepted.json()["status"] == "queued"
+        assert time.monotonic() - started < 1
+        assert wait_for_challenge(client, created["challenge_id"], bob)["status"] == "completed"
+
+
 def test_auth_bot_requirements_idempotency_and_transitions(tmp_path):
     with auth_client(tmp_path) as client:
         no_bot = client.post(
@@ -179,11 +197,25 @@ def test_auth_bot_requirements_idempotency_and_transitions(tmp_path):
         assert accepted.status_code == 200
         completed = wait_for_challenge(client, challenge_id, alice)
         assert completed["status"] == "completed"
-        assert completed["hand_count"] == 200
+        assert completed["format"] == "best_of_five_plhe"
+        assert completed["best_of"] == 5
+        assert max(completed["series_score"].values()) == 3
+        assert completed["winner_first_score"] == [
+            max(completed["series_score"].values()),
+            min(completed["series_score"].values()),
+        ]
+        assert completed["viewer_result"] == (
+            "win" if completed["winner_username"] == "alice" else "loss"
+        )
+        bob_view = client.get(f"/v1/challenges/{challenge_id}", headers=bob).json()
+        assert bob_view["viewer_result"] == (
+            "win" if completed["winner_username"] == "bob" else "loss"
+        )
+        assert completed["hands_played"] > 0
         assert completed["run_id"]
         run = client.app.state.db.one("SELECT official,status FROM runs WHERE id=?", (completed["run_id"],))
         assert run == {"official": 0, "status": "completed"}
-        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (completed["run_id"],))["n"] == 200
+        assert client.app.state.db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (completed["run_id"],))["n"] == completed["hands_played"]
         assert client.app.state.db.one("SELECT COUNT(*) AS n FROM leaderboard WHERE run_id=?", (completed["run_id"],))["n"] == 0
         retried_accept = client.post(f"/v1/challenges/{challenge_id}/accept", headers=bob)
         assert retried_accept.status_code == 200

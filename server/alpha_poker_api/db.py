@@ -57,6 +57,22 @@ CREATE TABLE IF NOT EXISTS matchups (
   ci_high REAL NOT NULL, wins_a INTEGER NOT NULL, wins_b INTEGER NOT NULL, ties INTEGER NOT NULL,
   FOREIGN KEY(run_id) REFERENCES runs(id)
 );
+CREATE TABLE IF NOT EXISTS tournament_series (
+  matchup_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,
+  format TEXT NOT NULL DEFAULT 'best_of_five_plhe',
+  score_a INTEGER NOT NULL, score_b INTEGER NOT NULL,
+  result_json TEXT NOT NULL,
+  FOREIGN KEY(matchup_id) REFERENCES matchups(id),
+  FOREIGN KEY(run_id) REFERENCES runs(id)
+);
+CREATE INDEX IF NOT EXISTS idx_tournament_series_run ON tournament_series(run_id);
+CREATE TABLE IF NOT EXISTS elo_history (
+  run_id TEXT NOT NULL, matchup_id TEXT NOT NULL, username TEXT NOT NULL,
+  submission_id TEXT, rating_before INTEGER NOT NULL, rating_after INTEGER NOT NULL,
+  score REAL NOT NULL, k_factor INTEGER NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(run_id, matchup_id, username),
+  FOREIGN KEY(run_id) REFERENCES runs(id)
+);
 CREATE TABLE IF NOT EXISTS hands (
   id TEXT PRIMARY KEY, run_id TEXT NOT NULL, hand_number INTEGER NOT NULL,
   player_a TEXT NOT NULL, player_b TEXT NOT NULL, winner TEXT,
@@ -113,6 +129,12 @@ CREATE TABLE IF NOT EXISTS rival_challenges (
   started_at TEXT,
   completed_at TEXT,
   updated_at TEXT NOT NULL,
+  format TEXT NOT NULL DEFAULT 'best_of_five_plhe',
+  series_score_a INTEGER NOT NULL DEFAULT 0,
+  series_score_b INTEGER NOT NULL DEFAULT 0,
+  games_completed INTEGER NOT NULL DEFAULT 0,
+  hands_played INTEGER NOT NULL DEFAULT 0,
+  current_game INTEGER,
   FOREIGN KEY(challenger_username) REFERENCES users(username),
   FOREIGN KEY(challenged_username) REFERENCES users(username),
   FOREIGN KEY(run_id) REFERENCES runs(id)
@@ -220,6 +242,17 @@ class Database:
             feedback_columns = {row[1] for row in conn.execute("PRAGMA table_info(feedback)")}
             if "client_context" not in feedback_columns:
                 conn.execute("ALTER TABLE feedback ADD COLUMN client_context TEXT")
+            challenge_columns = {row[1] for row in conn.execute("PRAGMA table_info(rival_challenges)")}
+            for column, definition in (
+                ("format", "TEXT NOT NULL DEFAULT 'best_of_five_plhe'"),
+                ("series_score_a", "INTEGER NOT NULL DEFAULT 0"),
+                ("series_score_b", "INTEGER NOT NULL DEFAULT 0"),
+                ("games_completed", "INTEGER NOT NULL DEFAULT 0"),
+                ("hands_played", "INTEGER NOT NULL DEFAULT 0"),
+                ("current_game", "INTEGER"),
+            ):
+                if column not in challenge_columns:
+                    conn.execute(f"ALTER TABLE rival_challenges ADD COLUMN {column} {definition}")
             feature_columns = {row[1] for row in conn.execute("PRAGMA table_info(feature_requests)")}
             if "github_promotion_state" not in feature_columns:
                 conn.execute("ALTER TABLE feature_requests ADD COLUMN github_promotion_state TEXT NOT NULL DEFAULT 'idle'")
@@ -355,12 +388,66 @@ class Database:
     def _to_phh(record: dict[str, Any]) -> str:
         blinds = record.get("blinds", {"small": 10, "big": 20})
         starting_stacks = record.get("starting_stacks", [2000, 2000])
+        players = list(record.get("players", ["player_1", "player_2"]))
+        holes = list(record.get("hole_cards", [[], []]))
+        finishing = list(record.get("final_stacks", starting_stacks))
+        dealer = int(record.get("dealer", 0))
+
+        # PHH currently has no registered code for pot-limit Texas Hold'em.
+        # PT is an explicit Alpha Poker extension; JSONL remains the canonical,
+        # lossless interchange format for consumers requiring strict semantics.
+        variant = "PT" if record.get("betting_limit") == "pot_limit" else "NT"
+        seat_order = [1 - dealer, dealer] if len(players) == 2 else list(range(len(players)))
+        seat_to_phh = {seat: index + 1 for index, seat in enumerate(seat_order)}
+        ordered_players = [players[seat] for seat in seat_order]
+        ordered_stacks = [starting_stacks[seat] for seat in seat_order]
+        ordered_finishing = [finishing[seat] for seat in seat_order]
+        actions: list[str] = []
+        for seat in seat_order:
+            cards = ("".join(holes[seat]) if seat < len(holes) else "") or "????"
+            actions.append(f"d dh p{seat_to_phh[seat]} {cards}")
+        previous_board: list[str] = []
+        for event in record.get("events", []):
+            kind = event.get("type")
+            if kind == "board":
+                cards = list(event.get("cards", []))
+                newly_dealt = cards[len(previous_board):]
+                if newly_dealt:
+                    actions.append(f"d db {''.join(newly_dealt)}")
+                previous_board = cards
+            elif kind == "action":
+                seat = event.get("seat")
+                if seat not in seat_to_phh:
+                    continue
+                actor = f"p{seat_to_phh[seat]}"
+                action = event.get("action")
+                if action == "fold":
+                    actions.append(f"{actor} f")
+                elif action in {"check", "call"}:
+                    actions.append(f"{actor} cc")
+                elif action in {"raise", "all_in"}:
+                    actions.append(f"{actor} cbr {int(event.get('to', 0))}")
+            elif kind == "showdown":
+                for hand in event.get("hands", []):
+                    seat = hand.get("seat")
+                    if seat in seat_to_phh:
+                        actions.append(f"p{seat_to_phh[seat]} sm -")
+            elif kind == "forfeit":
+                seat = event.get("seat")
+                if seat in seat_to_phh:
+                    actions.append(f"p{seat_to_phh[seat]} f # bot forfeited")
+
         return "\n".join([
-            f"# Alpha Poker hand {record['id']}",
-            "variant = 'NT'", "antes = [0, 0]",
+            f"# Alpha Poker hand {record.get('id') or record.get('hand_id', 'unknown')}",
+            *( ["# Alpha Poker PHH extension: PT = pot-limit Texas hold'em"] if variant == "PT" else [] ),
+            f"variant = {json.dumps(variant)}",
+            "antes = [0, 0]",
             f"blinds_or_straddles = [{blinds['small']}, {blinds['big']}]",
-            f"min_bet = {blinds['big']}", f"starting_stacks = {json.dumps(starting_stacks)}",
-            f"players = {json.dumps(record['players'])}",
-            f"board = {json.dumps(record['board'])}", f"pot = {record['pot']}",
-            f"winner = {json.dumps(record['winner'])}", "",
+            f"min_bet = {blinds['big']}",
+            f"starting_stacks = {json.dumps(ordered_stacks)}",
+            f"actions = {json.dumps(actions)}",
+            f"hand = {json.dumps(record.get('id') or record.get('hand_id', 'unknown'))}",
+            f"players = {json.dumps(ordered_players)}",
+            f"finishing_stacks = {json.dumps(ordered_finishing)}",
+            "",
         ])

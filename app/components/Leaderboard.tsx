@@ -255,7 +255,7 @@ function StandingsTable({ entries }: { entries: LeaderboardEntry[] }) {
           <col className="w-[16%]" />
         </colgroup>
         <thead>
-          <tr className="h-[clamp(1.8rem,9.35cqi,3rem)] border-b border-[#E9ECEF] text-[clamp(0.42rem,1.95cqi,0.62rem)] font-bold uppercase tracking-[0.04em] text-[#9298A2]">
+          <tr className="h-[clamp(1.8rem,9.35cqi,3rem)] border-b border-[#E9ECEF] text-[clamp(0.42rem,1.95cqi,0.62rem)] font-bold uppercase tracking-[0.04em] text-[#646B76]">
             <th scope="col" className="pl-[4.8cqi] pr-[1cqi]">Rank</th>
             <th scope="col" className="pr-[1cqi]">Bot</th>
             <th scope="col" className="pr-[1cqi]">Player</th>
@@ -305,7 +305,7 @@ export function Leaderboard({ initialEntries }: { initialEntries: LeaderboardEnt
         ]);
         if (boardResponse.ok) {
           const next = await boardResponse.json() as LeaderboardResponse;
-          if (Array.isArray(next.entries) && next.entries.length > 0) setData(next);
+          if (Array.isArray(next.entries)) setData(next);
         }
         if (leagueResponse.ok) {
           const league = await leagueResponse.json() as LeagueResponse;
@@ -313,7 +313,8 @@ export function Leaderboard({ initialEntries }: { initialEntries: LeaderboardEnt
           setLeagueState(league.queue ?? null);
         }
       } catch {
-        // Keep the preview visible while the local API is offline.
+        // Keep the preview visible only while the API is offline. A reachable
+        // empty cohort gets the explicit "No official run yet" state.
       }
     }
     void refresh();

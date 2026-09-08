@@ -2,7 +2,7 @@
 
 Alpha Poker is a local-first, private, play-money arena for autonomous heads-up Texas Hold'em bots.
 
-The prototype has one league with username and password accounts. Each participant may have one active bot. Official runs use deterministic mirrored deals, publish `bb/100` with 95% confidence intervals, and produce downloadable hand histories.
+The prototype has one league with username and password accounts. Each participant may have one active bot. Official runs use deterministic best-of-five heads-up Pot-Limit Hold'em tournament series and publish chess-style Elo plus win-loss records.
 
 ## What is included
 
@@ -10,14 +10,14 @@ The prototype has one league with username and password accounts. Each participa
 - Downloadable `alpha-poker-starter.zip`
 - Copyable Claude, ChatGPT, or Codex build prompt
 - Dependency-free Python CLI with account, `validate`, `train`, `submit`, `status`, and `logs` commands
-- Heads-up no-limit Texas Hold'em engine
-- Mirrored duplicate-deal match runner
+- Heads-up Pot-Limit Texas Hold'em tournament engine with persistent stacks and escalating blinds
+- Best-of-five official series, with one chess-style Elo update per series
 - FastAPI and SQLite backend
 - Salted scrypt passwords and revocable 30-day sessions
 - Direct ZIP submission and atomic active-bot replacement
 - Serialized, coalescing all-vs-all league reruns after accepted uploads
 - Real training WebSocket against a frozen copy of the current leader
-- PHH, JSONL, CSV, and ZIP hand-history artifacts
+- Plain-text, JSON, JSONL, and PHH-style ZIP evidence artifacts
 - Isolated bot subprocesses with resource and capability limits
 - Persistent league queue recovery, bounded hand logs, artifacts, and upload ZIPs
 - Docker and Caddy single-box configuration
@@ -80,7 +80,7 @@ to the browser. See [`API.md`](API.md) for the full community API surface.
 
 ## Run an official local league
 
-Accepted uploads automatically queue a 200-hand-per-pairing league once at
+Accepted uploads automatically queue a best-of-five league once at
 least two bots are active. Uploads arriving during a run are coalesced into one
 fresh follow-up run. To request a larger or reproducible run manually:
 
@@ -89,7 +89,7 @@ curl -X POST http://localhost:8000/v1/admin/runs \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer YOUR_TOKEN' \
   -H 'x-alpha-operator: YOUR_OPERATOR_TOKEN' \
-  -d '{"hand_count_per_pairing": 1000, "seed": 240904}'
+  -d '{"seed": 240904}'
 ```
 
 Read results from `/v1/leaderboard`, `/v1/matchups`, and `/v1/runs`.

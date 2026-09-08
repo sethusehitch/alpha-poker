@@ -78,8 +78,7 @@ if [ ! -f "$app_root/shared/.env" ]; then
     printf 'ALPHA_POKER_WWW_HOSTNAME=%s\n' "$www_hostname"
     printf 'ALPHA_POKER_TEMPORARY_HOSTNAME=%s\n' "$temporary_hostname"
     printf 'ALPHA_POKER_AUTO_RUN=true\n'
-    printf 'ALPHA_POKER_AUTO_RUN_HANDS=200\n'
-    printf 'ALPHA_POKER_RETAINED_HAND_RUNS=2\n'
+    printf 'ALPHA_POKER_RETAINED_HAND_RUNS=3\n'
     printf 'ALPHA_POKER_RETAINED_ARTIFACT_RUNS=30\n'
     printf 'ALPHA_POKER_INVITE_CODE=%s\n' "$invite_code"
     printf 'ALPHA_POKER_OPERATOR_TOKEN=%s\n' "$operator_token"
@@ -88,11 +87,12 @@ if [ ! -f "$app_root/shared/.env" ]; then
   chown ubuntu:ubuntu "$app_root/shared/.env"
   chmod 600 "$app_root/shared/.env"
 else
-  sed -i '/^ALPHA_POKER_HOSTNAME=/d;/^ALPHA_POKER_PRIMARY_HOSTNAME=/d;/^ALPHA_POKER_WWW_HOSTNAME=/d;/^ALPHA_POKER_TEMPORARY_HOSTNAME=/d' "$app_root/shared/.env"
+  sed -i '/^ALPHA_POKER_HOSTNAME=/d;/^ALPHA_POKER_PRIMARY_HOSTNAME=/d;/^ALPHA_POKER_WWW_HOSTNAME=/d;/^ALPHA_POKER_TEMPORARY_HOSTNAME=/d;/^ALPHA_POKER_RETAINED_HAND_RUNS=/d' "$app_root/shared/.env"
   {
     printf 'ALPHA_POKER_PRIMARY_HOSTNAME=%s\n' "$primary_hostname"
     printf 'ALPHA_POKER_WWW_HOSTNAME=%s\n' "$www_hostname"
     printf 'ALPHA_POKER_TEMPORARY_HOSTNAME=%s\n' "$temporary_hostname"
+    printf 'ALPHA_POKER_RETAINED_HAND_RUNS=3\n'
   } >> "$app_root/shared/.env"
 fi
 

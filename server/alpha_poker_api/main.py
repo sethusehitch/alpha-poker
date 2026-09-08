@@ -24,7 +24,7 @@ from .auth import DUMMY_PASSWORD_HASH, authenticate_token, hash_password, issue_
 from .community import is_operator_username, register_community_routes
 from .config import Settings
 from .db import Database, now_iso
-from .jobs import archive_and_prune, archive_run, build_run_artifact, prune_submission_packages, recover_rival_challenges, run_official_league, run_rival_challenge, summarize_run, validate_submission
+from .jobs import archive_and_prune, archive_run, build_run_artifact, cleanup_raw_histories, prune_submission_packages, recover_rival_challenges, run_official_league, run_rival_challenge, summarize_run, validate_submission
 from .models import LoginRequest, RegisterRequest, RunCreate, TrainingCreate
 from .ratelimit import RateLimiter
 from .training import action_request, create_session, emit, remember_action, remembered_action
@@ -78,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db.execute("DELETE FROM auth_sessions WHERE expires_at<=?", (now_iso(),))
         feedback_cutoff = (datetime.now(UTC) - timedelta(days=settings.feedback_retention_days)).isoformat().replace("+00:00", "Z")
         db.execute("DELETE FROM feedback WHERE created_at<?", (feedback_cutoff,))
+        cleanup_raw_histories(db, settings.artifact_dir, dry_run=False)
         prune_submission_packages(db)
         if settings.auto_run_on_accept:
             queue = db.one("SELECT * FROM league_queue WHERE singleton=1")
@@ -116,6 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.rival_worker_task = None
     app.state.rival_worker_lock = asyncio.Lock()
     app.state.league_execution_lock = threading.Lock()
+    app.state.package_lifecycle_lock = threading.Lock()
     auth_limiter = RateLimiter()
     app.add_middleware(
         CORSMiddleware,
@@ -312,10 +314,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "matchups_total": int(run.get("total_matchups") or 0),
             }
         return {
-            "name": "Alpha Poker", "format": "heads-up no-limit hold'em", "play_money_only": True,
+            "name": "Alpha Poker", "format": "best-of-five heads-up pot-limit hold'em", "play_money_only": True,
             "bot_count": active_count, "minimum_bots": 2, "current_run": run,
             "schedule": "after each accepted upload",
-            "rules": {"starting_stack": 10000, "small_blind": 50, "big_blind": 100, "seat_mirroring": True},
+            "rules": {
+                "starting_stack": 10000,
+                "starting_blinds": {"small": 50, "big": 100},
+                "blinds_escalate_every_hands": 20,
+                "game_win_condition": "bankrupt the opponent",
+                "series_win_condition": "first to three games",
+            },
             "queue": {
                 **queue, "pending": pending, "running": running, "state": state, "message": message,
                 "active_bot_count": active_count, "minimum_bot_count": 2,
@@ -386,7 +394,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "elo_rating": r["elo_rating"],
             "matchup_wins": r["matchup_wins"], "matchup_losses": r["matchup_losses"],
             "matchup_draws": r["matchup_draws"],
-            "bb_per_100": r["bb_per_100"], "confidence_95": [r["ci_low"], r["ci_high"]], "hands": r["hands"],
+            "hands": r["hands"],
         } for r in rows]
         viewer = authenticate_token(db, authorization)
         viewer_entry = next(
@@ -406,9 +414,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def _matchups(run_id: str):
         return [{
             "matchup_id": r["id"], "player_a": r["player_a"], "player_b": r["player_b"],
-            "hands": r["hands"], "player_a_bb_per_100": r["player_a_bb_per_100"],
-            "confidence_95": [r["ci_low"], r["ci_high"]], "wins_a": r["wins_a"],
-            "wins_b": r["wins_b"], "ties": r["ties"],
+            "hands": r["hands"], "series_score": [r["wins_a"], r["wins_b"]],
+            "winner": r["player_a"] if r["wins_a"] > r["wins_b"] else r["player_b"],
         } for r in db.all("SELECT * FROM matchups WHERE run_id=? ORDER BY player_a, player_b", (run_id,))]
 
     @app.get("/v1/runs")
@@ -421,7 +428,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not run:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
         authorize_run_access(run, authorization, x_alpha_username)
-        run["reproducibility"] = {"seed": run["seed"], "engine_version": run["engine_version"], "rules_version": run["rules_version"], "seat_mirroring": True}
+        run["reproducibility"] = {"seed": run["seed"], "engine_version": run["engine_version"], "rules_version": run["rules_version"], "deterministic": True}
         run["progress"] = {
             "matchups_completed": int(run.get("completed_matchups") or db.one("SELECT count(*) AS n FROM matchups WHERE run_id=?", (run_id,))["n"]),
             "matchups_total": int(run.get("total_matchups") or 0),
@@ -505,7 +512,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     return
                 run_id = "run_" + secrets.token_hex(8)
                 db.execute(
-                    "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,hand_count_per_pairing) VALUES(?,'queued',1,'prototype-0.1','heads-up-v1',?,?,?)",
+                    "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,hand_count_per_pairing) VALUES(?,'queued',1,'prototype-0.2','plhe-tournament-v1',?,?,?)",
                     (run_id, secrets.randbelow(2**31), now_iso(), settings.auto_run_hand_count),
                 )
                 db.execute("UPDATE league_queue SET running=1,updated_at=? WHERE singleton=1", (now_iso(),))
@@ -523,7 +530,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     (target_generation, now_iso()),
                 )
 
-    def run_and_archive(run_id: str, hand_count: int) -> None:
+    def run_and_archive(run_id: str, hand_count: int | None) -> None:
         with app.state.league_execution_lock:
             run_official_league(db, run_id, hand_count, settings.auto_run_timeout_seconds)
             run = db.one("SELECT status FROM runs WHERE id=?", (run_id,))
@@ -535,7 +542,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     settings.retained_hand_runs,
                     settings.retained_artifact_runs,
                 )
-                prune_submission_packages(db)
+                with app.state.package_lifecycle_lock:
+                    prune_submission_packages(db)
 
     def request_auto_run() -> None:
         db.execute(
@@ -552,7 +560,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             challenge = db.one("SELECT run_id,status FROM rival_challenges WHERE id=?", (challenge_id,))
             if completed and challenge and challenge["status"] == "completed" and challenge["run_id"]:
                 archive_run(db, challenge["run_id"], settings.artifact_dir)
-            prune_submission_packages(db)
+            with app.state.package_lifecycle_lock:
+                prune_submission_packages(db)
 
     async def rival_worker() -> None:
         async with app.state.rival_worker_lock:
@@ -571,9 +580,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     async def validate_and_schedule(submission_id: str) -> None:
         def validate_with_package_lock() -> None:
-            # Activation and package pruning share the same lock as official
-            # execution, closing the check-then-delete window around bot ZIPs.
-            with app.state.league_execution_lock:
+            # Activation, challenge snapshots, and pruning share a short-lived
+            # package lock. They must not wait behind an entire poker series.
+            with app.state.package_lifecycle_lock:
                 validate_submission(db, submission_id)
 
         await asyncio.to_thread(validate_with_package_lock)
@@ -666,11 +675,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
         run_id = "run_" + secrets.token_hex(8)
         db.execute(
-            "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,hand_count_per_pairing) VALUES(?,'queued',1,'prototype-0.1','heads-up-v1',?,?,?)",
+            "INSERT INTO runs(id,status,official,engine_version,rules_version,seed,requested_at,hand_count_per_pairing) VALUES(?,'queued',1,'prototype-0.2','plhe-tournament-v1',?,?,?)",
             (run_id, body.seed if body.seed is not None else secrets.randbelow(2**31), now_iso(), body.hand_count_per_pairing),
         )
         background.add_task(run_and_archive, run_id, body.hand_count_per_pairing)
-        return {"run_id": run_id, "status": "queued", "hand_count_per_pairing": body.hand_count_per_pairing}
+        return {"run_id": run_id, "status": "queued", "format": "best_of_five_plhe"}
 
     @app.post("/v1/training/sessions", status_code=201)
     def training_create(body: TrainingCreate, request: Request, authorization: str | None = Header(None)):
@@ -871,7 +880,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except WebSocketDisconnect:
             return
 
-    register_rival_routes(app, db, rival_username, schedule_rival_worker, app.state.league_execution_lock)
+    register_rival_routes(app, db, rival_username, schedule_rival_worker, app.state.package_lifecycle_lock)
     register_community_routes(app, db, settings)
     return app
 

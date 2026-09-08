@@ -13,6 +13,12 @@ type HandEvent = {
   cards?: string[];
   winner?: string;
   reason?: string;
+  amount?: number;
+  hands?: Array<{
+    seat?: number;
+    hole_cards?: string[];
+    category?: string;
+  }>;
 };
 type Hand = {
   players?: string[];
@@ -33,13 +39,25 @@ function playerForSeat(hand: Hand, seat?: number) {
 function eventCopy(hand: Hand, event: HandEvent) {
   const player = playerForSeat(hand, event.seat);
   const amount = event.paid ?? event.to;
+  if (event.type === "small_blind" || event.type === "big_blind")
+    return `${player ?? "A player"} posted the ${event.type === "small_blind" ? "small" : "big"} blind${event.amount ? ` of ${event.amount.toLocaleString()} play chips` : ""}`;
+  if (event.type === "uncalled_return")
+    return `${player ?? "A player"} received ${event.amount?.toLocaleString() ?? 0} uncalled play chips back`;
   if (event.type === "action") {
     return `${player ?? "A player"} ${event.action ?? "acted"}${amount ? ` ${amount.toLocaleString()} play chips` : ""}`;
   }
   if (event.type === "board")
     return `Board: ${(event.cards ?? event.board ?? []).join(" ") || "cards dealt"}`;
-  if (event.type === "showdown")
-    return `${player ?? "Players"} revealed ${(event.cards ?? []).join(" ") || "their hand"}`;
+  if (event.type === "showdown") {
+    const revealed = event.hands
+      ?.map((shown) => {
+        const name = playerForSeat(hand, shown.seat) ?? "A player";
+        const cards = shown.hole_cards?.join(" ") || "cards unavailable";
+        return `${name}: ${cards}${shown.category ? ` (${shown.category})` : ""}`;
+      })
+      .join(" · ");
+    return revealed ? `Showdown — ${revealed}` : "Players revealed their hands";
+  }
   if (event.type === "result")
     return event.winner
       ? `${event.winner} won${event.reason ? ` (${event.reason})` : ""}`
@@ -48,6 +66,9 @@ function eventCopy(hand: Hand, event: HandEvent) {
 }
 
 function eventLabel(event: HandEvent) {
+  if (event.type === "small_blind") return "Small blind";
+  if (event.type === "big_blind") return "Big blind";
+  if (event.type === "uncalled_return") return "Chips returned";
   if (event.type === "action")
     return event.street
       ? event.street[0].toUpperCase() + event.street.slice(1)

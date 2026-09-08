@@ -32,6 +32,7 @@ const RIVALS: NavItem = {
   href: "/rivals",
   isActive: (path) => path.startsWith("/rivals") || path.startsWith("/hands/"),
 };
+const TRAINING: NavItem = { label: "Training", href: "/training", isActive: path => path.startsWith("/training") };
 const COMMUNITY_ITEMS: NavItem[] = [
   {
     label: "Feature requests",
@@ -104,7 +105,7 @@ export function SiteHeader({
   const communityRef = useRef<HTMLLIElement>(null);
   const communityButtonRef = useRef<HTMLButtonElement>(null);
   const coreItems = session
-    ? [GETTING_STARTED, LEADERBOARD, MY_BOT, RIVALS]
+    ? [GETTING_STARTED, LEADERBOARD, MY_BOT, TRAINING, RIVALS]
     : [GETTING_STARTED, LEADERBOARD];
 
   const closeMenus = () => {

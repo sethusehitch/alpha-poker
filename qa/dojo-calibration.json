@@ -1,0 +1,215 @@
+{
+  "method": "200-hand mirrored matches; logistic rating fit with half-win prior; mean 1200; first run supplies display ratings, second run validates ordering.",
+  "calibration": {
+    "version": "dojo-v1",
+    "seed": 20260908,
+    "pairs_per_matchup": 1000,
+    "total_hands": 20000,
+    "source_sha256": "65f1175a2157796ad49819e93b82ffd5650809da2e9aa556d2695accd67e1ed0",
+    "ratings": {
+      "pebble": 695,
+      "anchor": 1222,
+      "spark": 1044,
+      "mirage": 1473,
+      "summit": 1566
+    },
+    "matchups": [
+      {
+        "a": "pebble",
+        "b": "anchor",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -2800,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "spark",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28820,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -14970,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -12950,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "spark",
+        "wins": 8,
+        "losses": 2,
+        "ties": 0,
+        "net_chips": 27295,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "mirage",
+        "wins": 2,
+        "losses": 8,
+        "ties": 0,
+        "net_chips": -40422,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -60884,
+        "errors": 0
+      },
+      {
+        "a": "spark",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -269259,
+        "errors": 0
+      },
+      {
+        "a": "spark",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -312865,
+        "errors": 0
+      },
+      {
+        "a": "mirage",
+        "b": "summit",
+        "wins": 4,
+        "losses": 6,
+        "ties": 0,
+        "net_chips": -10845,
+        "errors": 0
+      }
+    ]
+  },
+  "validation": {
+    "version": "dojo-v1",
+    "seed": 20261009,
+    "pairs_per_matchup": 1000,
+    "total_hands": 20000,
+    "source_sha256": "85f0843432a3e53635879fa96d2a75b07b1b4282cfc59619cb000d6108fd79eb",
+    "ratings": {
+      "pebble": 683,
+      "anchor": 1194,
+      "spark": 1033,
+      "mirage": 1483,
+      "summit": 1607
+    },
+    "matchups": [
+      {
+        "a": "pebble",
+        "b": "anchor",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -2700,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "spark",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28680,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -14890,
+        "errors": 0
+      },
+      {
+        "a": "pebble",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -12650,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "spark",
+        "wins": 8,
+        "losses": 2,
+        "ties": 0,
+        "net_chips": 31034,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -26379,
+        "errors": 0
+      },
+      {
+        "a": "anchor",
+        "b": "summit",
+        "wins": 1,
+        "losses": 9,
+        "ties": 0,
+        "net_chips": -43795,
+        "errors": 0
+      },
+      {
+        "a": "spark",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -228264,
+        "errors": 0
+      },
+      {
+        "a": "spark",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -265956,
+        "errors": 0
+      },
+      {
+        "a": "mirage",
+        "b": "summit",
+        "wins": 2,
+        "losses": 8,
+        "ties": 0,
+        "net_chips": -54495,
+        "errors": 0
+      }
+    ]
+  }
+}

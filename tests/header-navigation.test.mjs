@@ -2,6 +2,21 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+test("dojo shares opponent surfaces and keeps leader training out of its cards", async () => {
+  const dojo = await readFile(new URL("../app/components/training/DojoWorkspace.tsx", import.meta.url), "utf8");
+  const catalog = JSON.parse(await readFile(new URL("../server/alpha_poker/dojo_catalog.json", import.meta.url), "utf8"));
+  const workflow = await readFile(new URL("../starter-kit/WORKFLOWS.md", import.meta.url), "utf8");
+  assert.equal(catalog.bots.length, 5);
+  assert.ok(catalog.bots.every(bot => Number.isInteger(bot.rating) && bot.id !== "leader"));
+  assert.deepEqual(catalog.bots.map(bot => bot.rating), catalog.bots.map(bot => bot.rating).sort((a,b) => a-b));
+  assert.match(dojo, /OpponentCardSurface/);
+  assert.match(dojo, /OPPONENT_PANEL/);
+  assert.match(dojo, /Copy training prompt/);
+  assert.match(dojo, /self-reported local practice/);
+  assert.match(workflow, /leader always runs on the server over WebSocket/);
+  assert.match(workflow, /only after approval/);
+});
+
 test("community navigation is signed-in-only and grouped in one menu", async () => {
   const [siteHeader, appHeader] = await Promise.all([
     readFile(
@@ -16,7 +31,7 @@ test("community navigation is signed-in-only and grouped in one menu", async () 
   assert.match(siteHeader, /useSession/);
   assert.match(
     siteHeader,
-    /\? \[GETTING_STARTED, LEADERBOARD, MY_BOT, RIVALS\]\s*: \[GETTING_STARTED, LEADERBOARD\]/,
+    /\? \[GETTING_STARTED, LEADERBOARD, MY_BOT, TRAINING, RIVALS\]\s*: \[GETTING_STARTED, LEADERBOARD\]/,
   );
   assert.match(siteHeader, /\{session && \(/);
   assert.match(siteHeader, /Community <ChevronIcon/);
@@ -45,7 +60,7 @@ test("the app header uses the requested core-game order and real routes", async 
   assert.match(appHeader, /label: "My Bot",\s*href: "\/my-bot"/);
   assert.doesNotMatch(appHeader, /emit\("open-account"/);
   assert.match(appHeader, /label: "Getting Started",\s*href: "\/#instructions"/);
-  assert.doesNotMatch(appHeader, /Training/);
+  assert.match(appHeader, /label: "Training",\s*href: "\/training"/);
   assert.match(appHeader, /label: "Rivals",\s*href: "\/rivals"/);
   assert.match(appHeader, /label: "Leaderboard",\s*href: "\/leaderboard"/);
   const navModel = appHeader.match(/const APP_NAV[\s\S]*?\n\];/)?.[0] ?? "";

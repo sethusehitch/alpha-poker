@@ -1,5 +1,27 @@
 # Alpha Poker CLI
 
+## Training Dojo
+
+`alpha-poker dojo list --json --api-url https://alphapoker.io/v1` lists the five
+packaged opponents and a separate live leader row. `--offline` skips the lookup.
+Use `alpha-poker train . --opponent pebble --hands 200 --recap` for local play and
+the shared recap viewer. Other local IDs: `spark`, `anchor`, `mirage`, `summit`.
+All are unlocked; Dojo Elo is preliminary, measured in a separate rating pool.
+Dojo matches accept even counts from 2 to 400 and mirror the cards/seats.
+No login, internet, upload, or running API is needed for dojo training.
+
+`--opponent leader` (the existing default) uses the hosted WebSocket. Only dojo
+bots ship in the kit. The leader's source is never included or downloaded.
+
+`alpha-poker dojo status --json` shows this computer's practice results. A local
+checkmark requires 200 or more hands, positive net play chips, and no bot errors.
+`alpha-poker dojo sync RUN_ID --api-url https://alphapoker.io/v1` explicitly
+syncs that result to the signed-in account's private website progress. Login is
+required only for sync or hosted workflows. These are self-reported results,
+not verified achievements. Neither path changes public Elo. Sync is idempotent;
+retry the same run ID after a network error. Evidence ZIPs stay on your computer.
+
+
 ## Local replay viewer
 
 With the current starter kit installed:
@@ -18,12 +40,12 @@ a Match picker; their records are never merged into one rivalry. Saved recap-v1
 JSON is also supported, but contains only the highlights originally saved.
 
 No website login, internet connection, Node installation, or running Alpha Poker
-API is required to **view a saved run**. Training itself still uses the hosted
-WebSocket. The CLI prints a loopback URL, and `--open` launches the default
+API is required to **view a saved run** or train against packaged dojo bots.
+Training against the leader still uses the hosted WebSocket. The CLI prints a loopback URL, and `--open` launches the default
 browser. In Codex, ask the agent to open that exact URL in the browser side panel;
 other agents can print the link or open your regular browser.
 
-`--latest` uses the last successful training download or explicitly opened recap,
+`--latest` uses the last successful training run or explicitly opened recap,
 not a scan of your files. A moved/deleted file needs to be opened by its new path.
 The local viewer exits after 30 minutes without requests, or eight hours total;
 run the command again to reopen it. Its URL is private to this computer and

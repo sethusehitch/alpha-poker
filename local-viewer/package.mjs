@@ -3,6 +3,12 @@ import { mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "..");
 const target = resolve(root, "cli/alpha_poker_cli/_recap");
+const dojo = resolve(root, "cli/alpha_poker_cli/dojo_engine");
+await mkdir(dojo, {recursive: true});
+await writeFile(resolve(dojo, "__init__.py"), "# Generated from public engine and dojo source.\n");
+for (const name of ["engine.py", "evaluator.py", "dojo.py", "dojo_catalog.json"]) {
+  await copyFile(resolve(root, `server/alpha_poker/${name}`), resolve(dojo, name));
+}
 await mkdir(target, {recursive: true});
 await writeFile(resolve(target, "__init__.py"), "# Generated shared recap package. Do not edit.\n");
 for (const [source, name] of [

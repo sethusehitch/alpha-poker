@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS account_avatars (
 );
 CREATE INDEX IF NOT EXISTS idx_account_avatars_custom ON account_avatars(custom_id);
 CREATE INDEX IF NOT EXISTS auth_sessions_username ON auth_sessions(username, created_at DESC);
+CREATE TABLE IF NOT EXISTS dojo_results (
+  username TEXT NOT NULL REFERENCES users(username),
+  run_id TEXT NOT NULL, opponent TEXT NOT NULL, opponent_version TEXT NOT NULL,
+  payload TEXT NOT NULL, qualified INTEGER NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(username, run_id)
+);
+CREATE INDEX IF NOT EXISTS dojo_results_progress ON dojo_results(username, opponent_version, opponent);
 CREATE TABLE IF NOT EXISTS submissions (
   id TEXT PRIMARY KEY, username TEXT NOT NULL, bot_name TEXT NOT NULL,
   original_filename TEXT NOT NULL, package_path TEXT NOT NULL, sha256 TEXT NOT NULL,

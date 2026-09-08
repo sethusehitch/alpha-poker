@@ -17,7 +17,7 @@ before continuing. Never silently reuse an older extracted copy.
 
 - Build and locally validate `bot.py` and `bot.json`.
 - Register or log in to the participant's Alpha Poker account.
-- Train locally against the current hosted leader over WebSocket.
+- Train offline against five packaged dojo bots, or face the current leader over WebSocket.
 - Inspect downloaded training hands and implement strategy changes the participant requests.
 - Submit the best version. Each accepted submission replaces the participant's
   one active bot.
@@ -48,7 +48,7 @@ record. Add one friendly line inviting the participant to chase the podium.
 Never invent standings if the request fails or the league is empty.
 
 Describe Review hands as "Watch your saved hands at the poker table" and Train
-as "Practice against the current leader, then watch the highlights."
+as "Choose a dojo opponent or the current leader, then watch the highlights."
 After successful training with saved hands, summarize the result and ask,
 "Want to watch the highlights?" If the participant already asked to train and
 watch, open the local recap immediately. Use the browser side panel when
@@ -84,7 +84,7 @@ history.
 
 Run `alpha-poker --help` and the relevant subcommand help before operating.
 For a new participant, create and validate the bot locally before account
-setup. Connect the account only when training, competition, or another hosted
+setup. Connect the account only when hosted leader training, progress sync, competition, or another hosted
 workflow needs it. Continue with training, strategy iteration, submission,
 status checks, and relevant artifact downloads. Confirm each result for the
 participant and continue until the chosen task is complete or a human-only
@@ -93,6 +93,47 @@ input is required.
 When choosing a destination for training logs, `alpha-poker train --output`
 accepts either a directory or an explicit `.zip` filename. If you provide a
 directory, the CLI creates a uniquely named training-log ZIP inside it.
+
+## Choosing a training opponent
+
+When the participant chooses Train (including Practice in the beginner path),
+run `alpha-poker dojo list --json --api-url https://alphapoker.io/v1`.
+Show a compact table: opponent, difficulty, rating, and local or hosted.
+The five packaged opponents are Pebble, Spark, Anchor, Mirage, and Summit.
+Their **Dojo Elo** is measured in a separate practice pool, not comparable to
+public league Elo. All five are unlocked. Use `dojo status --json` to suggest
+the first not beaten locally, but let the participant choose any opponent.
+Show the current leader as one additional row with its actual bot name, player,
+and **public Elo**, fetched live. Never invent a leader or rating. If unavailable,
+say so and offer the local opponents. The leader is not a dojo opponent and
+never earns a dojo checkmark. Link the dojo at `https://alphapoker.io/training`.
+
+After the participant chooses, operate the appropriate command:
+
+```text
+alpha-poker train . --opponent pebble --hands 200
+alpha-poker train . --opponent leader --hands 200 --api-url https://alphapoker.io/v1
+alpha-poker recap --latest --open
+```
+
+Replace `pebble` with the selected packaged opponent ID. Dojo hands must be
+even, from 2 to 400. Every pair uses the same cards with player seats swapped.
+Only the five dojo bots and public engine are packaged locally. Their source
+is inspectable. The leader always runs on the server over WebSocket; never
+attempt to download, extract, or distribute another player's bot code.
+Neither training path changes public Elo. Both save evidence for the same
+local recap viewer. Offer highlights after the result, or open them immediately
+if the participant already asked to watch. Do not improve strategy automatically.
+
+A local "beaten" checkmark requires at least 200 mirrored hands, positive net
+play chips, and no bot errors. It means **self-reported local practice**, not a
+server-verified win. Explain that a single win is not proof of a stronger bot.
+Results persist locally. Offer account sync after a run; only after approval,
+run `alpha-poker dojo sync RUN_ID --api-url https://alphapoker.io/v1`.
+This sends a result summary, not source or hand files. It requires login and
+updates private progress on the website. Failed sync never deletes local logs;
+retry the same run ID. `dojo status` lists recent run IDs. Viewing a recap does
+not sync or change anything. A new opponent version starts a new progress set.
 
 After submitting, run `alpha-poker status` until it reports either a completed
 result, a clear wait for another participant, or an actionable failure. Run

@@ -31,6 +31,7 @@ from .ratelimit import RateLimiter
 from .training import action_request, create_session, emit, remember_action, remembered_action
 from .training_runtime import advance_leader, build_runtime, persist_completed_hand, public_action_to_engine, start_hand
 from .rivals import public_challenge, register_rival_routes
+from .dojo import register_dojo_routes
 from .recaps import match_recap
 
 MAX_ZIP_BYTES = 2 * 1024 * 1024
@@ -922,6 +923,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return
 
     register_rival_routes(app, db, rival_username, schedule_rival_worker, app.state.package_lifecycle_lock)
+    register_dojo_routes(app, db)
     register_community_routes(app, db, settings)
     return app
 

@@ -61,6 +61,11 @@ const APP_NAV: AppNavItem[] = [
     isActive: (path) => path.startsWith("/my-bot"),
   },
   {
+    label: "Training",
+    href: "/training",
+    isActive: (path) => path.startsWith("/training"),
+  },
+  {
     label: "Rivals",
     href: "/rivals",
     icon: <PeopleIcon />,

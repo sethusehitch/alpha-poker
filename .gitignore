@@ -54,6 +54,7 @@ __pycache__/
 /data/
 /.qa-data/
 /cli/build/
+/cli/alpha_poker_cli/dojo_engine/
 /cli/*.egg-info/
 
 # Terraform and AWS deployment state

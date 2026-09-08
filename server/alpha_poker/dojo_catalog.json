@@ -1,0 +1,12 @@
+{
+  "version": "dojo-v1",
+  "rating_label": "Dojo Elo",
+  "rating_note": "Preliminary ratings measured in the dojo pool, not comparable to public league Elo. Matchups and variance still matter.",
+  "bots": [
+    {"id":"pebble","name":"Pebble","style":"Predictable and cautious","description":"A forgiving first opponent that checks or folds. Learn when to bet and when to take a free card.","difficulty":"Beginner","rating":695,"character":"bird"},
+    {"id":"spark","name":"Spark","style":"Aggressive betting","description":"An aggressive opponent that often bets without a strong hand. Learn to distinguish pressure from genuine strength.","difficulty":"Easy","rating":1044,"character":"elephant"},
+    {"id":"anchor","name":"Anchor","style":"Patient and selective","description":"A patient opponent that hangs on to made hands. Look for opportunities when it gives up weaker hands.","difficulty":"Medium","rating":1222,"character":"bear"},
+    {"id":"mirage","name":"Mirage","style":"Value bets and bluffs","description":"An opponent that estimates hand strength and mixes value bets with bluffs. Use the recap to investigate its decisions.","difficulty":"Hard","rating":1473,"character":"octopus"},
+    {"id":"summit","name":"Summit","style":"Equity-aware and selective","description":"The highest-rated packaged opponent in our benchmark. It samples possible cards and considers pot odds before committing chips.","difficulty":"Expert","rating":1566,"character":"bear"}
+  ]
+}

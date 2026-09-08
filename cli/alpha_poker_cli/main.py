@@ -1163,11 +1163,21 @@ def _parser() -> argparse.ArgumentParser:
     submit.add_argument("path", nargs="?", default=".")
     submit.add_argument("--api-url", default=DEFAULT_API_URL)
     submit.add_argument("--username")
-    train = sub.add_parser("train", help="play a local bot against the platform leader")
+    dojo = sub.add_parser("dojo", help="list packaged opponents, inspect local progress, or sync practice")
+    dojo_sub = dojo.add_subparsers(dest="dojo_command", required=True)
+    for command in ("list", "status", "sync"):
+        item = dojo_sub.add_parser(command)
+        item.add_argument("--api-url", default=DEFAULT_API_URL)
+        item.add_argument("--json", action="store_true")
+        if command == "list":
+            item.add_argument("--offline", action="store_true")
+        if command == "sync":
+            item.add_argument("run_id", help="saved local dojo run ID")
+    train = sub.add_parser("train", help="play a packaged dojo bot locally or the leader over WebSocket")
     train.add_argument("path", nargs="?", default=".")
     train.add_argument("--api-url", default=DEFAULT_API_URL)
     train.add_argument("--username")
-    train.add_argument("--opponent", default="leader", choices=["leader"])
+    train.add_argument("--opponent", default="leader", choices=["leader", "pebble", "anchor", "spark", "mirage", "summit"])
     train.add_argument("--hands", type=int, default=400, help="number of practice hands (1-400, default: 400)")
     train.add_argument("--output", type=Path, help="destination directory or .zip file")
     train.add_argument("--recap", action="store_true", help="open the saved training run in the local replay viewer")
@@ -1274,6 +1284,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "matches":
             return _run_matches(args)
+        if args.command == "dojo":
+            from .dojo import command
+            return command(args)
         if args.command == "rivals":
             return _run_rivals(args)
         if args.command == "notifications":
@@ -1409,10 +1422,14 @@ def main(argv: list[str] | None = None) -> int:
             state = "accepted" if response.get("status") == "accepted" else "submitted"
             print(f"{state.capitalize()} {result['manifest']['name']}: {response.get('submission_id', 'accepted')}")
         elif args.command == "train":
-            username, token = _identity(args.api_url, args.username)
             if not 1 <= args.hands <= 400:
                 raise CliError("--hands must be between 1 and 400")
-            destination = run_training(root, args.api_url, args.opponent, args.hands, args.output, username, token)
+            if args.opponent == "leader":
+                username, token = _identity(args.api_url, args.username)
+                destination = run_training(root, args.api_url, args.opponent, args.hands, args.output, username, token)
+            else:
+                from .dojo import run
+                destination = run(root, args.opponent, args.hands, args.output, args.username or "local")
             print(f"Training complete. Logs: {destination}")
             from .local_recap import remember, launch, RecapError
             try:

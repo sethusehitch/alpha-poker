@@ -24,9 +24,9 @@ before continuing. Never silently reuse an older extracted copy.
 - Check submission validation, league-run status, and the leaderboard.
 - Download official run artifacts and training hand logs.
 - Find classmates by player or bot name and explain their public Elo.
-- Send a 200-hand direct challenge after the participant chooses an opponent.
+- Send a best-of-five Pot-Limit Hold'em challenge after the participant chooses an opponent.
 - Check incoming requests and accept or decline after participant approval.
-- Wait for a rivalry match, report the winner and play-chip margin, and
+- Wait for a rivalry match, report the game score and total hands, and
   download its recap evidence.
 - Read challenge notifications and mark them read after sharing the result.
 
@@ -83,23 +83,24 @@ the same state by logging in on the website and opening their account.
 
 ## Agent-operated rival flow
 
-Rival commands should normally use `--json` so results are reliable to parse.
+Rival commands should normally use `--format agent` or `--format json` so results are reliable to parse.
+For a completed challenge, agent-format `score` is winner first; `score_order` and `viewer_result` make that perspective explicit.
 Present the useful facts conversationally instead of pasting raw JSON.
 
 1. Offer to find a classmate by username or bot name, list prior rivals, or
    browse the leaderboard.
 2. Show the selected opponent's bot, Elo, and direct-challenge record. Ask the
-   participant whether they want to send the fixed 200-hand challenge.
+   participant whether they want to send the best-of-five challenge.
 3. Only after approval, send the challenge with the CLI's `--yes` flag. The
    CLI includes an idempotency key, and the server prevents duplicate open
    challenges.
 4. Check requests with `rivals requests`. For an incoming request, explain the
    two current bots before asking whether to accept or decline.
-5. Use `rivals status CHALLENGE_ID --wait --json` when the participant wants to
+5. Use `rivals status CHALLENGE_ID --wait --format agent` when the participant wants to
    stay for the result. The wait is bounded. If it times out, explain that the
-   match remains safe on the server and can be checked later.
-6. On completion, use `rivals recap CHALLENGE_ID --output PATH --json`. Report
-   who won and by how many play chips, then offer to inspect selected hands and
+   match continues on the server and repeat the provided check-later command.
+6. On completion, use `rivals recap CHALLENGE_ID --output PATH --format agent`. Report
+   who won, the game score, and total hands, then offer to inspect selected hands and
    help the participant form a strategy hypothesis.
 
 Useful commands for the coding agent:
@@ -114,8 +115,8 @@ alpha-poker rivals challenge maya --yes --json
 alpha-poker rivals accept CHALLENGE_ID --yes --json
 alpha-poker rivals decline CHALLENGE_ID --yes --json
 alpha-poker rivals cancel CHALLENGE_ID --yes --json
-alpha-poker rivals status CHALLENGE_ID --wait --json
-alpha-poker rivals recap CHALLENGE_ID --output ./rival-recaps --json
+alpha-poker rivals status CHALLENGE_ID --wait --format agent
+alpha-poker rivals recap CHALLENGE_ID --output ./rival-recaps --format agent
 alpha-poker notifications list --unread --json
 alpha-poker notifications read NOTIFICATION_ID --json
 ```

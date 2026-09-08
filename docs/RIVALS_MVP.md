@@ -29,7 +29,7 @@ Nemesis is the opponent with the caller's most direct-challenge losses, requirin
 
 ## Challenge lifecycle
 
-- A challenge is always an asynchronous, unranked, deterministic 200-hand heads-up match (100 mirrored pairs).
+- A challenge is always an asynchronous, unranked, deterministic best-of-five heads-up Pot-Limit Hold'em tournament series.
 - States: `pending -> queued -> running -> completed`; alternatives: `declined`, `cancelled`, `failed`.
 - Creation and acceptance use `Idempotency-Key`.
 - Reject self-challenges, missing active bots, duplicate open challenges, and unauthorized transitions.

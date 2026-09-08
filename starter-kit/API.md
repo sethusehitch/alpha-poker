@@ -130,9 +130,7 @@ Creation body:
 ```
 
 Creation and state-changing requests include an `Idempotency-Key` header.
-Every challenge is one 200-hand mirrored, play-money match. A pending request
-has not started. Acceptance snapshots both current active bots and moves the
-challenge into the server queue.
+Every challenge is a best-of-five, play-money Pot-Limit Hold'em series. Each game starts 10,000 to 10,000, carries stacks between hands, and doubles blinds every 10 hands until a current-stack-sized sudden-death level. Bankruptcy ends a game; the first bot to win three games wins the series. A pending request has not started. Acceptance snapshots both current active bots and moves the challenge into the server queue.
 
 Challenge states are:
 
@@ -143,10 +141,7 @@ pending -> cancelled
 queued or running -> failed
 ```
 
-A completed challenge reports `winner_username` and the absolute
-`margin_play_chips`. The winner is based on aggregate play-chip profit over all
-hands, not the number of individual hands won. A direct challenge never changes
-either player's Elo.
+A completed challenge reports `winner_username`, `series_score`, `games_completed`, and `hands_played`. A direct challenge never changes either player's Elo.
 
 The server rejects self-challenges, participants without an active bot,
 duplicate open challenges between the same pair, and transitions attempted by
@@ -166,9 +161,6 @@ Notification types are `challenge_received`, `challenge_won`,
 old message does not change after someone uploads a new bot. Read a
 notification only after its target challenge or recap opens successfully.
 
-### CLI JSON behavior
+### CLI result behavior
 
-All `alpha-poker rivals ...` and `alpha-poker notifications ...` leaf commands
-accept `--json`. They emit exactly one JSON object on stdout and send wait
-progress to stderr. No password, bearer token, invite code, or training
-capability is included in output or artifacts.
+Rivals result commands accept `--format human|agent|json`; `--json` remains an alias. JSON mode emits exactly one object on stdout, agent mode emits stable `key=value` facts, and human mode uses concise prose. No password, bearer token, invite code, or training capability is included in output or artifacts.

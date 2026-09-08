@@ -1,0 +1,7 @@
+Validation started.
+Archive safety checks passed.
+Manifest parsed.
+bot.py found.
+Smoke decision passed.
+Isolated smoke validation complete. Package accepted.
+Submission activated.

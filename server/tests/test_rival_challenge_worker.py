@@ -56,7 +56,7 @@ def test_queued_snapshots_are_retained_and_restart_recovers_running_work(tmp_pat
         assert row["run_id"]
         assert restarted.app.state.db.one(
             "SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (row["run_id"],)
-        )["n"] == 200
+        )["n"] == row["hands_played"]
         artifact_path = settings.artifact_dir / f"{row['run_id']}.zip"
         deadline = time.monotonic() + 2
         while time.monotonic() < deadline and not artifact_path.exists():
@@ -165,10 +165,10 @@ def test_same_seed_produces_same_200_hand_result(tmp_path):
             )
             assert run_rival_challenge(db, challenge_id)
             row = db.one(
-                "SELECT winner_username,margin_play_chips,run_id FROM rival_challenges WHERE id=?", (challenge_id,)
+                "SELECT winner_username,series_score_a,series_score_b,hands_played,run_id FROM rival_challenges WHERE id=?", (challenge_id,)
             )
-            assert db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (row["run_id"],))["n"] == 200
-            results.append((row["winner_username"], row["margin_play_chips"]))
+            assert db.one("SELECT COUNT(*) AS n FROM hands WHERE run_id=?", (row["run_id"],))["n"] == row["hands_played"]
+            results.append((row["winner_username"], row["series_score_a"], row["series_score_b"], row["hands_played"]))
         assert results[0] == results[1]
 
 
@@ -190,22 +190,22 @@ def test_rival_artifact_has_immutable_challenge_summary(tmp_path):
         assert artifact.status_code == 200
         with zipfile.ZipFile(io.BytesIO(artifact.content)) as archive:
             summary = json.loads(archive.read("summary.json"))
-            assert len(archive.read("hands.jsonl").splitlines()) == 200
+            assert len(archive.read("hands.jsonl").splitlines()) == completed["hands_played"]
+            assert set(archive.namelist()) == {"result.txt", "summary.json", "hands.phhs", "hands.jsonl"}
         assert summary["kind"] == "direct_rival_challenge"
         assert summary["challenge_id"] == created["challenge_id"]
         assert summary["official"] is False
         assert summary["ranked"] is False
         assert summary["affects_elo"] is False
         assert summary["play_money_only"] is True
-        assert summary["outcome"] == {
-            "winner_username": completed["winner_username"],
-            "is_draw": completed["winner_username"] is None,
-            "margin_play_chips": completed["margin_play_chips"],
-            "hands": 200,
-        }
+        assert summary["outcome"]["winner_username"] == completed["winner_username"]
+        assert summary["outcome"]["series_score"] == completed["series_score"]
+        assert summary["outcome"]["hands"] == completed["hands_played"]
         assert summary["players"]["alice"]["bot_name"] == "alice-bot"
         assert summary["players"]["bob"]["bot_name"] == "bob-bot"
-        assert summary["methodology"]["duplicate_deal_pairs"] == 100
+        assert summary["methodology"]["format"].startswith("best-of-five")
+        assert "double every 10 hands" in summary["methodology"]["blinds"]
+        assert "sudden death" in summary["methodology"]["blinds"]
         assert "do not change public Elo" in summary["methodology"]["ranking_effect"]
 
         # Changing the active bots later cannot rewrite the already archived
@@ -244,7 +244,7 @@ def test_worker_failure_is_private_retry_safe_and_notifies_both_players(tmp_path
                 break
             time.sleep(0.02)
         assert result["status"] == "failed"
-        assert result["error"] == "The match could not finish. It is safe to try a new challenge."
+        assert result["error"] == "The match could not finish. Check the details, then try a new challenge."
         assert "/definitely/" not in result["error"]
         notifications = client.app.state.db.all(
             "SELECT username,type FROM notifications WHERE challenge_id=? AND type='challenge_failed' ORDER BY username",

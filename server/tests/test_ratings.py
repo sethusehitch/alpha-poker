@@ -1,4 +1,7 @@
-from alpha_poker_api.ratings import BASE_RATING, calculate_round_robin_elo, expected_score
+from alpha_poker_api.ratings import (
+    BASE_RATING, ESTABLISHED_K_FACTOR, PROVISIONAL_K_FACTOR,
+    calculate_elo_result, calculate_round_robin_elo, expected_score, k_factor,
+)
 
 
 def test_equal_players_have_an_even_expected_score():
@@ -33,3 +36,27 @@ def test_draws_preserve_equal_ratings():
     )
     assert standings["left"].rating == standings["right"].rating == BASE_RATING
     assert standings["left"].draws == standings["right"].draws == 1
+
+
+def test_chess_style_result_uses_provisional_then_established_k_factor():
+    assert k_factor(0) == k_factor(9) == PROVISIONAL_K_FACTOR
+    assert k_factor(10) == ESTABLISHED_K_FACTOR
+    provisional = calculate_elo_result(1200, 1200, 1.0)
+    established = calculate_elo_result(
+        1200, 1200, 1.0, rated_matches_a=10, rated_matches_b=10
+    )
+    assert provisional == (1220, 1180, 40, 40)
+    assert established == (1210, 1190, 20, 20)
+
+
+def test_mixed_experience_uses_each_players_chess_k_factor():
+    after_a, after_b, ka, kb = calculate_elo_result(
+        1200, 1200, 1.0, rated_matches_a=0, rated_matches_b=10
+    )
+    assert (after_a, after_b, ka, kb) == (1220, 1190, 40, 20)
+
+
+def test_expected_win_moves_rating_less_than_an_upset():
+    expected_winner = calculate_elo_result(1600, 1200, 1.0)[0] - 1600
+    upset_winner = calculate_elo_result(1200, 1600, 1.0)[0] - 1200
+    assert 0 < expected_winner < upset_winner

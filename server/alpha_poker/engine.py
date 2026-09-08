@@ -1,4 +1,4 @@
-"""Heads-up no-limit Hold'em hand state machine."""
+"""Heads-up Hold'em hand state machine."""
 
 from __future__ import annotations
 
@@ -64,20 +64,29 @@ class HoldemHand:
         hand_number: int = 1,
         dealer: int = 0,
         starting_stack: int = 10_000,
+        starting_stacks: tuple[int, int] | None = None,
         small_blind: int = 50,
         big_blind: int = 100,
+        betting_limit: str = "no_limit",
         decision_deadline_ms: int = 1_000,
         bot_random_seeds: tuple[int, int] | None = None,
         deal: Mapping[str, Any] | None = None,
     ) -> None:
-        if starting_stack <= big_blind or not 0 < small_blind < big_blind:
+        initial = tuple(starting_stacks or (starting_stack, starting_stack))
+        if len(initial) != 2 or any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in initial):
+            raise ValueError("starting stacks must contain two positive integers")
+        if not 0 < small_blind <= big_blind:
             raise ValueError("invalid stack or blinds")
+        if betting_limit not in {"no_limit", "pot_limit"}:
+            raise ValueError("betting_limit must be no_limit or pot_limit")
         self.hand_id, self.seed, self.dealer = hand_id, seed, dealer
         self.match_id, self.hand_number = match_id, hand_number
         self.decision_deadline_ms = decision_deadline_ms
         self.bot_random_seeds = bot_random_seeds or (seed * 2, seed * 2 + 1)
+        self.starting_stacks = list(initial)
         self.starting_stack = starting_stack
         self.small_blind, self.big_blind = small_blind, big_blind
+        self.betting_limit = betting_limit
         dealt = copy.deepcopy(dict(deal)) if deal is not None else shuffled_deal(seed)
         self.holes = [list(cards) for cards in dealt["holes"]]
         self.full_board = list(dealt["board"])
@@ -89,7 +98,7 @@ class HoldemHand:
         for card in all_cards:
             validate_card(card)
 
-        self.stacks = [starting_stack, starting_stack]
+        self.stacks = list(initial)
         self.total_contrib = [0, 0]
         self.street_contrib = [0, 0]
         self.street_index = 0
@@ -104,7 +113,7 @@ class HoldemHand:
 
         self._post_blind(dealer, small_blind, "small_blind")
         self._post_blind(1 - dealer, big_blind, "big_blind")
-        self.current_bet = big_blind
+        self.current_bet = max(self.street_contrib)
         self.actor = dealer
 
     @property
@@ -120,7 +129,7 @@ class HoldemHand:
         self.stacks[seat] -= paid
         self.street_contrib[seat] += paid
         self.total_contrib[seat] += paid
-        self.events.append({"type": kind, "seat": seat, "amount": paid})
+        self.events.append({"type": kind, "seat": seat, "amount": paid, "all_in": self.stacks[seat] == 0})
 
     def legal_actions(self, seat: int | None = None) -> list[dict[str, Any]]:
         seat = self.actor if seat is None else seat
@@ -137,16 +146,26 @@ class HoldemHand:
             self.street_contrib[seat] + self.stacks[seat],
             self.street_contrib[other] + self.stacks[other],
         )
+        maximum_to = effective_to
+        if self.betting_limit == "pot_limit":
+            # A pot-sized raise first calls, then raises by the size of the pot
+            # after that call. Preflop at 50/100 this caps a raise at 300 total.
+            maximum_to = min(
+                effective_to,
+                self.street_contrib[seat] + to_call + self.pot + to_call,
+            )
         min_to = self.current_bet + self.last_full_raise
-        if effective_to >= min_to:
+        if maximum_to >= min_to:
             actions.append(
                 {
                     "type": "raise",
                     "min_to": min_to,
-                    "max_to": effective_to,
+                    "max_to": maximum_to,
                 }
             )
-        if effective_to > self.street_contrib[seat]:
+        if effective_to > self.street_contrib[seat] and (
+            effective_to <= self.current_bet or effective_to <= maximum_to
+        ):
             actions.append({"type": "all_in", "to": effective_to})
         return actions
 
@@ -237,9 +256,11 @@ class HoldemHand:
                 "to": self.street_contrib[seat],
                 "street": self.street,
                 "pot_after": self.pot,
+                "all_in": self.stacks[seat] == 0,
             }
         )
 
+        self._return_uncalled_all_in()
         contributions_equal = self.street_contrib[0] == self.street_contrib[1]
         someone_all_in = 0 in self.stacks
         round_complete = contributions_equal and (len(self.acted) == 2 or someone_all_in)
@@ -247,6 +268,33 @@ class HoldemHand:
             self._advance_or_showdown()
         else:
             self.actor = other
+
+    def _return_uncalled_all_in(self) -> None:
+        """Return the unmatched portion of a heads-up bet after a short all-in.
+
+        With only two players there is no side pot. Once the all-in player's
+        contribution is lower, the excess chips from the other player were
+        never called and must be returned before showdown.
+        """
+        for all_in_seat in (0, 1):
+            other = 1 - all_in_seat
+            if self.stacks[all_in_seat] != 0:
+                continue
+            unmatched = self.street_contrib[other] - self.street_contrib[all_in_seat]
+            if unmatched <= 0:
+                continue
+            self.street_contrib[other] -= unmatched
+            self.total_contrib[other] -= unmatched
+            self.stacks[other] += unmatched
+            self.current_bet = self.street_contrib[all_in_seat]
+            self.events.append(
+                {
+                    "type": "uncalled_return",
+                    "seat": other,
+                    "amount": unmatched,
+                    "street": self.street,
+                }
+            )
 
     def forfeit(self, seat: int) -> None:
         """End the hand after a bot failure, independent of strategic actions."""
@@ -303,18 +351,19 @@ class HoldemHand:
     def result(self) -> HandResult:
         if not self.finished:
             raise ValueError("hand is not finished")
-        profits = (self.stacks[0] - self.starting_stack, self.stacks[1] - self.starting_stack)
+        profits = tuple(self.stacks[seat] - self.starting_stacks[seat] for seat in range(2))
         history = {
             "schema_version": "1.0",
             "hand_id": self.hand_id,
             "match_id": self.match_id,
             "hand_number": self.hand_number,
             "seed": self.seed,
-            "game": "NLHE",
+            "game": "PLHE" if self.betting_limit == "pot_limit" else "NLHE",
+            "betting_limit": self.betting_limit,
             "currency": "play_chips",
             "dealer": self.dealer,
             "blinds": {"small": self.small_blind, "big": self.big_blind},
-            "starting_stacks": [self.starting_stack, self.starting_stack],
+            "starting_stacks": list(self.starting_stacks),
             "hole_cards": copy.deepcopy(self.holes),
             "board": list(self.board),
             "pot": self.pot,
@@ -330,17 +379,26 @@ def _decide(bot: Bot, state: dict[str, Any], timeout_seconds: float) -> Mapping[
     function: Callable[[dict[str, Any]], Any] = getattr(bot, "decide", bot)
     if not callable(function):
         raise BotDecisionError("bot must be callable or expose decide(state)")
-    executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="alpha-poker-bot")
-    future = executor.submit(function, copy.deepcopy(state))
-    try:
-        answer = future.result(timeout=timeout_seconds)
-    except FutureTimeout as exc:
-        future.cancel()
-        raise BotDecisionError("decision timed out") from exc
-    except Exception as exc:
-        raise BotDecisionError(f"bot raised {type(exc).__name__}: {exc}") from exc
-    finally:
-        executor.shutdown(wait=False, cancel_futures=True)
+    if getattr(bot, "_alpha_poker_enforces_timeout", False):
+        # Uploaded/local packaged bots already execute in a killable subprocess
+        # with a wall-clock deadline. Wrapping every IPC call in a new thread
+        # needlessly creates thousands of short-lived threads in a tournament.
+        try:
+            answer = function(copy.deepcopy(state))
+        except Exception as exc:
+            raise BotDecisionError(f"bot raised {type(exc).__name__}: {exc}") from exc
+    else:
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="alpha-poker-bot")
+        future = executor.submit(function, copy.deepcopy(state))
+        try:
+            answer = future.result(timeout=timeout_seconds)
+        except FutureTimeout as exc:
+            future.cancel()
+            raise BotDecisionError("decision timed out") from exc
+        except Exception as exc:
+            raise BotDecisionError(f"bot raised {type(exc).__name__}: {exc}") from exc
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
     if not isinstance(answer, Mapping):
         raise BotDecisionError("decision must be an object")
     try:
@@ -377,8 +435,10 @@ def play_hand(
     hand_number: int = 1,
     dealer: int = 0,
     starting_stack: int = 10_000,
+    starting_stacks: tuple[int, int] | None = None,
     small_blind: int = 50,
     big_blind: int = 100,
+    betting_limit: str = "no_limit",
     timeout_seconds: float = 1.0,
     bot_random_seeds: tuple[int, int] | None = None,
     deal: Mapping[str, Any] | None = None,
@@ -392,12 +452,19 @@ def play_hand(
         hand_number=hand_number,
         dealer=dealer,
         starting_stack=starting_stack,
+        starting_stacks=starting_stacks,
         small_blind=small_blind,
         big_blind=big_blind,
+        betting_limit=betting_limit,
         decision_deadline_ms=max(1, round(timeout_seconds * 1_000)),
         bot_random_seeds=bot_random_seeds,
         deal=deal,
     )
+    # A short stack can be all-in from posting a blind. It has no decision to
+    # make; reveal the remaining board and settle the hand immediately.
+    if 0 in hand.stacks:
+        hand._return_uncalled_all_in()
+        hand._advance_or_showdown()
     while not hand.finished:
         seat = hand.actor
         state = hand.bot_state(seat)

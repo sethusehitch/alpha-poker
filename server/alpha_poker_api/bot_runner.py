@@ -19,6 +19,13 @@ import zipfile
 
 MAX_ACTION_BYTES = 4096
 MAX_CAPTURE_BYTES = 4096
+BLOCKED_AUDIT_PREFIXES = (
+    "socket.", "subprocess.", "os.system", "os.exec", "os.spawn",
+    "os.fork", "os.kill", "os.listdir", "os.scandir", "os.chdir",
+    "os.remove", "os.rename", "os.replace", "os.rmdir", "os.mkdir",
+    "os.chmod", "os.chown", "os.link", "os.symlink", "os.truncate",
+    "os.utime", "pty.", "ctypes.dlopen",
+)
 
 
 class LimitedText(io.TextIOBase):
@@ -60,14 +67,7 @@ def install_audit_boundary() -> None:
     allowed_root = Path(sys.base_prefix).resolve()
 
     def audit(event: str, args: tuple[object, ...]) -> None:
-        blocked = (
-            "socket.", "subprocess.", "os.system", "os.exec", "os.spawn",
-            "os.fork", "os.kill", "os.listdir", "os.scandir", "os.chdir",
-            "os.remove", "os.rename", "os.replace", "os.rmdir", "os.mkdir",
-            "os.chmod", "os.chown", "os.link", "os.symlink", "os.truncate",
-            "os.utime", "pty.", "ctypes.dlopen",
-        )
-        if event.startswith(blocked):
+        if event.startswith(BLOCKED_AUDIT_PREFIXES):
             raise PermissionError(f"operation blocked by Alpha Poker: {event}")
         if event == "open" and args:
             target = args[0]

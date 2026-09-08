@@ -56,6 +56,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("WORKFLOWS.md", names)
             self.assertIn("cli/pyproject.toml", names)
             self.assertIn("cli/alpha_poker_cli/main.py", names)
+            self.assertIn("cli/alpha_poker_cli/runner.py", names)
             workflow = archive.read("WORKFLOWS.md").decode("utf-8")
             readme = archive.read("README.md").decode("utf-8")
             self.assertIn("Hosted API:", workflow)
@@ -129,7 +130,35 @@ class CliTests(unittest.TestCase):
             make_bot(root)
             result = cli.validate_bot(root)
             self.assertEqual(result["manifest"]["name"], "Test Bot")
-            self.assertEqual(result["checks"], 3)
+            self.assertEqual(result["checks"], 4)
+
+    def test_validate_uses_restricted_runner_and_friendly_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_bot(root, "def decide(state):\n    open('/etc/passwd').read()\n    return {'action':'call'}\n")
+            with self.assertRaisesRegex(cli.CliError, "filesystem access is restricted"):
+                cli.validate_bot(root)
+
+            make_bot(root)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = cli.main(["validate", str(root)])
+            self.assertEqual(code, 0)
+            self.assertEqual(
+                output.getvalue(),
+                "Checking your bot...\n✓ Bot check passed\nReady to train or compete.\n",
+            )
+
+    def test_validate_verbose_explains_remote_recheck(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_bot(root)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = cli.main(["validate", str(root), "--verbose"])
+            self.assertEqual(code, 0)
+            self.assertIn("Runner policy: local-v1", output.getvalue())
+            self.assertIn("server will repeat these checks", output.getvalue())
 
     def test_validate_rejects_illegal_action(self):
         with tempfile.TemporaryDirectory() as directory:

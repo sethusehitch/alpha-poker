@@ -52,38 +52,29 @@ ZIP, WebSocket, and artifact traffic.
 
 ## Match and storage budget
 
-With 20 active bots there are 190 unique head-to-head pairings. One full league
-therefore runs:
+With 20 active bots there are 190 unique head-to-head pairings. Each pairing is
+one best-of-five Pot-Limit Hold'em series, so it ends as soon as a bot wins three
+tournament games. Each game starts both bots with 10,000 play chips and raises
+the blinds every 10 hands until one stack reaches zero. Runtime therefore varies
+with the bots instead of being tied to an arbitrary fixed hand count.
 
-`190 pairings × hands per pairing`
+The runner executes one pairing at a time on the first 4 GB box. Uploads that
+arrive during a league run are coalesced into one fresh follow-up run rather
+than starting overlapping all-vs-all jobs. Local clean-slate QA completed a
+two-bot official series in a few seconds after subprocess startup; a 20-bot run
+should still be measured on the Lightsail CPU before increasing concurrency.
 
-With isolated subprocess execution enabled, the local QA machine completed a
-20-bot, 190-pairing run of 3,800 real hands in 19.1 seconds, about 199 hands per
-second. It produced a 15.2 MB live database and a 0.27 MB compressed artifact.
-Hosted bots and a burstable server will vary, so budget conservatively and keep
-match concurrency at one on the first box. Re-run this check with
-`npm run benchmark:20`.
+Storage is bounded without deleting the compact facts people care about:
 
-Running a complete league after every one of 20 daily uploads multiplies both
-compute and logs by 20. At 2,000 hands per pairing, that is 7.6 million hands
-per day. The bounded live-hand and compressed-artifact retention prevents
-unlimited disk growth, but a run at that sample size may take hours on the
-first box. The recommended prototype policy is:
-
-1. Run 200 hands per pairing while validating the product.
-2. Coalesce uploads arriving within a short window into one run.
-3. Keep the current run and one prior run's detailed hands in SQLite. This is
-   implemented and configurable with `ALPHA_POKER_RETAINED_HAND_RUNS`.
-4. Preserve the newest 30 compressed run artifacts. This bound is implemented
-   with `ALPHA_POKER_RETAINED_ARTIFACT_RUNS` and can be lowered if disk pressure
-   appears.
-5. Remove rejected and inactive submission ZIPs after no current league,
-   published leader, or live training session needs them. This is implemented.
-6. Raise the hand count toward 2,000 or more when participants want narrower
-   confidence intervals.
-
-The leaderboard always shows its 95% interval, so a small early run is clearly
-marked as uncertain rather than presented as conclusive.
+1. Official raw hand histories remain available for 30 days, with at least the
+   newest three official runs always retained.
+2. Direct-challenge raw hands remain available for 90 days.
+3. Training scratch data remains available for 14 days.
+4. Before raw rows are removed, Alpha Poker creates and verifies the compressed
+   evidence archive. Series summaries, official Elo history, and challenge
+   outcomes stay in SQLite.
+5. Rejected and inactive submission ZIPs are removed after no current league,
+   published leader, or live training session needs them.
 
 ## Deploy and operate
 

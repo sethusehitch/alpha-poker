@@ -11,7 +11,9 @@
 .match-context strong { font-weight: 600; color: #344760; }
 .match-context .versus, .context-dot { margin-inline: 5px; color: #8a95a7; }
 .replay-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; }
-.replay-sidebar { align-self: start; min-width: 0; display: grid; gap: 18px; }
+/* The felt is inset 98px above and 76px below: its center sits 11px
+   below the scene center. Align the entire card/control group to that point. */
+.replay-sidebar { align-self: center; transform: translateY(11px); min-width: 0; display: grid; gap: 18px; }
 .highlight { padding: 12px 0 2px; }
 .win-label { color: #344760; font-size: 16px; font-weight: 550; overflow-wrap: anywhere; }
 .win-label strong { display: block; font-size: 40px; letter-spacing: -1.4px; font-weight: 650; line-height: 1.2; margin-top: 3px; }
@@ -152,7 +154,7 @@
   .recap-eyebrow { font-size: 12px; margin-bottom: 6px; }
   .match-context { flex-direction: column; gap: 3px; }
   .replay-layout { display: flex; flex-direction: column; gap: 12px; }
-  .replay-sidebar { width: 100%; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 12px; }
+  .replay-sidebar { transform: none; width: 100%; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 12px; }
   .highlight { padding: 0; min-width: 0; }
   .win-label { display: flex; align-items: center; gap: 6px; font-size: 13px; flex-wrap: wrap; }
   .win-label strong { font-size: 20px; line-height: 1.1; letter-spacing: -.5px; margin: 0; }

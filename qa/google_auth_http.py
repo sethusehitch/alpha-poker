@@ -53,6 +53,14 @@ def main():
                     browser = requests.Session()
                     headers = {"Origin": origin}
                     start_url = origin + "/browser-api/auth/google/start"
+                    # Model Caddy's TLS termination: HTTP to Vinext, public Host,
+                    # but the browser's Origin is HTTPS. No user session here.
+                    public_headers = {"Host": "alphapoker.io", "Origin": "https://alphapoker.io"}
+                    assert requests.post(start_url, json={"link": True}, headers=public_headers).status_code == 401
+                    assert requests.post(start_url, json={"link": True}, headers={**public_headers, "Origin": "http://alphapoker.io"}).status_code == 403
+                    public_failure = requests.get(origin + "/browser-api/auth/google/callback", headers={"Host": "alphapoker.io"}, allow_redirects=False)
+                    assert public_failure.headers["Location"].startswith("https://alphapoker.io/")
+                    assert "Secure" in public_failure.headers["Set-Cookie"]
                     assert browser.post(start_url, json={}, headers={"Origin": "https://evil.invalid"}).status_code == 403
                     start = browser.post(start_url, json={"next": "cli"}, headers=headers)
                     assert start.status_code == 200

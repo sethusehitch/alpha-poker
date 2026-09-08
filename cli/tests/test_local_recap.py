@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import socket
 from pathlib import Path
 import tempfile
 import threading
@@ -22,6 +23,28 @@ def record(number=1, names=None, match="m1"):
 
 
 class LocalRecapTests(unittest.TestCase):
+    def test_idle_browser_connection_does_not_block_requests(self):
+        server, url = local.make_server(local.Evidence(self.archive()))
+        accepted = threading.Event()
+        original = server.get_request
+        def get_request():
+            connection = original()
+            accepted.set()
+            return connection
+        server.get_request = get_request
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        idle = socket.create_connection(server.server_address)
+        try:
+            self.assertTrue(accepted.wait(2))
+            with urlopen(url + "manifest.json", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+        finally:
+            idle.close()
+            server.shutdown()
+            server.server_close()
+            worker.join(3)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

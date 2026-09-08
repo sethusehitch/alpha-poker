@@ -12,7 +12,7 @@ import tempfile
 import time
 import webbrowser
 import zipfile
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 MAX_BYTES = 64 * 1024 * 1024
@@ -187,6 +187,10 @@ def make_server(evidence):
     prefix = "/" + secrets.token_urlsafe(24) + "/"
     assets = {"/" + p.relative_to(PACKAGE / "viewer").as_posix(): p for p in (PACKAGE / "viewer").rglob("*") if p.is_file()}
     class Handler(BaseHTTPRequestHandler):
+        # Browsers may preconnect without sending a request. Bound those idle
+        # sockets and handle connections independently so they cannot stall UI.
+        timeout = 10
+
         def log_message(self, *_):
             pass
 
@@ -229,7 +233,7 @@ def make_server(evidence):
                 self.server.last_access = time.monotonic()
             except (RecapError, ValueError, TypeError, KeyError, IndexError):
                 self.send_error(422, "Invalid or unavailable hand evidence")
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.timeout, server.last_access = 1, time.monotonic()
     return server, f"http://127.0.0.1:{server.server_port}{prefix}"
 

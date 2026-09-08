@@ -12,7 +12,7 @@ export function GoogleOnboarding() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState(false);
-  const destination = () => new URLSearchParams(window.location.search).get("next") === "cli" ? "/authorize-cli" : "/#instructions";
+  const destination = () => new URLSearchParams(window.location.search).get("next") === "cli" ? "/authorize-cli" : "/";
   useEffect(() => {
     fetch("/browser-api/auth/google/pending").then(async r => {
       if (!r.ok) { setStage("expired"); return; }
@@ -47,7 +47,7 @@ export function GoogleOnboarding() {
         <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Join Alpha Poker</p>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight">Got an invite?</h1>
         <p className="mt-3 text-zinc-600">Enter your invite code to join the league.</p>
-        <p className="mt-6 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">✓ Google account connected</p>
+        <p className="mt-6 rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600">✓ Signed in with Google</p>
         <form className="mt-6" onSubmit={async e => {
           e.preventDefault(); setBusy(true); setError("");
           try { await post("/browser-api/auth/google/invite", { invite_code: invite }); setStage("profile"); }

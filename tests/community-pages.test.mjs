@@ -611,9 +611,9 @@ test("promotion and the GitHub token never reach a browser-facing route", async 
   assert.doesNotMatch(idRouteSource, /promote/);
 });
 
-test("header stays 72px and only the community pages request a sticky header", async () => {
+test("header stays 72px and is sticky on home and community pages", async () => {
   const home = await html("/");
-  assert.doesNotMatch(home, /sticky top-0 z-30/);
+  assert.match(home, /sticky top-0 z-30/);
   assert.match(home, /h-\[4\.5rem\]/);
 
   const featureRequests = await html("/feature-requests");

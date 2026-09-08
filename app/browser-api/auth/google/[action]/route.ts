@@ -17,6 +17,10 @@ function redirect(request: Request, path: string) {
 function sameOrigin(request: Request) {
   return request.headers.get("origin") === new URL(request.url).origin;
 }
+function safeReturn(value: unknown) {
+  if (typeof value !== "string") return "/";
+  return /^(?:\/(?:profile|my-bot|leaderboard|rivals|feature-requests|contribute)?)(?:#[A-Za-z0-9_-]+)?$/.test(value) ? value : "/";
+}
 
 export async function GET(request: Request, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
@@ -45,11 +49,14 @@ export async function GET(request: Request, context: { params: Promise<{ action:
   } else {
     const session = await browserSessionResponse(Response.json(result), request.url);
     if (!session.ok) return failed();
-    response = redirect(request, cli ? "/authorize-cli" : "/my-bot");
+    let returnTo = "/";
+    try { returnTo = safeReturn(decodeURIComponent(cookie(request, "alpha_google_return"))); } catch { /* malformed cookie falls back home */ }
+    response = redirect(request, cli ? "/authorize-cli" : returnTo);
     response.headers.append("Set-Cookie", session.headers.get("Set-Cookie")!);
   }
   setCookie(response, request, "alpha_google_state", "", 0);
   setCookie(response, request, "alpha_google_next", "", 0);
+  setCookie(response, request, "alpha_google_return", "", 0);
   return response;
 }
 
@@ -70,6 +77,7 @@ export async function POST(request: Request, context: { params: Promise<{ action
     const response = Response.json({ url: result.url }, { headers: { "Cache-Control": "no-store" } });
     setCookie(response, request, "alpha_google_state", result.state);
     setCookie(response, request, "alpha_google_next", body.next === "cli" ? "cli" : "site");
+    setCookie(response, request, "alpha_google_return", encodeURIComponent(safeReturn(body.returnTo)));
     setCookie(response, request, "alpha_google_signup", "", 0);
     return response;
   }

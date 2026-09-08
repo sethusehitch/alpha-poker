@@ -20,7 +20,7 @@ export function GoogleSignIn({ link = false }: { link?: boolean }) {
     setBusy(true); setError("");
     try {
       const response = await fetch("/browser-api/auth/google/start", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link, next: window.location.pathname === "/authorize-cli" ? "cli" : "site" }) });
+        body: JSON.stringify({ link, next: window.location.pathname === "/authorize-cli" ? "cli" : "site", returnTo: window.location.pathname + window.location.hash }) });
       const result = await response.json();
       if (result.error?.code === "google_origin") setCanonical(result.error.url);
       if (!response.ok) throw new Error(result.error?.message ?? "Could not start Google sign-in.");

@@ -79,10 +79,10 @@ def main():
                     assert poll.json()["username"] == "fixture-player"
                     assert requests.post("http://127.0.0.1:8026/v1/auth/browser/poll", json={"device_code": flow["device_code"]}).status_code == 410
                     browser.post(origin + "/browser-api/auth/logout")
-                    start = browser.post(start_url, headers=headers, json={})
+                    start = browser.post(start_url, headers=headers, json={"returnTo": "/#leaderboard"})
                     state = parse_qs(urlparse(start.json()["url"]).query)["state"][0]
                     returning = browser.get(callback, params={"state": state, "code": "fixture"}, allow_redirects=False)
-                    assert returning.headers["Location"].endswith("/my-bot")
+                    assert returning.headers["Location"].endswith("/#leaderboard")
                     assert browser.get(origin + "/browser-api/auth/me").json()["username"] == "fixture-player"
                     print("PASS: real web/API cookies, CSRF rejection, invite signup, returning login, CLI approval; Google provider exchange mocked.")
                 finally:

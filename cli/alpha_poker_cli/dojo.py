@@ -1,4 +1,6 @@
 """Local dojo matches and explicitly self-reported account progress."""
+from contextlib import ExitStack
+import random
 import hashlib
 import fcntl
 import json
@@ -8,7 +10,7 @@ import secrets
 import tempfile
 import zipfile
 
-from .dojo_engine.dojo import VERSION, IDS, PackagedBot, catalog
+from .dojo_engine.dojo import VERSION, IDS, PackagedBot, catalog, opponent_version
 from .dojo_engine.engine import play_hand, shuffled_deal
 
 
@@ -57,19 +59,24 @@ def run(root, opponent, hands, output, username="local"):
     if destination.exists():
         raise CliError(f"Output already exists: {destination}. Choose a new ZIP name or directory.")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    student = _load_bot(root)
-    bot = PackagedBot(opponent)
     rows, net, errors = [], 0, 0
-    try:
+    strategy_seed = secrets.randbits(128)
+    strategy_rng = random.Random(strategy_seed)
+    with ExitStack() as cleanup:
+        # Each duplicate leg has its own student process and opponent memory.
+        # Neither copy can remember private cards from the other copy.
+        students = [cleanup.enter_context(_load_bot(root)) for _ in range(2)]
+        opponents = [PackagedBot(opponent) for _ in range(2)]
         for index in range(hands):
             # A pair reuses the same physical seats/cards, swapping the bots.
             seat = index % 2
+            student, bot = students[seat], opponents[seat]
             bots = (student, bot) if seat == 0 else (bot, student)
             deal = shuffled_deal(seed + index // 2)
             result = play_hand(bots, seed=seed + index // 2, deal=deal, dealer=0,
                 hand_id=f"{run_id}_{index+1}", match_id=run_id, hand_number=index+1,
                 starting_stack=2000, small_blind=10, big_blind=20, timeout_seconds=.25,
-                bot_random_seeds=(seed + index * 2, seed + index * 2 + 1))
+                bot_random_seeds=(strategy_rng.getrandbits(64), strategy_rng.getrandbits(64)))
             row = result.to_dict()
             row["players"] = [username, opponent] if seat == 0 else [opponent, username]
             rows.append(row)
@@ -77,12 +84,11 @@ def run(root, opponent, hands, output, username="local"):
             errors += sum(e.get("type") == "bot_error" for e in row["events"])
             if (index + 1) % 20 == 0 or index + 1 == hands:
                 print(f"Dojo: {index+1}/{hands} hands • net {net:+} play chips", flush=True)
-    finally:
-        student.close()
     summary = {"source": "local_dojo", "verification": "self_reported", "run_id": run_id,
-        "username": username, "opponent": opponent, "opponent_version": VERSION, "bot_sha256": fingerprint,
+        "username": username, "opponent": opponent, "opponent_version": opponent_version(opponent), "bot_sha256": fingerprint,
         "hands_played": hands, "net_chips": net, "bot_errors": errors,
-        "qualified": hands >= 200 and net > 0 and errors == 0, "seed": seed}
+        "qualified": hands >= 200 and net > 0 and errors == 0, "seed": seed,
+        "strategy_seed": strategy_seed, "mirrored_memory": "isolated_legs"}
     with zipfile.ZipFile(destination, "x", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("summary.json", json.dumps(summary))
         archive.writestr("hands.jsonl", "\n".join(json.dumps(row) for row in rows))
@@ -95,7 +101,7 @@ def run(root, opponent, hands, output, username="local"):
     print("Local practice only. Public Elo unchanged.")
     print(f"Sync to your signed-in account if you want: alpha-poker dojo sync {run_id}")
     saved = read_state().get("runs", {}).values()
-    beaten = {r.get("opponent") for r in saved if r.get("qualified") and r.get("opponent_version") == VERSION}
+    beaten = {r.get("opponent") for r in saved if r.get("qualified") and r.get("opponent") in IDS and r.get("opponent_version") == opponent_version(r["opponent"])}
     next_bot = next((item for item in catalog()["bots"] if item["id"] not in beaten), None)
     if next_bot:
         print(f"Suggested next: {next_bot['name']} ({next_bot['rating']} Dojo Elo). Ask the student before another run.")
@@ -130,8 +136,8 @@ def command(args):
         return 0
     runs = read_state().get("runs", {})
     if args.dojo_command == "status":
-        progress = {bot: any(r.get("opponent") == bot and r.get("opponent_version") == VERSION and r.get("qualified") for r in runs.values()) for bot in IDS}
-        data = {"verification": "self_reported", "version": VERSION, "progress": progress, "runs": list(runs.values())}
+        progress = {bot: any(r.get("opponent") == bot and r.get("opponent_version") == opponent_version(bot) and r.get("qualified") for r in runs.values()) for bot in IDS}
+        data = {"verification": "self_reported", "version": catalog()["version"], "progress": progress, "runs": list(runs.values())}
         if args.json:
             print(json.dumps(data))
         else:

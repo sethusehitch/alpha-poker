@@ -1,0 +1,407 @@
+
+> alpha-poker@0.1.0 preqa
+> node --test tests/characters.test.mjs tests/auth-origin.test.mjs
+
+✔ TLS-terminated canonical requests match HTTPS origin, not HTTP (10.464667ms)
+✔ localhost stays HTTP and forwarding headers cannot change the origin (0.392416ms)
+✔ avatar URLs accept only our preset or content-addressed images (0.501375ms)
+✔ crop geometry fills the square without gaps at every supported zoom and position (0.17275ms)
+✔ upload rejects non-images and oversized files before browser decoding (0.83625ms)
+✔ offline recap disables avatar lookup and packages its relative fallback (3.259542ms)
+✔ both hosted policies permit local crop previews without external image hosts (0.605166ms)
+✔ account dialog escapes the blurred header containing block (0.292667ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 68.147292
+
+> alpha-poker@0.1.0 qa
+> npm run build:local-recap && npm run build && node --test tests/rendered-html.test.mjs && node --test tests/community-pages.test.mjs && node --test tests/rivals-page.test.mjs && node --test tests/header-navigation.test.mjs && node --test tests/leaderboard-page.test.mjs && node --test tests/my-bot-page.test.mjs && node --test tests/hand-replay-links.test.mjs && node --test tests/recap-routes.test.mjs && node --test tests/container-ops.test.mjs && npm run lint && npm run test:server && npm run test:cli && python3 -m compileall -q cli qa starter-kit server && python3 cli/build_starter_kit.py && PYTHONPATH=server:cli server/.venv/bin/python qa/local_recap_smoke.py
+
+
+> alpha-poker@0.1.0 build:local-recap
+> vite build --config local-viewer/vite.config.ts && node local-viewer/package.mjs
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 24 modules transformed.
+rendering chunks...
+computing gzip size...
+cli/alpha_poker_cli/viewer/index.html                   0.37 kB │ gzip:  0.27 kB
+cli/alpha_poker_cli/viewer/assets/index-PMKfXw3f.css   89.10 kB │ gzip: 18.95 kB
+cli/alpha_poker_cli/viewer/assets/index-mye1MRKR.js   207.24 kB │ gzip: 65.44 kB
+
+✓ built in 183ms
+
+> alpha-poker@0.1.0 build
+> WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build
+
+
+  vinext build  (Vite 8.2.2)
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - JSON import "./.openai/hosting.json" without import attributes (vite.config.ts:3:27). Add `with { type: 'json' }`
+  - import "./build/sites-vite-plugin" without a file extension (vite.config.ts:4:23). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - JSON import "./.openai/hosting.json" without import attributes (vite.config.ts:3:27). Add `with { type: 'json' }`
+  - import "./build/sites-vite-plugin" without a file extension (vite.config.ts:4:23). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+[1/5] analyze client references...
+transforming...
+✓ 322 modules transformed.
+rendering chunks...
+✓ built in 341ms
+[2/5] analyze server references...
+transforming...
+✓ 176 modules transformed.
+rendering chunks...
+✓ built in 139ms
+[3/5] build rsc environment...
+transforming...
+✓ 313 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 360ms
+[4/5] build client environment...
+transforming...
+✓ 181 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 246ms
+[5/5] build ssr environment...
+transforming...
+✓ 174 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 231ms
+[0m
+  Route (app)
+  ┌ ? /                                                 
+  ├ ? /authorize-cli                                    
+  ├ λ /browser-api/account/avatar                       
+  ├ λ /browser-api/account/status                       
+  ├ λ /browser-api/auth/browser/approve                 
+  ├ λ /browser-api/auth/google/:action                  
+  ├ λ /browser-api/auth/login                           
+  ├ λ /browser-api/auth/logout                          
+  ├ λ /browser-api/auth/me                              
+  ├ λ /browser-api/auth/options                         
+  ├ λ /browser-api/auth/register                        
+  ├ λ /browser-api/avatars/:id                          
+  ├ λ /browser-api/avatars/users/:username              
+  ├ λ /browser-api/challenges                           
+  ├ λ /browser-api/challenges/:id                       
+  ├ λ /browser-api/challenges/:id/accept                
+  ├ λ /browser-api/challenges/:id/cancel                
+  ├ λ /browser-api/challenges/:id/decline               
+  ├ λ /browser-api/challenges/:id/recap                 
+  ├ λ /browser-api/config                               
+  ├ λ /browser-api/dojo/progress                        
+  ├ λ /browser-api/feature-requests                     
+  ├ λ /browser-api/feature-requests/:id                 
+  ├ λ /browser-api/feature-requests/:id/hide            
+  ├ λ /browser-api/feature-requests/:id/vote            
+  ├ λ /browser-api/feedback                             
+  ├ λ /browser-api/github/issues                        
+  ├ λ /browser-api/hands/:hand_id                       
+  ├ λ /browser-api/leaderboard                          
+  ├ λ /browser-api/notifications                        
+  ├ λ /browser-api/notifications/:id/read               
+  ├ λ /browser-api/notifications/read-all               
+  ├ λ /browser-api/rivalries/compare                    
+  ├ λ /browser-api/rivals                               
+  ├ λ /browser-api/rivals/:username                     
+  ├ λ /browser-api/rivals/:username/history             
+  ├ λ /browser-api/runs/:runId/artifacts                
+  ├ λ /browser-api/runs/:runId/matchups                 
+  ├ λ /browser-api/runs/:runId/matchups/:matchupId/recap
+  ├ λ /browser-api/submissions/:submissionId/logs       
+  ├ ? /contribute                                       
+  ├ ? /feature-requests                                 
+  ├ ƒ /hands/:hand_id                                   
+  ├ ? /join                                             
+  ├ ? /leaderboard                                      
+  ├ ? /my-bot                                           
+  ├ ? /profile                                          
+  ├ ƒ /recaps/challenges/:id                            
+  ├ ƒ /recaps/runs/:run_id/matches/:matchup_id          
+  ├ ? /rivals                                           
+  ├ ? /training                                         
+  ├ λ /v1/leaderboard                                   
+  └ λ /v1/league                                        
+
+  λ API  ƒ Dynamic  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
+✔ server-renders the Alpha Poker landing page (100.707292ms)
+✔ the landing page prefers live server-rendered standings (2.258291ms)
+✔ orders hero, leaderboard, and instructions sections (26.41325ms)
+✔ features RiverRat as the current leader with one private league (19.068959ms)
+✔ renders the selected podium and keeps the hero to the first viewport (18.131542ms)
+✔ renders working account entry and hero links to real sections (17.904667ms)
+✔ bot record copy lives on /my-bot and pluralizes draws (0.323709ms)
+✔ instructions download the kit and hand the complete workflow to a coding agent (24.178375ms)
+✔ bot status and log downloads live on /my-bot, not the account dialog (0.348333ms)
+✔ the account dialog stays inside short viewports (0.571ms)
+✔ private-league registration makes the invite requirement visible (0.3385ms)
+✔ removes the starter preview scaffolding (0.435084ms)
+✔ leaderboard constrains untrusted names at the UI boundary (0.351208ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 249.139917
+✔ browser API proxy preserves Caddy's client address and safe user-agent context (3.221917ms)
+✔ /feature-requests renders the community header, hero, and offline-safe list (82.158792ms)
+✔ authenticated-only copy waits until the session check completes (0.44975ms)
+✔ unknown routes provide a useful path back to the arena (12.569458ms)
+✔ feature request tabs support Completed and old Planned links (67.34675ms)
+✔ feature request dates hydrate identically across server and browser time zones (113.349541ms)
+✔ /feature-requests never renders excluded community content (22.924625ms)
+✔ /contribute renders the hero, four-step guide, and offline-safe issues card (17.98225ms)
+✔ /contribute never shows decorative casino imagery or a Discord link (19.985084ms)
+✔ global feedback widget and account chip mount on every community page (77.843334ms)
+✔ account dialog clears private registration fields whenever it closes (0.466041ms)
+✔ status chip supports exactly the six-stage lifecycle (0.271417ms)
+✔ feedback accepts signed-out visitors and keeps optional username context (0.331917ms)
+✔ feedback draft survives a full route navigation and clears after a successful send (0.393667ms)
+✔ mobile disclosure links sit inside a Main nav landmark (0.298292ms)
+✔ only this repository's own issue URL is ever rendered as an href (0.505208ms)
+✔ the feature-request toolbar shares the list column and is usable at narrow widths (23.632625ms)
+✔ every interactive control on the community surfaces has a cobalt focus ring (44.45625ms)
+✔ the wordmark never wraps and the page clears the feedback FAB at 320px (43.264667ms)
+✔ posted-row scrolling and list skeletons respect reduced motion and real geometry (0.439833ms)
+✔ feature request cards expose compact previews and open a live detail view (0.506792ms)
+✔ feature request details use accessible desktop and modal mobile presentations (0.766917ms)
+✔ contribute skeleton rows mirror the issue rows they replace (0.317292ms)
+✔ step and rail icons are semantic and never duplicated (43.616834ms)
+✔ promotion and the GitHub token never reach a browser-facing route (1.897167ms)
+✔ header stays 72px and is sticky on home and community pages (59.014125ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 683.868083
+✔ Rivals keeps the browser contract and direct-challenge rules explicit (3.84525ms)
+✔ the rival overlay shows exactly one of loading, error, or detail (1.314584ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42.974042
+✔ dojo shares opponent surfaces and keeps leader training out of its cards (3.353042ms)
+✔ community navigation is signed-in-only and grouped in one menu (0.702542ms)
+✔ the app header uses the requested core-game order and real routes (0.813917ms)
+✔ every app surface tells the header which route it is on (0.401292ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43.379666
+✔ the dedicated leaderboard shows the top five and an out-of-cut viewer (2.995291ms)
+✔ Rivals no longer treats leaderboard as an internal tab (0.763167ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.5795
+✔ /my-bot is a real route, not a dialog (73.011625ms)
+✔ the empty state offers the starter kit and the agent instructions (0.373208ms)
+✔ the submitted state stays on facts /browser-api/account/status returns (0.324792ms)
+✔ the page renders exactly one of loading, signed-out, error, or bot (0.263708ms)
+✔ the starter kit filename and agent prompt have a single definition (0.273666ms)
+✔ the shared agent prompt opens with a choice-driven rookie experience (0.283667ms)
+✔ onboarding advertises visual recaps and preserves student strategy decisions (0.374458ms)
+✔ the copy control reports both success and failure (0.295083ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 115.382
+✔ hand replay return link preserves an exact result recap (1.940875ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 41.335334
+✔ both stable recap routes server-render loading and the real navigation shell (78.2565ms)
+✔ discovery links use stable exact challenge and pairing IDs (0.982084ms)
+✔ recap playback uses recorded actor/payment metadata and isolated step presentations (1.996291ms)
+✔ highlight heading and all controls are above or beside the table, without duplicate controls (1.042916ms)
+✔ recorded winner, loss, split, unknown and action states render honest gold accents (68.497459ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 391.9465
+✔ compose exposes only Caddy and persists application data (0.531833ms)
+✔ Caddy sends API and training WebSocket traffic to FastAPI (0.159541ms)
+✔ AWS hosting keeps the fallback URL while serving the Route 53 domain (0.123084ms)
+✔ operations scripts are executable and valid POSIX shell (40.396917ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80.412083
+
+> alpha-poker@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .wrangler
+
+
+/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/app/components/AuthButton.tsx
+  2:1  warning  Unused eslint-disable directive (no problems were reported from '@next/next/no-location-assign-relative-destination')
+
+/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/app/components/characters/ProfileWorkspace.tsx
+  2:1  warning  Unused eslint-disable directive (no problems were reported from '@next/next/no-location-assign-relative-destination')
+
+✖ 2 problems (0 errors, 2 warnings)
+  0 errors and 2 warnings potentially fixable with the `--fix` option.
+
+
+> alpha-poker@0.1.0 test:server
+> PYTHONPATH=server:cli server/.venv/bin/pytest -q server/tests
+
+........................................................................ [ 28%]
+........................................................................ [ 57%]
+........................................................................ [ 86%]
+...................................                                      [100%]
+=============================== warnings summary ===============================
+server/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+server/.venv/lib/python3.13/site-packages/starlette/testclient.py:53
+  /Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/.venv/lib/python3.13/site-packages/starlette/testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+251 passed, 2 warnings in 47.03s
+
+> alpha-poker@0.1.0 test:cli
+> PYTHONPATH=cli python3 -m unittest discover -s cli/tests -v
+
+test_browser_login_polls_and_saves_without_password_or_token_output (test_browser_login.BrowserLoginTests.test_browser_login_polls_and_saves_without_password_or_token_output) ... ok
+test_timeout_does_not_save_credentials (test_browser_login.BrowserLoginTests.test_timeout_does_not_save_credentials) ... ok
+test_unsafe_remote_http_is_rejected (test_browser_login.BrowserLoginTests.test_unsafe_remote_http_is_rejected) ... ok
+test_credentials_are_scoped_by_api_and_written_private (test_cli.CliTests.test_credentials_are_scoped_by_api_and_written_private) ... ok
+test_credentials_honor_xdg_config_home_for_isolated_sessions (test_cli.CliTests.test_credentials_honor_xdg_config_home_for_isolated_sessions) ... ok
+test_http_timeout_becomes_a_clear_cli_error (test_cli.CliTests.test_http_timeout_becomes_a_clear_cli_error) ... ok
+test_login_without_an_interactive_terminal_has_a_clear_error (test_cli.CliTests.test_login_without_an_interactive_terminal_has_a_clear_error) ... ok
+test_logs_downloads_validation_and_official_artifacts (test_cli.CliTests.test_logs_downloads_validation_and_official_artifacts) ... ok
+test_register_flag_avoids_invite_prompt_for_automation (test_cli.CliTests.test_register_flag_avoids_invite_prompt_for_automation) ... ok
+test_register_prompts_for_password_and_secure_invite_then_stores_session (test_cli.CliTests.test_register_prompts_for_password_and_secure_invite_then_stores_session) ... ok
+test_starter_kit_bundles_cli_and_agent_workflow (test_cli.CliTests.test_starter_kit_bundles_cli_and_agent_workflow) ... ok
+test_status_prints_waiting_state_and_latest_result (test_cli.CliTests.test_status_prints_waiting_state_and_latest_result) ... ok
+test_submission_waits_for_validation_to_finish (test_cli.CliTests.test_submission_waits_for_validation_to_finish) ... ok
+test_submission_zip_is_deterministic_and_minimal (test_cli.CliTests.test_submission_zip_is_deterministic_and_minimal) ... ok
+test_submit_posts_multipart_package (test_cli.CliTests.test_submit_posts_multipart_package) ... ok
+test_train_accepts_an_output_directory (test_cli.CliTests.test_train_accepts_an_output_directory) ... ok
+test_train_handles_action_and_downloads_logs (test_cli.CliTests.test_train_handles_action_and_downloads_logs) ... ok
+test_train_reconnects_from_the_last_received_sequence (test_cli.CliTests.test_train_reconnects_from_the_last_received_sequence) ... ok
+test_training_connection_timeout_is_wrapped_after_retries (test_cli.CliTests.test_training_connection_timeout_is_wrapped_after_retries) ... ok
+test_validate_accepts_contract_compliant_bot (test_cli.CliTests.test_validate_accepts_contract_compliant_bot) ... ok
+test_validate_rejects_illegal_action (test_cli.CliTests.test_validate_rejects_illegal_action) ... ok
+test_validate_uses_restricted_runner_and_friendly_output (test_cli.CliTests.test_validate_uses_restricted_runner_and_friendly_output) ... ok
+test_validate_verbose_explains_remote_recheck (test_cli.CliTests.test_validate_verbose_explains_remote_recheck) ... ok
+test_bot_errors_are_retained_and_never_qualify (test_dojo.DojoTests.test_bot_errors_are_retained_and_never_qualify) ... ok
+test_existing_evidence_is_not_overwritten (test_dojo.DojoTests.test_existing_evidence_is_not_overwritten) ... ok
+test_invalid_counts_do_not_launch_student (test_dojo.DojoTests.test_invalid_counts_do_not_launch_student) ... ok
+test_local_list_never_needs_network (test_dojo.DojoTests.test_local_list_never_needs_network) ... ok
+test_offline_match_is_mirrored_and_uses_same_recap (test_dojo.DojoTests.test_offline_match_is_mirrored_and_uses_same_recap) ... ok
+test_parser_preserves_leader_and_accepts_packaged_choices (test_dojo.DojoTests.test_parser_preserves_leader_and_accepts_packaged_choices) ... ok
+test_duplicate_legs_use_separate_student_memory_and_randomness (test_dojo.DojoVersionAndIsolationTests.test_duplicate_legs_use_separate_student_memory_and_randomness) ... ok
+test_status_keeps_legacy_pebble_but_requires_current_summit (test_dojo.DojoVersionAndIsolationTests.test_status_keeps_legacy_pebble_but_requires_current_summit) ... ok
+test_archive_limit_and_no_path_extraction (test_local_recap.LocalRecapTests.test_archive_limit_and_no_path_extraction) ... ok
+test_cli_recap_needs_no_identity_or_network (test_local_recap.LocalRecapTests.test_cli_recap_needs_no_identity_or_network) ... ok
+test_idle_browser_connection_does_not_block_requests (test_local_recap.LocalRecapTests.test_idle_browser_connection_does_not_block_requests) ... ok
+test_latest_is_explicit_and_private (test_local_recap.LocalRecapTests.test_latest_is_explicit_and_private) ... ok
+test_loopback_server_only_exposes_allowed_evidence_and_assets (test_local_recap.LocalRecapTests.test_loopback_server_only_exposes_allowed_evidence_and_assets) ... ok
+test_malformed_saved_json_fails_before_browser (test_local_recap.LocalRecapTests.test_malformed_saved_json_fails_before_browser) ... ok
+test_matches_and_games_do_not_mix (test_local_recap.LocalRecapTests.test_matches_and_games_do_not_mix) ... ok
+test_partial_and_incomplete_evidence_is_explicit (test_local_recap.LocalRecapTests.test_partial_and_incomplete_evidence_is_explicit) ... ok
+test_rejects_empty_duplicate_and_unsupported (test_local_recap.LocalRecapTests.test_rejects_empty_duplicate_and_unsupported) ... ok
+test_saved_recap_json (test_local_recap.LocalRecapTests.test_saved_recap_json) ... ok
+test_train_recap_opens_saved_output_and_tracks_latest (test_local_recap.LocalRecapTests.test_train_recap_opens_saved_output_and_tracks_latest) ... ok
+test_training_evidence_and_shared_viewer_payload (test_local_recap.LocalRecapTests.test_training_evidence_and_shared_viewer_payload) ... ok
+test_direct_json_includes_url_without_changing_evidence (test_recaps_cli.RecapsCliTests.test_direct_json_includes_url_without_changing_evidence) ... ok
+test_direct_recap_prints_or_opens_same_site_component_without_token (test_recaps_cli.RecapsCliTests.test_direct_recap_prints_or_opens_same_site_component_without_token) ... ok
+test_invalid_origins_and_browser_failure_are_clear (test_recaps_cli.RecapsCliTests.test_invalid_origins_and_browser_failure_are_clear) ... ok
+test_local_and_environment_origin_defaults (test_recaps_cli.RecapsCliTests.test_local_and_environment_origin_defaults) ... ok
+test_not_ready_does_not_launch_a_browser (test_recaps_cli.RecapsCliTests.test_not_ready_does_not_launch_a_browser) ... ok
+test_pairing_discovery_and_exact_run_match_route (test_recaps_cli.RecapsCliTests.test_pairing_discovery_and_exact_run_match_route) ... ok
+test_accept_fetches_preview_then_uses_idempotency_key (test_rivals_cli.RivalsCliTests.test_accept_fetches_preview_then_uses_idempotency_key) ... ok
+test_agent_completed_score_is_winner_first_for_loser (test_rivals_cli.RivalsCliTests.test_agent_completed_score_is_winner_first_for_loser) ... ok
+test_agent_format_emits_compact_stable_facts (test_rivals_cli.RivalsCliTests.test_agent_format_emits_compact_stable_facts) ... ok
+test_challenge_reviews_fixed_format_and_sends_idempotency_key (test_rivals_cli.RivalsCliTests.test_challenge_reviews_fixed_format_and_sends_idempotency_key) ... ok
+test_completed_recap_contract_names_download_for_challenge (test_rivals_cli.RivalsCliTests.test_completed_recap_contract_names_download_for_challenge) ... ok
+test_draw_notification_has_plain_language_copy (test_rivals_cli.RivalsCliTests.test_draw_notification_has_plain_language_copy) ... ok
+test_every_network_rivals_leaf_accepts_json_and_api_url (test_rivals_cli.RivalsCliTests.test_every_network_rivals_leaf_accepts_json_and_api_url) ... ok
+test_http_errors_redact_the_session_token (test_rivals_cli.RivalsCliTests.test_http_errors_redact_the_session_token) ... ok
+test_human_completed_status_uses_winner_and_loser_score_for_recipient (test_rivals_cli.RivalsCliTests.test_human_completed_status_uses_winner_and_loser_score_for_recipient) ... ok
+test_human_recap_names_viewer_loss_and_winner_first_score (test_rivals_cli.RivalsCliTests.test_human_recap_names_viewer_loss_and_winner_first_score) ... ok
+test_list_encodes_filters_and_emits_stable_json_object (test_rivals_cli.RivalsCliTests.test_list_encodes_filters_and_emits_stable_json_object) ... ok
+test_mutation_without_yes_fails_closed_when_noninteractive (test_rivals_cli.RivalsCliTests.test_mutation_without_yes_fails_closed_when_noninteractive) ... ok
+test_notification_messages_are_derived_from_snapshot_payload (test_rivals_cli.RivalsCliTests.test_notification_messages_are_derived_from_snapshot_payload) ... ok
+test_notifications_list_and_read (test_rivals_cli.RivalsCliTests.test_notifications_list_and_read) ... ok
+test_recap_downloads_artifact_without_printing_token (test_rivals_cli.RivalsCliTests.test_recap_downloads_artifact_without_printing_token) ... ok
+test_show_agent_format_emits_stable_key_value_facts (test_rivals_cli.RivalsCliTests.test_show_agent_format_emits_stable_key_value_facts) ... ok
+test_show_has_short_human_summary (test_rivals_cli.RivalsCliTests.test_show_has_short_human_summary) ... ok
+test_status_wait_json_is_exactly_one_stdout_object (test_rivals_cli.RivalsCliTests.test_status_wait_json_is_exactly_one_stdout_object) ... ok
+test_status_wait_polls_until_terminal_and_progress_goes_to_stderr (test_rivals_cli.RivalsCliTests.test_status_wait_polls_until_terminal_and_progress_goes_to_stderr) ... ok
+test_status_wait_requires_an_id (test_rivals_cli.RivalsCliTests.test_status_wait_requires_an_id) ... ok
+test_status_wait_timeout_exits_cleanly_and_says_how_to_check_later (test_rivals_cli.RivalsCliTests.test_status_wait_timeout_exits_cleanly_and_says_how_to_check_later) ... Challenge ch_123: running
+ok
+test_status_wait_timeout_names_pending_state (test_rivals_cli.RivalsCliTests.test_status_wait_timeout_names_pending_state) ... Challenge ch_123: pending
+ok
+
+----------------------------------------------------------------------
+Ran 71 tests in 2.554s
+
+OK
+Downloaded: /private/var/folders/92/j4m4b1xj0_7c7wvy36lh7_480000gn/T/tmpqhiiwl83/sub_one-validation.txt
+Downloaded: /private/var/folders/92/j4m4b1xj0_7c7wvy36lh7_480000gn/T/tmpqhiiwl83/run_one-official-logs.zip
+Logged in as maya
+/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/public/alpha-poker-starter.zip
+{"evidence": "/var/folders/92/j4m4b1xj0_7c7wvy36lh7_480000gn/T/alpha-local-recap-qa-tuwzy2aj", "viewer": "[local viewer URL]", "training_hands": 12, "match_groups": 2, "standalone_kit": "passed"}
+
+> alpha-poker@0.1.0 postqa
+> PYTHONPATH=server:cli server/.venv/bin/python qa/dojo_smoke.py
+
+{"evidence": "/var/folders/92/j4m4b1xj0_7c7wvy36lh7_480000gn/T/alpha-dojo-smoke-7jwxlnh2", "viewer": "[local viewer URL]", "offline_opponents": 5, "mirrored_hands": 200, "account_sync": "passed", "kit_isolated": true}

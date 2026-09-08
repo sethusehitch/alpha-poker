@@ -20,7 +20,7 @@ work = Path(tempfile.mkdtemp(prefix="alpha-dojo-smoke-"))
 kit = work/'kit'
 with zipfile.ZipFile(root/'public/alpha-poker-starter.zip') as archive:
     public_engine = {name.removeprefix('cli/alpha_poker_cli/dojo_engine/') for name in archive.namelist() if '/dojo_engine/' in name}
-    assert public_engine == {'__init__.py','engine.py','evaluator.py','dojo.py','dojo_catalog.json'}
+    assert public_engine == {'__init__.py','engine.py','evaluator.py','dojo.py','summit_policy.py','dojo_catalog.json'}
     assert not any('/submissions/' in n or '/uploads/' in n for n in archive.namelist())
     archive.extractall(kit)
 # Deliberately simple test strategy chosen to beat the first check/fold bot.

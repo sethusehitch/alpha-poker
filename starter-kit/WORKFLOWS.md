@@ -106,6 +106,9 @@ When the participant chooses Train (including Practice in the beginner path),
 run `alpha-poker dojo list --json --api-url https://alphapoker.io/v1`.
 Show a compact table: opponent, difficulty, rating, and local or hosted.
 The five packaged opponents are Pebble, Spark, Anchor, Mirage, and Summit.
+Summit reads betting patterns, compares bet sizes, and weighs risk. Opponent
+versions are tracked individually: updating Summit does not erase progress
+against the other four bots.
 Their **Dojo Elo** is measured in a separate practice pool, not comparable to
 public league Elo. All five are unlocked. Use `dojo status --json` to suggest
 the first not beaten locally, but let the participant choose any opponent.
@@ -130,6 +133,9 @@ attempt to download, extract, or distribute another player's bot code.
 Neither training path changes public Elo. Both save evidence for the same
 local recap viewer. Offer highlights after the result, or open them immediately
 if the participant already asked to watch. Do not improve strategy automatically.
+
+The two mirrored copies use separate bot processes and opponent memory, with
+strategy randomness independent of the deals.
 
 A local "beaten" checkmark requires at least 200 mirrored hands, positive net
 play chips, and no bot errors. It means **self-reported local practice**, not a

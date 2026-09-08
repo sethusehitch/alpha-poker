@@ -3,9 +3,16 @@ import json
 from pathlib import Path
 import random
 from .evaluator import evaluate, RANKS, SUITS
+from .summit_policy import decide as summit_decide
 
 VERSION = "dojo-v1"
 IDS = ("pebble", "spark", "anchor", "mirage", "summit")
+
+def opponent_version(opponent):
+    if opponent not in IDS:
+        raise ValueError("Unknown dojo opponent")
+    return "summit-v2" if opponent == "summit" else VERSION
+
 
 def catalog():
     return json.loads(Path(__file__).with_name("dojo_catalog.json").read_text())
@@ -32,8 +39,11 @@ class PackagedBot:
         if opponent not in IDS:
             raise ValueError("Unknown dojo opponent")
         self.opponent = opponent
+        self._memory = {}
 
     def decide(self, state):
+        if self.opponent == "summit":
+            return summit_decide(state, memory=self._memory)
         legal = state["legal_actions"]
         check = {"action": "check" if "check" in legal else "fold"}
         call = {"action": "check" if "check" in legal else "call"}

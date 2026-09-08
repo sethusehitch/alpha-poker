@@ -3,7 +3,7 @@ import json
 from typing import Literal
 from fastapi import Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from alpha_poker.dojo import VERSION, IDS, catalog
+from alpha_poker.dojo import VERSION, IDS, catalog, opponent_version
 from .auth import authenticate_token
 from .db import now_iso
 
@@ -51,15 +51,15 @@ def register_dojo_routes(app, db):
     @app.get("/v1/dojo/progress")
     def progress(authorization: str | None = Header(None)):
         username = owner(authorization)
-        rows = db.all("SELECT opponent,MAX(qualified) AS beaten,COUNT(*) AS runs FROM dojo_results "
-            "WHERE username=? AND opponent_version=? GROUP BY opponent", (username, VERSION))
-        saved = {row["opponent"]: {"beaten": bool(row["beaten"]), "runs": row["runs"]} for row in rows}
-        return {"version": VERSION, "verification": "self_reported", "progress": {bot: saved.get(bot, {"beaten": False, "runs": 0}) for bot in IDS}}
+        rows = db.all("SELECT opponent,opponent_version,MAX(qualified) AS beaten,COUNT(*) AS runs FROM dojo_results "
+            "WHERE username=? GROUP BY opponent,opponent_version", (username,))
+        saved = {row["opponent"]: {"beaten": bool(row["beaten"]), "runs": row["runs"]} for row in rows if row["opponent"] in IDS and row["opponent_version"] == opponent_version(row["opponent"])}
+        return {"version": catalog()["version"], "verification": "self_reported", "progress": {bot: saved.get(bot, {"beaten": False, "runs": 0}) for bot in IDS}}
 
     @app.post("/v1/dojo/results")
     def record(body: LocalResult, authorization: str | None = Header(None)):
         username = owner(authorization)
-        if body.opponent_version != VERSION:
+        if body.opponent_version != opponent_version(body.opponent):
             raise HTTPException(409, "This dojo version is retired. Update the starter kit and run the current opponent.")
         payload = json.dumps(body.model_dump(), sort_keys=True)
         qualified = body.hands_played >= 200 and body.net_chips > 0 and body.bot_errors == 0
@@ -72,5 +72,5 @@ def register_dojo_routes(app, db):
                 total = conn.execute("SELECT COUNT(*) FROM dojo_results WHERE username=?", (username,)).fetchone()[0]
                 if total >= 10000:
                     raise HTTPException(429, "Practice history limit reached. Local training and recaps remain available.")
-                conn.execute("INSERT INTO dojo_results VALUES(?,?,?,?,?,?,?)", (username, body.run_id, body.opponent, VERSION, payload, int(qualified), now_iso()))
+                conn.execute("INSERT INTO dojo_results VALUES(?,?,?,?,?,?,?)", (username, body.run_id, body.opponent, body.opponent_version, payload, int(qualified), now_iso()))
         return {"run_id": body.run_id, "opponent": body.opponent, "beaten": qualified, "verification": "self_reported", "public_elo_changed": False}

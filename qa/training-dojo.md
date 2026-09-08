@@ -1,3 +1,7 @@
+> Historical implementation record. The current Summit v2 and calibration are
+> documented in `summit-research-2026-09-08/README.md` and `dojo-calibration.json`.
+> The original v1 rating report is preserved as `dojo-calibration-v1.json`.
+
 # Training Dojo: local review
 
 Branch: `codex/training-dojo`, based on main `2ed9676`. Not merged or published.

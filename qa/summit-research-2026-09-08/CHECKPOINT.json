@@ -1,5 +1,6 @@
 {
-  "status": "development_not_accepted",
+  "status": "complete_local_only",
+  "selected": "v27",
   "full_evidence": "/Users/sethsaperstein/Documents/AlphaSchool/summit-strengthening-2026-09-08",
   "candidates": [
     {
@@ -327,17 +328,158 @@
     {
       "version": "v26",
       "source_sha256": "ccc781d09a4b3eaef1b91ba8ac21643d8d0d745b031acdf81bf7c4c797cb8b70",
-      "development_status": "in progress or not run"
+      "development_status": "not evaluated on this schedule",
+      "acceptance": {
+        "mirage_gate_passed": false,
+        "batches": [
+          {
+            "elapsed_seconds": 36.009537792007904,
+            "hands": 2107,
+            "games": 77,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 19,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          },
+          {
+            "elapsed_seconds": 38.605539541022154,
+            "hands": 2227,
+            "games": 78,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 16,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          }
+        ],
+        "source_manifest_sha256": "7a7c326f3f23472b8ae3def9c5c3a2cf61310b3047485a850b6079c7a64a9284"
+      }
     },
     {
       "version": "v27",
       "source_sha256": "cda885295952950167ab0ae770a5611598f598b56c0d7a776e659515c7f0fb56",
-      "development_status": "in progress or not run"
+      "development_status": "not evaluated on this schedule",
+      "acceptance": {
+        "mirage_gate_passed": true,
+        "batches": [
+          {
+            "elapsed_seconds": 28.100870291993488,
+            "hands": 1686,
+            "games": 75,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 18,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          },
+          {
+            "elapsed_seconds": 28.332596125022974,
+            "hands": 1873,
+            "games": 76,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 18,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          }
+        ],
+        "source_manifest_sha256": "05b1b49004d8fbf4809904c959dc0b3d59d2c19710af17ce727515124c153194"
+      }
     },
     {
       "version": "v28",
       "source_sha256": "81647a3ef56adaee55b9ab9179e00ca3bb8883d5e4f8cb5ab98379d839f8c05e",
-      "development_status": "in progress or not run"
+      "development": [
+        {
+          "candidate": "v28",
+          "opponent": "mirage",
+          "wins": 16,
+          "series": 20,
+          "game_wins": 54,
+          "games": 72,
+          "errors": 0
+        },
+        {
+          "candidate": "v28",
+          "opponent": "spark",
+          "wins": 16,
+          "series": 20,
+          "game_wins": 54,
+          "games": 81,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v29",
+      "source_sha256": "efa48e95f6483fba11b88ed70bfb9065613f067f40003e40fb16dd2d919d4ba5",
+      "development_status": "not evaluated on this schedule"
+    },
+    {
+      "version": "v30",
+      "source_sha256": "41f652a84e93d44440f5b083741e9639cb0b504d02d7408041de24e7f385e8a0",
+      "development": [
+        {
+          "candidate": "v30",
+          "opponent": "mirage",
+          "wins": 15,
+          "series": 20,
+          "game_wins": 52,
+          "games": 81,
+          "errors": 0
+        },
+        {
+          "candidate": "v30",
+          "opponent": "spark",
+          "wins": 19,
+          "series": 20,
+          "game_wins": 59,
+          "games": 75,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v31",
+      "source_sha256": "bf80aac54a6567805a9e363c9c2cb6ef1d4b4138b6ca139e7a776297cd5d5a62",
+      "development": [
+        {
+          "candidate": "v31",
+          "opponent": "mirage",
+          "wins": 18,
+          "series": 20,
+          "game_wins": 57,
+          "games": 79,
+          "errors": 0
+        },
+        {
+          "candidate": "v31",
+          "opponent": "spark",
+          "wins": 20,
+          "series": 20,
+          "game_wins": 60,
+          "games": 72,
+          "errors": 0
+        }
+      ]
     }
-  ]
+  ],
+  "opponent_version": "summit-v2"
 }

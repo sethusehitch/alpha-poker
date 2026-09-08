@@ -6,6 +6,8 @@
 packaged opponents and a separate live leader row. `--offline` skips the lookup.
 Use `alpha-poker train . --opponent pebble --hands 200 --recap` for local play and
 the shared recap viewer. Other local IDs: `spark`, `anchor`, `mirage`, `summit`.
+Mirrored copies have separate bot memory. Progress is tracked per opponent
+version, so a new Summit does not reset wins against the other opponents.
 All are unlocked; Dojo Elo is preliminary, measured in a separate rating pool.
 Dojo matches accept even counts from 2 to 400 and mirror the cards/seats.
 No login, internet, upload, or running API is needed for dojo training.

@@ -1,3 +1,11 @@
+# Current continuation
+
+Summit v27 has passed the tournament acceptance gates and is integrated locally
+as `summit-v2`. The 40,000-hand local rating calibration and full application/CLI/recap QA passed.
+The goal is complete locally; no deployment occurred. See
+`qa/summit-research-2026-09-08/README.md` for the continuation evidence.
+The remainder of this file is the original recovery snapshot.
+
 # Dojo recovery, September 8, 2026
 
 Recovered from the interrupted Codex task **Poker Site Ideas**

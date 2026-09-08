@@ -38,7 +38,7 @@ function OpponentDrawer({ bot, beaten, onClose }: { bot: Bot; beaten: boolean; o
       <button onClick={onClose} aria-label="Close opponent" className="absolute right-5 top-4 rounded p-2 text-2xl text-zinc-500 focus-visible:outline-blue-600">×</button>
       <div className="overflow-y-auto pt-8">
         <div className="text-center"><DojoPortrait bot={bot} className="h-40 w-40" /><h2 id="dojo-opponent-title" className="mt-5 text-3xl font-bold">{bot.name}</h2>
-          <p className="mt-2 text-lg text-zinc-600">{bot.rating.toLocaleString()} Dojo Elo</p>
+          <p className="mt-2 text-lg text-zinc-600">{bot.rating == null ? "Rating pending" : `${bot.rating == null ? "Pending" : bot.rating.toLocaleString()} Dojo Elo`}</p>
           <p className="mt-3 text-sm font-semibold text-blue-700">{bot.difficulty}</p></div>
         <p className="mt-8 border-t border-zinc-100 pt-6 text-base leading-relaxed text-zinc-600">{bot.description}</p>
         <p className="mt-6 text-sm font-semibold text-zinc-600">{beaten ? "✓ Beaten locally" : "Not beaten yet"}</p>
@@ -95,7 +95,7 @@ export function DojoWorkspace() {
           <DojoPortrait bot={bot} className="h-28 w-28" />
           <div className="min-w-0 pt-2">
             <h2 className="text-xl font-bold">{bot.name}</h2>
-            <p className="mt-3 text-xl font-bold">{bot.rating.toLocaleString()}</p>
+            <p className="mt-3 text-xl font-bold">{bot.rating == null ? "Pending" : bot.rating.toLocaleString()}</p>
             <p className="text-sm text-zinc-500">Dojo Elo</p>
             <p className="mt-3 text-sm font-semibold text-blue-700">{bot.difficulty}</p>
           </div>

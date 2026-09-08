@@ -6,7 +6,7 @@ const target = resolve(root, "cli/alpha_poker_cli/_recap");
 const dojo = resolve(root, "cli/alpha_poker_cli/dojo_engine");
 await mkdir(dojo, {recursive: true});
 await writeFile(resolve(dojo, "__init__.py"), "# Generated from public engine and dojo source.\n");
-for (const name of ["engine.py", "evaluator.py", "dojo.py", "dojo_catalog.json"]) {
+for (const name of ["engine.py", "evaluator.py", "dojo.py", "summit_policy.py", "dojo_catalog.json"]) {
   await copyFile(resolve(root, `server/alpha_poker/${name}`), resolve(dojo, name));
 }
 await mkdir(target, {recursive: true});

@@ -85,3 +85,48 @@ def test_catalog_has_exactly_five_public_strategies():
         assert sorted(ids, key=report[run]['ratings'].get) == ids
         assert sum(row['errors'] for row in report[run]['matchups']) == 0
     assert {b['id']:b['rating'] for b in catalog()['bots']} == report['calibration']['ratings']
+
+
+def test_summit_version_does_not_retire_other_opponents(client):
+    from alpha_poker.dojo import opponent_version
+    headers = login(client, 'dojo-per-opponent')
+    assert client.post('/v1/dojo/results', json=payload(), headers=headers).status_code == 200
+    old = {**payload(), 'run_id': 'dojo_'+'b'*24, 'opponent': 'summit'}
+    client.app.state.db.execute('INSERT INTO dojo_results VALUES(?,?,?,?,?,?,?)',
+        ('dojo-per-opponent', old['run_id'], 'summit', VERSION, '{}', 1, '2026-09-08'))
+    assert client.post('/v1/dojo/results', json=old, headers=headers).status_code == 409
+    progress = client.get('/v1/dojo/progress', headers=headers).json()['progress']
+    assert progress['pebble'] == {'beaten': True, 'runs': 1}
+    assert progress['summit'] == {'beaten': False, 'runs': 0}
+    current = {**old, 'run_id': 'dojo_'+'c'*24, 'opponent_version': opponent_version('summit')}
+    assert client.post('/v1/dojo/results', json=current, headers=headers).status_code == 200
+    progress = client.get('/v1/dojo/progress', headers=headers).json()['progress']
+    assert progress['summit'] == {'beaten': True, 'runs': 1}
+    assert client.app.state.db.one('SELECT COUNT(*) AS n FROM dojo_results WHERE username=?',
+        ('dojo-per-opponent',))['n'] == 3
+
+
+def test_packaged_summit_instances_have_separate_memory(monkeypatch):
+    import alpha_poker.dojo as module
+    def record(state, memory):
+        memory['calls'] = memory.get('calls', 0) + 1
+        return {'action': 'check'}
+    monkeypatch.setattr(module, 'summit_decide', record)
+    first, second = module.PackagedBot('summit'), module.PackagedBot('summit')
+    first.decide({})
+    second.decide({})
+    first.decide({})
+    assert first._memory == {'calls': 2}
+    assert second._memory == {'calls': 1}
+
+
+def test_generated_dojo_sources_match_server_and_starter():
+    from pathlib import Path
+    import zipfile
+    root = Path(__file__).resolve().parents[2]
+    names = ['engine.py', 'evaluator.py', 'dojo.py', 'summit_policy.py', 'dojo_catalog.json']
+    with zipfile.ZipFile(root/'public/alpha-poker-starter.zip') as archive:
+        for name in names:
+            expected = (root/'server/alpha_poker'/name).read_bytes()
+            assert (root/'cli/alpha_poker_cli/dojo_engine'/name).read_bytes() == expected
+            assert archive.read('cli/alpha_poker_cli/dojo_engine/'+name) == expected

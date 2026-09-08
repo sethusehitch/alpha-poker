@@ -1,0 +1,66 @@
+{
+  "candidate": "/Users/sethsaperstein/Documents/AlphaSchool/summit-strengthening-2026-09-08/acceptance-v27/candidate",
+  "errors": [],
+  "coverage": {
+    "preflop": 826,
+    "big_blind_100": 163,
+    "unequal_remaining_stacks": 907,
+    "pot_capped_raise": 337,
+    "flop": 62,
+    "turn": 54,
+    "river": 54,
+    "all_in_available": 659,
+    "effective_stack_capped_raise": 506,
+    "history_50_plus": 506,
+    "no_raise": 153,
+    "short_call": 16,
+    "big_blind_200": 97,
+    "big_blind_400": 75,
+    "big_blind_800": 81,
+    "big_blind_1600": 27,
+    "big_blind_3200": 27,
+    "big_blind_6400": 26,
+    "big_blind_20": 500
+  },
+  "limitations": [
+    "Scripted states exercise the contract, not the candidate policy distribution or strength.",
+    "Static fair-play inventory requires manual source review.",
+    "Timing is local observed wall time, not a universal worst-case bound."
+  ],
+  "members": [
+    "bot.py",
+    "bot.json"
+  ],
+  "source_manifest_sha256": "05b1b49004d8fbf4809904c959dc0b3d59d2c19710af17ce727515124c153194",
+  "source_bytes": 11024,
+  "source_audit": {
+    "imports": [
+      "bisect",
+      "math",
+      "random"
+    ],
+    "calls_for_manual_review": [],
+    "manual_checklist": [
+      "Only supplied own cards, visible board, legal bounds and public action history inform strategy.",
+      "No deck/deal reconstruction from RNG, match/hand identifiers, environment or timing.",
+      "No opponent-name branches, withheld seed tables, engine imports or external I/O.",
+      "Memory resets per series, and only public observations enter it.",
+      "Preserve full Treys MIT notice and provenance when evaluator code is present.",
+      "Inspect all new imports and dynamic access; this AST inventory is not a security proof."
+    ]
+  },
+  "package_validation": {
+    "accepted": true,
+    "logs": "Archive safety checks passed.\nManifest parsed.\nbot.py found.\nSmoke decision passed.\nIsolated smoke validation complete. Package accepted.\n",
+    "error": null
+  },
+  "missing_required_coverage": [],
+  "timing_ms": {
+    "decisions": 996,
+    "median": 15.741416500532068,
+    "p99": 27.835999993840232,
+    "maximum": 28.73387499130331,
+    "portable_deadline": 220
+  },
+  "passed": true
+}

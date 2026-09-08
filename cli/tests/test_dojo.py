@@ -71,3 +71,38 @@ class DojoTests(unittest.TestCase):
         with patch.object(main, '_http_json', side_effect=AssertionError('network')), contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(main.main(['dojo','list','--offline','--json']), 0)
         self.assertEqual(len(json.loads(output.getvalue())['bots']), 5)
+
+
+class DojoVersionAndIsolationTests(unittest.TestCase):
+    setUp = DojoTests.setUp
+
+    def test_duplicate_legs_use_separate_student_memory_and_randomness(self):
+        import random
+        (self.root/'bot.py').write_text("seat = None\ndef decide(s):\n    global seat\n    if seat is not None and seat != s['seat']: raise RuntimeError('cross-leg memory')\n    seat = s['seat']\n    return {'action':'check' if 'check' in s['legal_actions'] else 'call'}\n")
+        calls=[]
+        original=dojo.play_hand
+        def play(*args, **kwargs):
+            calls.append((kwargs['seed'],kwargs['bot_random_seeds']))
+            return original(*args,**kwargs)
+        with patch.object(dojo.secrets,'randbelow',return_value=123), patch.object(dojo.secrets,'randbits',return_value=456), patch.object(dojo,'play_hand',side_effect=play), contextlib.redirect_stdout(io.StringIO()):
+            path=dojo.run(self.root,'pebble',2,self.root/'isolated.zip')
+        with zipfile.ZipFile(path) as archive:
+            summary=json.loads(archive.read('summary.json'))
+        self.assertEqual(summary['bot_errors'],0)
+        self.assertEqual(summary['mirrored_memory'],'isolated_legs')
+        self.assertEqual(summary['strategy_seed'],456)
+        rng=random.Random(456)
+        self.assertEqual(calls,[(123,(rng.getrandbits(64),rng.getrandbits(64))) for _ in range(2)])
+
+    def test_status_keeps_legacy_pebble_but_requires_current_summit(self):
+        dojo.save_result({'run_id':'old-pebble','opponent':'pebble','opponent_version':'dojo-v1','qualified':True})
+        dojo.save_result({'run_id':'old-summit','opponent':'summit','opponent_version':'dojo-v1','qualified':True})
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(main.main(['dojo','status','--json']),0)
+        progress=json.loads(output.getvalue())['progress']
+        self.assertTrue(progress['pebble'])
+        self.assertFalse(progress['summit'])
+        dojo.save_result({'run_id':'new-summit','opponent':'summit','opponent_version':dojo.opponent_version('summit'),'qualified':True})
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(main.main(['dojo','status','--json']),0)
+        self.assertTrue(json.loads(output.getvalue())['progress']['summit'])

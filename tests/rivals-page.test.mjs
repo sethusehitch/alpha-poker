@@ -175,8 +175,8 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(handReplay, /eventLabel/);
   assert.doesNotMatch(handReplay, /event\.type\.replaceAll/);
   assert.match(handReplay, /Sign in to view this replay/);
-  assert.match(workspace, /hand\.winner \? \(/);
-  assert.match(workspace, /hand\.outcome === "Split pot" \? "split pot" : "result unavailable"/);
+  assert.doesNotMatch(workspace, /function RecapDrawer|<RecapDrawer|Match recap/);
+  assert.match(workspace, /rival-recap-button/);
   assert.match(handProxy, /hands\/\$\{encodeURIComponent\(hand_id\)\}/);
 });
 

@@ -173,24 +173,18 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     setVisit(value => value + 1);
     setIntro(true);
   }
-  const back = data.challenge ? `/rivals?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.players[1])}&result=${encodeURIComponent(data.challenge.challenge_id)}` : "/leaderboard";
+  const back = data.challenge ? `/rivals?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.players[1])}` : "/leaderboard";
   if (!hand) return <main className="recap-message"><a href={back}>← Back to results</a><section><h1>No retained hands</h1><p>The match completed, but detailed hand records are no longer available. Check the match artifact if one was saved.</p></section></main>;
   const step = hand.steps[stepIndex] ?? hand.steps[hand.steps.length - 1];
   const bottom = hand.players.find(p => p.is_viewer) ?? hand.players[0];
   const top = hand.players.find(p => p.seat !== bottom.seat)!;
-  const profit = bottom.profit;
-  const won = profit != null && profit > 0;
-  const tied = hand.winners.length === 2;
-  const outcomeLabel = tied ? "Split pot" : profit == null ? "Net result" : `${bottom.is_viewer ? "You" : bottom.username} ${won ? "won" : profit < 0 ? "lost" : "net"}`;
   return <div className="replay-page"><main className="replay-main">
-    <a href={back} className="back-link">← <span>Back to {data.challenge ? "recap" : "results"}</span></a>
-    <header className="page-heading"><h1 className="recap-eyebrow">{data.source === "direct_challenge" ? "Rivalry recap" : "Match recap"}</h1><p className="match-context"><span>{data.players[0]} <span className="versus">vs</span> {data.players[1]}</span><span>{data.source === "direct_challenge" ? "Direct challenge" : "Round robin"} <span className="context-dot">·</span> <strong>Hand {hand.hand_number} of {data.total_hands}</strong></span></p></header>
+    <a href={back} className="back-link"><span className="back-arrow" aria-hidden="true">←</span><span>Back</span></a>
     {!data.complete_history && <p className="retention-note" role="status">Showing {data.retained_hands} retained hands from {data.total_hands}. Match-wide lead changes cannot be determined from partial history.</p>}
     <div className="replay-layout"><aside className="replay-sidebar" aria-label="Recap controls and hand result">
-      <div className="highlight"><div className={`win-label ${won ? step.street === "result" ? "gold-result" : "" : profit != null && profit < 0 ? "loss-label" : "neutral-label"}`}>{outcomeLabel}<strong>{profit == null ? "Not retained" : `${profit > 0 ? "+" : ""}${amount(profit)}`}</strong></div><span className="highlight-note">Net play chips</span><p className="hand-outcome">{hand.outcome}</p></div>
+      <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div>
       <div className="hand-selector"><button aria-label="Previous highlight" disabled={index === 0} onClick={() => select(index - 1)}><Arrow /></button><strong>Highlight {index + 1} <span>of {data.highlights.length}</span></strong><button aria-label="Next highlight" disabled={index === data.highlights.length - 1} onClick={() => select(index + 1)}><Arrow right /></button></div>
       <div className="hand-playback" role="group" aria-label="Hand playback"><button className="replay-button" disabled={hand.steps.length < 2} onClick={replayHand}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8a6 6 0 1 1 0 4M4 3v5h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>Replay</button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) replayHand(); else setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button></div>
-      <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div>
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>
       <ReplayTable key={`${hand.hand_id}:${stepIndex}:${visit}`} hand={hand} step={step} bottom={bottom} top={top} />

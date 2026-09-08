@@ -41,6 +41,8 @@ next-env.d.ts
 /dist/
 /.wrangler/
 /outputs/
+/cli/alpha_poker_cli/viewer/
+/cli/alpha_poker_cli/_recap/
 /work/
 
 # python

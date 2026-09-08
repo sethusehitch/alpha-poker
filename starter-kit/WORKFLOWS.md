@@ -23,6 +23,13 @@ before continuing. Never silently reuse an older extracted copy.
   one active bot.
 - Check submission validation, league-run status, and the leaderboard.
 - Download official run artifacts and training hand logs.
+- For Review hands, open saved evidence with `alpha-poker recap PATH --open`,
+  or `alpha-poker recap --latest --open` after training. Use `train --recap`
+  when the participant asks to train and watch afterward. Without `--open`, the
+  command prints a local URL that Codex can open in its browser side panel.
+  The same viewer offers highlights and a picker for any retained hand. This
+  does not upload evidence, improve the bot, or change Elo. The participant
+  inspects the replay and chooses what hypothesis to investigate next.
 - Find classmates by player or bot name and explain their public Elo.
 - Send a best-of-five Pot-Limit Hold'em challenge after the participant chooses an opponent.
 - Check incoming requests and accept or decline after participant approval.

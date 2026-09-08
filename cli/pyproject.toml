@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alpha-poker-cli"
-version = "0.2.0"
+version = "0.3.0"
 description = "Agent-friendly tools for building, training, competing, and challenging Alpha Poker bots"
 requires-python = ">=3.11"
 dependencies = []
@@ -15,3 +15,6 @@ alpha-poker = "alpha_poker_cli.main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["alpha_poker_cli*"]
+
+[tool.setuptools.package-data]
+alpha_poker_cli = ["viewer/*", "viewer/assets/*"]

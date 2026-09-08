@@ -1170,6 +1170,12 @@ def _parser() -> argparse.ArgumentParser:
     train.add_argument("--opponent", default="leader", choices=["leader"])
     train.add_argument("--hands", type=int, default=400, help="number of practice hands (1-400, default: 400)")
     train.add_argument("--output", type=Path, help="destination directory or .zip file")
+    train.add_argument("--recap", action="store_true", help="open the saved training run in the local replay viewer")
+
+    recap = sub.add_parser("recap", help="replay saved training or match evidence locally, without login")
+    recap.add_argument("file", nargs="?", type=Path)
+    recap.add_argument("--latest", action="store_true", help="use the most recently saved training or opened recap")
+    recap.add_argument("--open", action="store_true", help="open your browser; otherwise print the local URL")
 
     rivals = sub.add_parser("rivals", help="find rivals and manage direct challenges")
     rivals_sub = rivals.add_subparsers(dest="rivals_command", required=True)
@@ -1257,6 +1263,15 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "recap":
+            from .local_recap import RecapError, latest, launch
+            if bool(args.file) == bool(args.latest):
+                raise CliError("Choose a saved file or --latest (not both).")
+            try:
+                launch(latest() if args.latest else args.file, args.open)
+            except (RecapError, OSError, ImportError) as exc:
+                raise CliError(str(exc)) from exc
+            return 0
         if args.command == "matches":
             return _run_matches(args)
         if args.command == "rivals":
@@ -1399,6 +1414,16 @@ def main(argv: list[str] | None = None) -> int:
                 raise CliError("--hands must be between 1 and 400")
             destination = run_training(root, args.api_url, args.opponent, args.hands, args.output, username, token)
             print(f"Training complete. Logs: {destination}")
+            from .local_recap import remember, launch, RecapError
+            try:
+                remember(destination)
+                if args.recap:
+                    launch(destination, True)
+                else:
+                    print("View locally: alpha-poker recap --latest --open")
+            except (RecapError, OSError, ImportError) as exc:
+                print(f"Training logs are saved, but the local recap could not open: {exc}", file=sys.stderr)
+                return 1 if args.recap else 0
         return 0
     except CliError as exc:
         print(f"Error: {exc}", file=sys.stderr)

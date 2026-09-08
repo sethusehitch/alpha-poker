@@ -19,14 +19,21 @@ FILES = (
     (ROOT / "cli" / "alpha_poker_cli" / "__main__.py", "cli/alpha_poker_cli/__main__.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "main.py", "cli/alpha_poker_cli/main.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "runner.py", "cli/alpha_poker_cli/runner.py"),
+    (ROOT / "cli" / "alpha_poker_cli" / "local_recap.py", "cli/alpha_poker_cli/local_recap.py"),
 )
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
 
 
 def build() -> Path:
+    package = ROOT / "cli/alpha_poker_cli"
+    if not (package / "viewer/index.html").exists() or not (package / "_recap/recaps.py").exists():
+        raise RuntimeError("Run npm run build:local-recap before packaging the starter kit")
+    generated = [(p, "cli/alpha_poker_cli/" + str(p.relative_to(package)))
+                 for directory in (package / "viewer", package / "_recap")
+                 for p in sorted(directory.rglob("*")) if p.is_file() and "__pycache__" not in p.parts]
     DESTINATION.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(DESTINATION, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for source, archive_name in FILES:
+        for source, archive_name in (*FILES, *generated):
             info = zipfile.ZipInfo(archive_name, FIXED_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16

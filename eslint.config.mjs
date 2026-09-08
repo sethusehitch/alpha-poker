@@ -11,6 +11,7 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "cli/alpha_poker_cli/viewer/**",
     "next-env.d.ts",
   ]),
 ]);

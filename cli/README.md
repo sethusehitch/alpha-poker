@@ -1,5 +1,41 @@
 # Alpha Poker CLI
 
+## Local replay viewer
+
+With the current starter kit installed:
+
+```bash
+alpha-poker train ./my-bot --hands 100 --recap
+alpha-poker recap --latest --open
+alpha-poker recap ./training-results.zip --open
+alpha-poker recap ./official-run.zip --open
+alpha-poker recap ./hands.jsonl
+```
+
+The same animated table used on the website opens locally. Choose Highlights
+or any retained hand using the View picker. Archives with several matchups have
+a Match picker; their records are never merged into one rivalry. Saved recap-v1
+JSON is also supported, but contains only the highlights originally saved.
+
+No website login, internet connection, Node installation, or running Alpha Poker
+API is required to **view a saved run**. Training itself still uses the hosted
+WebSocket. The CLI prints a loopback URL, and `--open` launches the default
+browser. In Codex, ask the agent to open that exact URL in the browser side panel;
+other agents can print the link or open your regular browser.
+
+`--latest` uses the last successful training download or explicitly opened recap,
+not a scan of your files. A moved/deleted file needs to be opened by its new path.
+The local viewer exits after 30 minutes without requests, or eight hours total;
+run the command again to reopen it. Its URL is private to this computer and
+session, not a share link. No local log is uploaded. Keep the original ZIP to
+revisit it later. Limits: 64 MB compressed/uncompressed and 10,000 hand records.
+Incomplete hands are skipped with a notice; unknown history does not invent
+match-wide lead changes. Only Alpha Poker's JSONL/ZIP/recap-v1 formats are supported.
+
+Repository developers: run `npm ci && npm run build:local-recap` before installing
+`./cli` or building the starter kit. Release ZIPs already include the shared
+viewer assets and dependency-free recap Python modules.
+
 The CLI has no runtime dependencies beyond Python 3.11. It is designed for a
 coding agent such as Claude or Codex to operate on a participant's behalf.
 Participants make the poker decisions while the agent handles these technical

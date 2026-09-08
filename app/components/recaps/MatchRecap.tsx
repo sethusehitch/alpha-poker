@@ -130,7 +130,7 @@ export function MatchRecap({ endpoint, initialHandId }: { endpoint: string; init
   return <main className="recap-message"><a href="/rivals">← Back to Rivals</a><section role={current ? "status" : undefined} aria-busy={!current}><h1>{title}</h1>{current && <><p>{detail}</p><button onClick={() => setAttempt(a => a + 1)}>Try again</button></>}</section></main>;
 }
 
-export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?: string }) {
+export function RecapView({ data, initialHandId, backHref, selectionLabel = "Highlight" }: { data: Recap; initialHandId?: string; backHref?: string | null; selectionLabel?: string }) {
   const [index, setIndex] = useState(Math.max(0, data.highlights.findIndex(h => h.hand_id === initialHandId)));
   const hand = data.highlights[index];
   const [stepIndex, setStepIndex] = useState(hand ? hand.steps.length - 1 : 0);
@@ -179,11 +179,11 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   const bottom = hand.players.find(p => p.is_viewer) ?? hand.players[0];
   const top = hand.players.find(p => p.seat !== bottom.seat)!;
   return <div className="replay-page"><main className="replay-main">
-    <a href={back} className="back-link"><span className="back-arrow" aria-hidden="true">←</span><span>Back</span></a>
+    {backHref !== null && <a href={backHref ?? back} className="back-link"><span className="back-arrow" aria-hidden="true">←</span><span>Back</span></a>}
     {!data.complete_history && <p className="retention-note" role="status">Showing {data.retained_hands} retained hands from {data.total_hands}. Match-wide lead changes cannot be determined from partial history.</p>}
     <div className="replay-layout"><aside className="replay-sidebar" aria-label="Recap controls and hand result">
       <div className="player-list"><PlayerSummary player={bottom} /><PlayerSummary player={top} /></div>
-      <div className="hand-selector"><button aria-label="Previous highlight" disabled={index === 0} onClick={() => select(index - 1)}><Arrow /></button><strong>Highlight {index + 1} <span>of {data.highlights.length}</span></strong><button aria-label="Next highlight" disabled={index === data.highlights.length - 1} onClick={() => select(index + 1)}><Arrow right /></button></div>
+      <div className="hand-selector"><button aria-label="Previous highlight" disabled={index === 0} onClick={() => select(index - 1)}><Arrow /></button><strong>{selectionLabel === "Hand" ? `Hand ${hand.hand_number}` : <>{selectionLabel} {index + 1} <span>of {data.highlights.length}</span></>}</strong><button aria-label="Next highlight" disabled={index === data.highlights.length - 1} onClick={() => select(index + 1)}><Arrow right /></button></div>
       <div className="hand-playback" role="group" aria-label="Hand playback"><button className="replay-button" disabled={hand.steps.length < 2} onClick={replayHand}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 8a6 6 0 1 1 0 4M4 3v5h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>Replay</button><button className="play-button" disabled={hand.steps.length < 2} onClick={() => { if (!playing && stepIndex === hand.steps.length - 1) replayHand(); else setPlaying(!playing); }}><span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>{playing ? "Pause" : "Play"}</button></div>
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>

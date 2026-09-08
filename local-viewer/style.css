@@ -1,0 +1,9 @@
+body { margin: 0; background: #fafbfe; font-family: Arial, Helvetica, sans-serif; }
+.local-header { height: 72px; display: flex; align-items: center; gap: 10px; padding: 0 28px; background: white; border-bottom: 1px solid #e2e7ef; }
+.local-header svg { width: 32px; height: 32px; }
+.local-header > span { margin-left: auto; color: #62748d; font-size: 14px; }
+.local-tools { max-width: 1480px; padding: 16px 28px 0; margin: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 14px; color: #405574; }
+.local-tools > span { margin-right: auto; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.local-tools label { display: flex; gap: 8px; align-items: center; }
+.local-tools select { padding: 8px; background: white; border: 1px solid #d8e1ef; border-radius: 8px; max-width: min(300px, 70vw); }
+.local-notice { margin: 18px 28px; color: #405574; }

@@ -114,13 +114,14 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
         outcome = "Result details unavailable"
     players = [{"username": seat_names[s], "seat": s, "is_viewer": seat_names[s] == viewer,
                 "starting_stack": starts[s], "final_stack": finals[s], "profit": profits[s],
-                "hole_cards": holes[s] if s in revealed or seat_names[s] == viewer else [],
+                "hole_cards": holes[s],
                 "cards_revealed": s in revealed, "category": categories.get(s)} for s in range(2)]
     steps: list[dict] = []
     step_board: list[str] = []
     stacks = list(starts)
     step_pot: int | None = 0 if all(n is not None for n in starts) else None
-    visible = [holes[s] if seat_names[s] == viewer else [] for s in range(2)]
+    # Completed recaps are retrospective: show all retained cards from the deal.
+    visible = [list(hand) for hand in holes]
     for event in events:
         kind, seat = event.get("type"), event.get("seat")
         seat = seat if type(seat) is int and seat in (0, 1) else None
@@ -159,7 +160,6 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
             step_board = cards(event.get("cards"))
             copy = f"{street.capitalize()} dealt"
         elif kind == "showdown":
-            visible = [holes[s] if s in revealed or seat_names[s] == viewer else [] for s in range(2)]
             street, copy = "showdown", "Players reveal their hands"
         elif kind == "forfeit":
             copy = f"{name} forfeits after a bot error"

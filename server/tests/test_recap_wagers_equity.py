@@ -142,7 +142,7 @@ def test_equity_ignores_future_board_and_mirrored_names_do_not_change_physical_o
     changed = deepcopy(record)
     changed["board"][-1] = "8c"
     assert normalized(changed)["steps"][0]["equity"] == hand["steps"][0]["equity"]
-    assert hand["steps"][0]["hole_cards"][0] == []
+    assert hand["steps"][0]["hole_cards"][0] == ["As", "Kd"]
     assert hand["steps"][0]["equity"]["method"] == "estimated"  # retrospective only after actual showdown
 
 

@@ -207,3 +207,21 @@
   .seat-info .seat-you { font-size: 8px; padding: 2px 4px; margin-left: 4px; }
   body:has(.replay-page) button[aria-label="Send feedback"] { top: 85px; bottom: auto; width: 36px; height: 36px; }
 }
+.page-heading h1.recap-eyebrow { font-size: 14px; font-weight: 500; margin: 0 0 14px; }
+.hand-intro { position: fixed; inset: 0; z-index: 60; pointer-events: none; display: grid; place-items: center; overflow: hidden; }
+.hand-intro-flight { width: min(850px, 88vw); animation: recap-hand-intro 2800ms linear both; }
+.hand-intro-banner { position: relative; padding: 30px 30px 24px; text-align: center; transform: rotate(-4deg) skewX(-5deg); background: linear-gradient(110deg, #fff, #f9fbff); border: 1px solid #d5def2; border-top: 3px solid #efc764; box-shadow: 9px 15px 0 #101c43, 0 20px 55px #101c4333; }
+.hand-intro-banner > strong { display: block; color: #132449; background: linear-gradient(100deg, #132449 35%, #1755ff 95%); background-clip: text; -webkit-text-fill-color: transparent; font-family: Impact, "Arial Narrow", sans-serif; font-style: italic; font-size: clamp(28px, 4.4vw, 64px); line-height: 1.06; text-transform: uppercase; overflow-wrap: anywhere; letter-spacing: -1px; }
+.hand-intro-banner > span { display: block; color: #1755ff; text-transform: uppercase; font-weight: 850; font-style: italic; font-size: clamp(16px, 2vw, 26px); margin: 16px 0; }
+.hand-intro-match { display: flex; justify-content: center; align-items: center; gap: 18px; color: #1755ff; font-weight: 750; font-size: clamp(13px, 1.8vw, 22px); overflow-wrap: anywhere; }
+.hand-intro-match small { color: #67738f; font-weight: 500; }
+@keyframes recap-hand-intro {
+  0% { transform: translateX(-110vw); animation-timing-function: cubic-bezier(.1,.65,.2,1); }
+  23% { transform: translateX(-4vw); animation-timing-function: linear; }
+  76% { transform: translateX(4vw); animation-timing-function: cubic-bezier(.75,0,.9,.4); }
+  100% { transform: translateX(110vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-intro-flight { animation: recap-hand-fade 1800ms linear both; }
+  @keyframes recap-hand-fade { 0%,100% { opacity: 0; } 15%,85% { opacity: 1; } }
+}

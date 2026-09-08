@@ -85,7 +85,7 @@ def test_showdown_rank_seat_mapping_and_chip_conservation(kind):
     assert result["profit_a"] < 0
     assert sum(p["profit"] for p in result["players"]) == 0
     assert sum(result["steps"][-1]["stacks"]) == 4000
-    assert result["steps"][0]["hole_cards"] == [[], ["9s", "9h"]]
+    assert result["steps"][0]["hole_cards"] == [["As", "Kd"], ["9s", "9h"]]
     assert result["steps"][-1]["hole_cards"] == [["As", "Kd"], ["9s", "9h"]]
     assert result["pot"] == (4000 if kind == "all_in" else 40)
     if kind == "all_in":
@@ -93,12 +93,12 @@ def test_showdown_rank_seat_mapping_and_chip_conservation(kind):
         assert any(step["stacks"] == [0, 0] for step in result["steps"][:-1])
 
 
-def test_fold_never_leaks_opponent_cards_or_undealt_board():
+def test_completed_fold_recap_shows_both_cards_but_not_undealt_board():
     result = normalized(hand_record("fold"))
     assert result["outcome"] == "bob wins after a fold"
     assert result["board"] == []
-    assert result["players"][1]["hole_cards"] == []
-    assert all(step["hole_cards"][1] == [] for step in result["steps"])
+    assert result["players"][1]["hole_cards"] == ["9s", "9h"]
+    assert all(step["hole_cards"][1] == ["9s", "9h"] for step in result["steps"])
     assert result["players"][0]["profit"] == -10
     assert result["pot"] == 30  # gross pot is not the +10 net win
 
@@ -245,7 +245,7 @@ def test_direct_authorization_scope_discovery_and_retention(recap_client):
             assert first["table_chips"]["wagers"] == [10, 0]
             assert (first["equity"] is None) == bool(hand["hand_number"] % 2)
             assert actor["username"] == ("bob" if hand["hand_number"] % 2 else "alice")
-            assert all(not values for seat, values in enumerate(first["hole_cards"]) if hand["players"][seat]["username"] != viewer)
+            assert first["hole_cards"] == [player["hole_cards"] for player in hand["players"]]
     assert client.get("/v1/challenges/ch_1", headers=headers["alice"]).json()["playback_url"] == data["playback_url"]
     assert client.get("/v1/challenges?status=finished", headers=headers["alice"]).json()["items"][0]["playback_url"] == data["playback_url"]
     path = "/v1/runs/run_1/matchups/match_1/recap"

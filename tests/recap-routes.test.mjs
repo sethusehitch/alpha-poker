@@ -61,7 +61,8 @@ test("recap playback uses recorded actor/payment metadata and isolated step pres
 test("highlight heading and all controls are above or beside the table, without duplicate controls", async () => {
   const source = await readFile(new URL("../app/components/recaps/MatchRecap.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("../app/components/recaps/recap.css", import.meta.url), "utf8");
-  assert.match(source, /<h1>\{hand.label\}<\/h1>/);
+  assert.match(source, /<strong>\{hand.label\}<\/strong>/);
+  assert.doesNotMatch(source, /<h1>\{hand.label\}<\/h1>/);
   assert.match(source, /Hand \{hand.hand_number\} of \{data.total_hands\}/);
   const sidebar = source.match(/<aside[\s\S]*?<\/aside>/)[0];
   for (const control of ["Previous highlight", "Next highlight", "replay-button", "play-button"]) assert.ok(sidebar.includes(control));
@@ -69,7 +70,7 @@ test("highlight heading and all controls are above or beside the table, without 
   assert.doesNotMatch(tableSection, /<button|<details|action-summary|timeline|playback/);
   assert.doesNotMatch(source, /className="(?:playback|timeline|recap-events|action-summary|sidebar-note|table-foot)"/);
   assert.match(source, /function replayHand\(\) \{\s*setPlaying\(true\);\s*setStepIndex\(0\);\s*setVisit/);
-  assert.ok(source.includes('[playing, hand, stepIndex, visit]'), "Replay visit resets the action timer even on the same step");
+  assert.ok(source.includes('[playing, hand, stepIndex, visit, intro, index, data.highlights]'), "Replay visit and intro reset the action timer");
   assert.doesNotMatch(css.match(/\.replay-sidebar \{[^}]+/)[0], /border|background|radius/);
 });
 

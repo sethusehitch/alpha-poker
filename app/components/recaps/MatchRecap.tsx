@@ -136,25 +136,42 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   const [stepIndex, setStepIndex] = useState(hand ? hand.steps.length - 1 : 0);
   const [playing, setPlaying] = useState(false);
   const [visit, setVisit] = useState(0);
-  useEffect(() => {
-    if (!playing || !hand) return;
-    if (stepIndex >= hand.steps.length - 1) { setPlaying(false); return; }
-    const timer = window.setTimeout(() => setStepIndex(step => step + 1), STEP_INTERVAL_MS);
-    return () => window.clearTimeout(timer);
-  }, [playing, hand, stepIndex, visit]);
-  function select(next: number) {
-    setPlaying(false);
-    setIndex(next);
-    setStepIndex(data.highlights[next].steps.length - 1);
-    setVisit(value => value + 1);
+  const [intro, setIntro] = useState(false);
+  function updateHandUrl(next: number) {
     const url = new URL(window.location.href);
     url.searchParams.set("hand", data.highlights[next].hand_id);
     window.history.replaceState(window.history.state, "", url);
+  }
+  useEffect(() => {
+    if (!playing || !hand || intro) return;
+    const timer = window.setTimeout(() => {
+      if (stepIndex < hand.steps.length - 1) setStepIndex(step => step + 1);
+      else if (index < data.highlights.length - 1) {
+        const next = index + 1;
+        setIndex(next);
+        setStepIndex(0);
+        setIntro(true);
+        setVisit(value => value + 1);
+        const url = new URL(window.location.href);
+        url.searchParams.set("hand", data.highlights[next].hand_id);
+        window.history.replaceState(window.history.state, "", url);
+      } else setPlaying(false);
+    }, stepIndex === hand.steps.length - 1 ? 1500 : STEP_INTERVAL_MS);
+    return () => window.clearTimeout(timer);
+  }, [playing, hand, stepIndex, visit, intro, index, data.highlights]);
+  function select(next: number) {
+    setPlaying(false);
+    setIntro(false);
+    setIndex(next);
+    setStepIndex(data.highlights[next].steps.length - 1);
+    setVisit(value => value + 1);
+    updateHandUrl(next);
   }
   function replayHand() {
     setPlaying(true);
     setStepIndex(0);
     setVisit(value => value + 1);
+    setIntro(true);
   }
   const back = data.challenge ? `/rivals?rival=${encodeURIComponent(data.challenge.opponent_username ?? data.players[1])}&result=${encodeURIComponent(data.challenge.challenge_id)}` : "/leaderboard";
   if (!hand) return <main className="recap-message"><a href={back}>← Back to results</a><section><h1>No retained hands</h1><p>The match completed, but detailed hand records are no longer available. Check the match artifact if one was saved.</p></section></main>;
@@ -167,7 +184,7 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
   const outcomeLabel = tied ? "Split pot" : profit == null ? "Net result" : `${bottom.is_viewer ? "You" : bottom.username} ${won ? "won" : profit < 0 ? "lost" : "net"}`;
   return <div className="replay-page"><main className="replay-main">
     <a href={back} className="back-link">← <span>Back to {data.challenge ? "recap" : "results"}</span></a>
-    <header className="page-heading"><div className="recap-eyebrow">{data.source === "direct_challenge" ? "Rivalry recap" : "Match recap"}</div><h1>{hand.label}</h1><p className="match-context"><span>{data.players[0]} <span className="versus">vs</span> {data.players[1]}</span><span>{data.source === "direct_challenge" ? "Direct challenge" : "Round robin"} <span className="context-dot">·</span> <strong>Hand {hand.hand_number} of {data.total_hands}</strong></span></p></header>
+    <header className="page-heading"><h1 className="recap-eyebrow">{data.source === "direct_challenge" ? "Rivalry recap" : "Match recap"}</h1><p className="match-context"><span>{data.players[0]} <span className="versus">vs</span> {data.players[1]}</span><span>{data.source === "direct_challenge" ? "Direct challenge" : "Round robin"} <span className="context-dot">·</span> <strong>Hand {hand.hand_number} of {data.total_hands}</strong></span></p></header>
     {!data.complete_history && <p className="retention-note" role="status">Showing {data.retained_hands} retained hands from {data.total_hands}. Match-wide lead changes cannot be determined from partial history.</p>}
     <div className="replay-layout"><aside className="replay-sidebar" aria-label="Recap controls and hand result">
       <div className="highlight"><div className={`win-label ${won ? step.street === "result" ? "gold-result" : "" : profit != null && profit < 0 ? "loss-label" : "neutral-label"}`}>{outcomeLabel}<strong>{profit == null ? "Not retained" : `${profit > 0 ? "+" : ""}${amount(profit)}`}</strong></div><span className="highlight-note">Net play chips</span><p className="hand-outcome">{hand.outcome}</p></div>
@@ -177,5 +194,10 @@ export function RecapView({ data, initialHandId }: { data: Recap; initialHandId?
     </aside>
     <section className="replay-stage" aria-label={`Hand ${hand.hand_number} replay`}>
       <ReplayTable key={`${hand.hand_id}:${stepIndex}:${visit}`} hand={hand} step={step} bottom={bottom} top={top} />
+      {intro && <div className="hand-intro" role="status" aria-label={`${hand.label}. Hand ${hand.hand_number} of ${data.total_hands}`}>
+        <div key={`${hand.hand_id}:${visit}`} className="hand-intro-flight" style={{ animationPlayState: playing ? "running" : "paused" }} onAnimationEnd={event => { if (event.target === event.currentTarget) setIntro(false); }}>
+          <div className="hand-intro-banner"><strong>{hand.label}</strong><span>Hand {hand.hand_number} of {data.total_hands}</span><div className="hand-intro-match">{data.players[0]} <small>vs</small> {data.players[1]}</div></div>
+        </div>
+      </div>}
     </section></div></main></div>;
 }

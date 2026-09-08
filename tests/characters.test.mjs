@@ -34,3 +34,9 @@ test('offline recap disables avatar lookup and packages its relative fallback', 
   const packaging = await readFile(new URL('../cli/pyproject.toml', import.meta.url), 'utf8');
   assert.match(packaging, /viewer\/characters\/\*/);
 });
+test('both hosted policies permit local crop previews without external image hosts', async () => {
+  for (const file of ['Caddyfile','Caddyfile.aws']) {
+    const source = await readFile(new URL('../'+file,import.meta.url),'utf8');
+    assert.match(source, /img-src 'self' data: blob: https:\/\/fastapi.tiangolo.com;/);
+  }
+});

@@ -1,10 +1,11 @@
 import { browserSessionResponse, proxyApi } from "../../../_proxy";
+import { publicRequestUrl, samePublicOrigin } from "../../../publicOrigin.mjs";
 
 function cookie(request: Request, name: string) {
   return (request.headers.get("cookie") ?? "").split(";").map(s => s.trim()).find(s => s.startsWith(name + "="))?.slice(name.length + 1) ?? "";
 }
 function setCookie(response: Response, request: Request, name: string, value: string, age = 600) {
-  response.headers.append("Set-Cookie", `${name}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${request.url.startsWith("https:") ? "; Secure" : ""}`);
+  response.headers.append("Set-Cookie", `${name}=${value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${age}${publicRequestUrl(request.url).protocol === "https:" ? "; Secure" : ""}`);
 }
 function internal(request: Request, body: unknown) {
   const headers = new Headers(request.headers);
@@ -12,10 +13,10 @@ function internal(request: Request, body: unknown) {
   return new Request(request.url, { method: "POST", headers, body: JSON.stringify(body) });
 }
 function redirect(request: Request, path: string) {
-  return new Response(null, { status: 303, headers: { Location: new URL(path, request.url).href, "Cache-Control": "no-store" } });
+  return new Response(null, { status: 303, headers: { Location: new URL(path, publicRequestUrl(request.url)).href, "Cache-Control": "no-store" } });
 }
 function sameOrigin(request: Request) {
-  return request.headers.get("origin") === new URL(request.url).origin;
+  return samePublicOrigin(request);
 }
 function safeReturn(value: unknown) {
   if (typeof value !== "string") return "/";
@@ -71,7 +72,7 @@ export async function POST(request: Request, context: { params: Promise<{ action
     if (!upstream.ok) return upstream;
     const result = await upstream.json();
     const callback = new URL(new URL(result.url).searchParams.get("redirect_uri")!);
-    if (callback.origin !== new URL(request.url).origin) {
+    if (callback.origin !== publicRequestUrl(request.url).origin) {
       return Response.json({ error: { code: "google_origin", message: "Google sign-in is available on the main Alpha Poker address.", url: callback.origin } }, { status: 409 });
     }
     const response = Response.json({ url: result.url }, { headers: { "Cache-Control": "no-store" } });

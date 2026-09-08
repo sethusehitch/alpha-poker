@@ -1,0 +1,23 @@
+[
+  {
+    "id": "feat_e75fab7cb2d9113c",
+    "previous_title": "Agent-led rookie tutorial",
+    "title": "Agent-led rookie tutorial",
+    "status": "shipped",
+    "details": "Completed: Claude or Codex guides students through Create, Build, Practice, and Compete in chat. Students choose their bot's name and strategy, can watch training highlights, and approve changes and submissions. No website onboarding wizard is required."
+  },
+  {
+    "id": "feat_c9d45644099c9957",
+    "previous_title": "A simpler, game-like My Bot home",
+    "title": "Give My Bot one clear next action",
+    "status": "in_progress",
+    "details": "Already available: a focused My Bot page with a character, bot identity, current status, Elo, and rank. Remaining: show one useful next action for each state, such as creating a first bot, reviewing a result, or returning to the coding agent to train. Keep the page calm and avoid extra dashboard panels."
+  },
+  {
+    "id": "feat_9904c8384ddfa57b",
+    "previous_title": "Best-hand replays with strategy questions",
+    "title": "Add evidence-based questions after a recap",
+    "status": "in_progress",
+    "details": "Already available: animated website and local hand replays, chronological highlights, individual-hand selection, face-up cards, chip movement, and playback controls. Remaining: end a recap with specific questions tied to the recorded hands so students can form a hypothesis and prompt their coding agent. Students choose strategy changes; there is no automatic Improve my bot button."
+  }
+]

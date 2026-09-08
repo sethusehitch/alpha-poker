@@ -168,7 +168,7 @@ def test_new_tab_sorts_by_recency_regardless_of_score(client):
     assert [item["id"] for item in new] == [second["id"], first["id"]]
 
 
-def test_planned_tab_only_shows_planned_in_progress_and_shipped(client):
+def test_completed_tab_separates_finished_requests_and_supports_old_links(client):
     submitted_request = client.post("/v1/feature-requests", json={"title": "Stays submitted forever"}).json()
     planned_request = client.post("/v1/feature-requests", json={"title": "Gets planned soon"}).json()
     in_progress_request = client.post("/v1/feature-requests", json={"title": "Being built right now"}).json()
@@ -181,7 +181,13 @@ def test_planned_tab_only_shows_planned_in_progress_and_shipped(client):
 
     planned = client.get("/v1/feature-requests?tab=planned").json()["items"]
     planned_ids = [item["id"] for item in planned]
-    assert planned_ids == [planned_request["id"], in_progress_request["id"], shipped_request["id"]]
+    assert planned_ids == [shipped_request["id"]]
+    assert client.get("/v1/feature-requests?tab=completed").json()["items"] == planned
+    for tab in ("top", "new"):
+        active_ids = [item["id"] for item in client.get(f"/v1/feature-requests?tab={tab}").json()["items"]]
+        assert shipped_request["id"] not in active_ids
+        assert planned_request["id"] in active_ids
+        assert in_progress_request["id"] in active_ids
     assert submitted_request["id"] not in planned_ids
     assert declined_request["id"] not in planned_ids
 

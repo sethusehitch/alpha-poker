@@ -18,7 +18,7 @@ before continuing. Never silently reuse an older extracted copy.
 - Build and locally validate `bot.py` and `bot.json`.
 - Register or log in to the participant's Alpha Poker account.
 - Train locally against the current hosted leader over WebSocket.
-- Inspect downloaded training hands and improve the strategy.
+- Inspect downloaded training hands and implement strategy changes the participant requests.
 - Submit the best version. Each accepted submission replaces the participant's
   one active bot.
 - Check submission validation, league-run status, and the leaderboard.
@@ -47,6 +47,15 @@ top three bots with rank, player, Elo, and a plain-language win-loss-draw
 record. Add one friendly line inviting the participant to chase the podium.
 Never invent standings if the request fails or the league is empty.
 
+Describe Review hands as "Watch your saved hands at the poker table" and Train
+as "Practice against the current leader, then watch the highlights."
+After successful training with saved hands, summarize the result and ask,
+"Want to watch the highlights?" If the participant already asked to train and
+watch, open the local recap immediately. Use the browser side panel when
+available, otherwise the default browser or the printed link. Explain the
+highlights and individual-hand picker. Do not require the participant to run
+commands. Missing replay evidence should be explained, never invented.
+
 Ask what the participant wants to do and wait for the answer. Recommend **Build
 my first bot** to a beginner, but let returning participants choose any workflow
 immediately. Do not install tools, create an account, edit a bot, train, submit,
@@ -56,8 +65,11 @@ For **Build my first bot**, use four visible milestones: Create, Build,
 Practice, and Compete. Ask the participant for a name and a simple personality
 such as Bold, Patient, Tricky, or Surprise me. Keep technical commands and raw
 output out of the participant-facing explanation. Translate practice results
-into one strength and one improvement, and request explicit approval directly
-before the first submission or any later replacement.
+into one strength and one decision worth investigating. Offer the recap, then
+ask what hypothesis or strategy change the participant wants to investigate.
+Never change strategy automatically or treat watching as permission to edit.
+Implement requested changes and validate again. Request explicit approval
+directly before the first submission or any later replacement.
 
 ## Agent-operated setup
 

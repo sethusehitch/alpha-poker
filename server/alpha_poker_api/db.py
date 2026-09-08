@@ -24,6 +24,15 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   created_at TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT,
   FOREIGN KEY(username) REFERENCES users(username)
 );
+CREATE TABLE IF NOT EXISTS account_avatars (
+  username TEXT PRIMARY KEY REFERENCES users(username),
+  preset TEXT NOT NULL DEFAULT 'elephant',
+  custom_id TEXT, custom_image BLOB,
+  updated_at TEXT NOT NULL,
+  CHECK(preset IN ('elephant','bear','octopus','bird','custom')),
+  CHECK((custom_id IS NULL) = (custom_image IS NULL))
+);
+CREATE INDEX IF NOT EXISTS idx_account_avatars_custom ON account_avatars(custom_id);
 CREATE INDEX IF NOT EXISTS auth_sessions_username ON auth_sessions(username, created_at DESC);
 CREATE TABLE IF NOT EXISTS submissions (
   id TEXT PRIMARY KEY, username TEXT NOT NULL, bot_name TEXT NOT NULL,

@@ -1,7 +1,10 @@
 "use client";
+/* eslint-disable @next/next/no-location-assign-relative-destination */
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { emit, on } from "./uiBus";
+import { CharacterImage } from "./characters/CharacterImage";
+import type { Avatar } from "./characters/avatar";
 
 const USERNAME_CHIP_DISPLAY_LENGTH = 16;
 
@@ -29,7 +32,7 @@ function ChevronDownIcon() {
   );
 }
 
-type Session = { username: string };
+type Session = { username: string; avatar?: Avatar };
 
 export function AuthButton() {
   const [session, setSession] = useState<Session | null>(null);
@@ -63,7 +66,7 @@ export function AuthButton() {
         if (!response.ok) return;
         const result = await response.json();
         if (typeof result.username === "string") {
-          setSession({ username: result.username });
+          setSession({ username: result.username, avatar: result.avatar });
           emit("session-changed", { username: result.username, isOperator: Boolean(result.is_operator) });
         }
       })
@@ -72,6 +75,8 @@ export function AuthButton() {
   }, []);
 
   useEffect(() => on("open-account", () => setOpen(true)), []);
+  useEffect(() => on("avatar-changed", detail => setSession(current =>
+    current?.username === detail.username ? { ...current, avatar: detail.avatar } : current)), []);
 
   useEffect(() => {
     emit("account-dialog-changed", { open });
@@ -105,9 +110,12 @@ export function AuthButton() {
       if (!response.ok) throw new Error(result.error?.message ?? "Could not log in");
       const next = { username: result.username };
       setSession(next);
+      const justRegistered = registering;
       closeDialog();
       const me = await fetch("/browser-api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      setSession({ username: result.username, avatar: me?.avatar });
       emit("session-changed", { username: result.username, isOperator: Boolean(me?.is_operator) });
+      if (justRegistered) window.location.assign("/profile?welcome=1");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not log in");
     } finally {
@@ -136,7 +144,7 @@ export function AuthButton() {
         onClick={() => setOpen(true)}
         className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border border-zinc-300 bg-white px-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:cursor-wait disabled:text-zinc-400 min-[380px]:gap-2 min-[380px]:px-3.5"
       >
-        <PersonIcon />
+        {session ? <span className="h-6 w-6 shrink-0"><CharacterImage username={session.username} avatar={session.avatar} /></span> : <PersonIcon />}
         {!sessionLoaded ? (
           <span>Account</span>
         ) : session ? (
@@ -181,14 +189,15 @@ export function AuthButton() {
                   {/* Identity and sign-out only — bot status lives on /my-bot. */}
                   <div className="mt-5 flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                     <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-base font-bold text-white">
-                      {Array.from(session.username)[0]?.toUpperCase() ?? "?"}
+                      <CharacterImage username={session.username} avatar={session.avatar} />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-zinc-950" title={session.username}>{session.username}</p>
                       <p className="text-xs text-zinc-500">Same account as the Alpha Poker CLI.</p>
                     </div>
                   </div>
-                  <button type="button" onClick={logout} className="mt-5 w-full rounded-lg border border-zinc-300 px-4 py-2.5 font-semibold text-zinc-900 hover:bg-zinc-50">
+                  <a href="/profile" className="mt-5 block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center font-semibold text-white hover:bg-blue-700">Profile &amp; character</a>
+                  <button type="button" onClick={logout} className="mt-3 w-full rounded-lg border border-zinc-300 px-4 py-2.5 font-semibold text-zinc-900 hover:bg-zinc-50">
                     Log out
                   </button>
                 </>

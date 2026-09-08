@@ -37,6 +37,7 @@ yarn-error.log*
 .vercel
 
 # typescript
+*.tsbuildinfo
 next-env.d.ts
 /dist/
 /.wrangler/
@@ -51,6 +52,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 /data/
+/.qa-data/
 
 # Terraform and AWS deployment state
 **/.terraform/

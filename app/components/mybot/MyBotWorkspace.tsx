@@ -9,6 +9,7 @@ import { useSession } from "../useSession";
 type SubmissionStatus = "queued" | "validating" | "accepted" | "rejected";
 
 type AccountStatus = {
+  avatar?: { id: string; url: string };
   participant_state: string;
   participant_message: string;
   submission: {
@@ -284,6 +285,7 @@ export function MyBotWorkspace() {
               <p className="mt-2 text-zinc-600">
                 Two steps and your agent builds the bot.
               </p>
+              <a href="/profile" className="mt-3 inline-block text-sm font-semibold text-blue-700 hover:underline">Change character</a>
             </div>
             <Suits />
             <div className="flex w-full max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
@@ -334,7 +336,8 @@ export function MyBotWorkspace() {
     <Shell>
       <Plate>
         <div className="flex flex-col items-center gap-4 px-5 pt-10 pb-8 text-center sm:px-10">
-          <BotAvatar name={submission.bot_name} className="h-28 w-28" />
+          <BotAvatar name={session.username} avatar={visibleStatus.avatar} circle className="h-28 w-28" />
+          <a href="/profile" className="text-sm font-semibold text-blue-700 hover:underline">Change character</a>
           <div className="min-w-0">
             <p className="truncate text-3xl font-bold tracking-tight text-zinc-950 sm:text-4xl">
               {submission.bot_name}

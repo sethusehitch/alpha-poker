@@ -72,6 +72,7 @@ function StandingRow({
         <div className="flex min-w-0 items-center gap-3">
           <BotAvatar
             name={entry.username}
+            avatar={entry.avatar}
             rank={entry.rank}
             circle
             className="h-10 w-10"

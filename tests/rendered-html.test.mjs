@@ -99,7 +99,7 @@ test("renders the selected podium and keeps the hero to the first viewport", asy
 
   assert.match(html, /aria-label="Top three bots"/);
   assert.match(html, /data-testid="reference-leaderboard"/);
-  assert.match(html, /robot-avatars\.png/);
+  assert.match(html, /characters\/elephant\.webp/);
   assert.match(html, /data-avatar-variant="champion"/);
   assert.match(html, /data-avatar-variant="silver"/);
   assert.match(html, /data-avatar-variant="bronze"/);

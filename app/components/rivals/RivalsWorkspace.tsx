@@ -101,10 +101,12 @@ function isOnline(rival: {
 
 function Portrait({
   name,
+  avatar,
   rank,
   className,
 }: {
   name: string;
+  avatar?: { id: string; url: string };
   rank?: number | null;
   className: string;
 }) {
@@ -116,6 +118,7 @@ function Portrait({
       />
       <BotAvatar
         name={name}
+        avatar={avatar}
         rank={rank ?? undefined}
         circle
         className={`relative ${className}`}
@@ -154,6 +157,7 @@ function RivalCard({
         <div className="mt-3 shrink-0">
           <Portrait
             name={rival.username}
+            avatar={rival.avatar}
             rank={rival.rank}
             className="h-28 w-28"
           />
@@ -305,12 +309,14 @@ function ChallengeRow({
         <span className="rival-history-portraits hidden items-center gap-1 sm:flex">
           <BotAvatar
             name={challenge.challenger_username}
+            avatar={challenge.challenger_avatar}
             className="h-7 w-7"
             circle
           />
           <span className="text-[10px] font-semibold text-zinc-400">vs</span>
           <BotAvatar
             name={challenge.challenged_username}
+            avatar={challenge.challenged_avatar}
             className="h-7 w-7"
             circle
           />
@@ -617,6 +623,7 @@ function RivalOverlay({
               <div className="mt-1 shrink-0 sm:mt-3">
                 <Portrait
                   name={detail.rival.username}
+                  avatar={detail.rival.avatar}
                   rank={detail.rival.rank}
                   className="h-32 w-32 sm:h-44 sm:w-44"
                 />

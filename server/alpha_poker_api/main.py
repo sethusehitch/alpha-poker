@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 
 from .auth import DUMMY_PASSWORD_HASH, authenticate_token, hash_password, issue_session, normalize_username, require_user, revoke_session, verify_password
+from .avatars import avatar_for, avatars_for, register_avatar_routes
 from .community import is_operator_username, register_community_routes
 from .config import Settings
 from .db import Database, now_iso
@@ -110,6 +111,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="Alpha Poker API", version="0.1.0", lifespan=lifespan)
     app.state.db = db
+    register_avatar_routes(app, db)
     app.state.settings = settings
     app.state.training_runtimes = {}
     app.state.auto_run_requested = False
@@ -276,7 +278,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/v1/auth/me")
     def auth_me(authorization: Annotated[str | None, Header()] = None):
         username = request_user(authorization)
-        return {"username": username, "is_operator": is_operator_username(settings, username)}
+        return {"username": username, "is_operator": is_operator_username(settings, username), "avatar": avatar_for(db, username)}
 
     @app.post("/v1/auth/logout", status_code=204)
     def logout(authorization: Annotated[str | None, Header()] = None):
@@ -366,6 +368,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "username": username,
             "is_operator": is_operator_username(settings, username),
             "participant_state": participant_state,
+            "avatar": avatar_for(db, username),
             "participant_message": participant_message,
             "submission": public_submission(latest) if latest else None,
             "active_submission": public_submission(active) if active else None,
@@ -390,8 +393,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "top_entries": [], "viewer_entry": None,
             }
         rows = db.all("SELECT * FROM leaderboard WHERE run_id=? ORDER BY rank", (run["id"],))
+        avatars = avatars_for(db, (row["username"] for row in rows))
         entries = [{
             "rank": r["rank"], "username": r["username"], "bot_name": r["bot_name"],
+            "avatar": avatars[r["username"]],
             "elo_rating": r["elo_rating"],
             "matchup_wins": r["matchup_wins"], "matchup_losses": r["matchup_losses"],
             "matchup_draws": r["matchup_draws"],

@@ -4,6 +4,8 @@
 // dialog" / "close other panels" style requests needs a channel that does not
 // require lifting state into a shared provider.
 type UiEvents = {
+  "character-picker-changed": { open: boolean };
+  "avatar-changed": { username: string; avatar: { id: string; url: string } };
   "open-account": { openSuggestAfterLogin?: boolean };
   "account-dialog-changed": { open: boolean };
   "suggest-dialog-changed": { open: boolean };

@@ -14,6 +14,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern .wrangler",
     "test:cli": "PYTHONPATH=cli python3 -m unittest discover -s cli/tests -v",
     "test:server": "PYTHONPATH=server:cli server/.venv/bin/pytest -q server/tests",
+    "pretest": "node --test tests/characters.test.mjs",
+    "preqa": "node --test tests/characters.test.mjs",
     "qa": "npm run build:local-recap && npm run build && node --test tests/rendered-html.test.mjs && node --test tests/community-pages.test.mjs && node --test tests/rivals-page.test.mjs && node --test tests/header-navigation.test.mjs && node --test tests/leaderboard-page.test.mjs && node --test tests/my-bot-page.test.mjs && node --test tests/hand-replay-links.test.mjs && node --test tests/recap-routes.test.mjs && node --test tests/container-ops.test.mjs && npm run lint && npm run test:server && npm run test:cli && python3 -m compileall -q cli qa starter-kit server && python3 cli/build_starter_kit.py && PYTHONPATH=server:cli server/.venv/bin/python qa/local_recap_smoke.py",
     "benchmark:20": "PYTHONPATH=server server/.venv/bin/python qa/benchmark_20.py"
   },

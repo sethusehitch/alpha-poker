@@ -5,6 +5,7 @@ export type DirectRecord = {
   played: number;
 };
 export type Rival = {
+  avatar?: { id: string; url: string };
   username: string;
   // A player advertised only by the leaderboard has no uploaded package, so the
   // API answers with a null bot name and rank while the profile stays viewable.
@@ -26,6 +27,8 @@ export type RivalsList = {
   suggested_for_elo?: number;
 };
 export type Challenge = {
+  challenger_avatar?: { id: string; url: string };
+  challenged_avatar?: { id: string; url: string };
   challenge_id: string;
   challenger_username: string;
   challenged_username: string;
@@ -88,6 +91,7 @@ export type Compare = {
   next_cursor: string | null;
 };
 export type LeaderboardStanding = {
+  avatar?: { id: string; url: string };
   rank: number;
   username: string;
   bot_name: string;

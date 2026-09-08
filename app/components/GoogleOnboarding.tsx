@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { CharacterPicker, type CharacterAvatar } from "./characters/CharacterPicker";
 import { DEFAULT_AVATAR } from "./characters/avatar";
 import { emit } from "./uiBus";
@@ -39,7 +40,7 @@ export function GoogleOnboarding() {
   }
   return <main className="relative z-40 flex min-h-dvh items-center justify-center bg-black/20 px-4 py-6 backdrop-blur-[3px] sm:px-5">
     <section aria-label="Join Alpha Poker" className="relative w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl sm:p-8">
-      <a href="/" aria-label="Close signup" className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-xl text-zinc-500 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-blue-600">×</a>
+      <Link href="/" aria-label="Close signup" className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-xl text-zinc-500 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-blue-600">×</Link>
       {stage === "loading" && <p role="status">Checking your sign-in…</p>}
       {stage === "expired" && <><h1 className="text-2xl font-semibold">Let’s try that again</h1><p className="mt-3 text-zinc-600">Your Google sign-in expired. Continue with Google again to finish joining.</p><button onClick={() => emit("open-account", {})} className="mt-6 rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white">Log in</button></>}
       {stage === "invite" && <>

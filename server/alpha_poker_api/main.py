@@ -32,6 +32,7 @@ from .training import action_request, create_session, emit, remember_action, rem
 from .training_runtime import advance_leader, build_runtime, persist_completed_hand, public_action_to_engine, start_hand
 from .rivals import public_challenge, register_rival_routes
 from .recaps import match_recap
+from .google_login import register_google_routes
 
 MAX_ZIP_BYTES = 2 * 1024 * 1024
 CAPABILITY_TOKEN_PATTERN = re.compile(r"([?&]token=)[^&\s\"]+")
@@ -219,6 +220,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 429,
                 {"code": "rate_limited", "message": "Too many account attempts. Try again in a few minutes."},
             )
+
+    register_google_routes(app, db, settings, enforce_auth_rate_limit)
 
     @app.post("/v1/auth/register", status_code=201)
     def register(

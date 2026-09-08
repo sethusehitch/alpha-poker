@@ -1,0 +1,38 @@
+# Google sign-in implementation check
+
+Branch: codex/google-signin, based on main 2ed9676.
+
+## Implemented
+
+- Continue with Google alongside existing password login.
+- Invite-gated Google signup, public username, four existing avatars or custom
+  cropped upload. Compact layout follows the approved mockup.
+- Returning Google login skips registration; Profile can connect Google to an
+  existing password account without moving the user's data.
+- CLI browser authorization with explicit human approval, single-use code,
+  ten-minute timeout, and independent revocable session.
+- Google button stays hidden until both server credentials are configured.
+- No live records, invites, bot submissions or infrastructure were changed.
+
+## Evidence
+
+- Server Google/auth suite covers invite rejection/retry, reserved usernames,
+  duplicate usernames, ticket consumption, password fallback, link collision,
+  CLI approval and token single-use.
+- Locally signed RSA ID-token fixtures pass through Google's actual verifier.
+  Wrong audience, issuer, expiry, nonce and signature are rejected.
+- `qa/google_auth_http.py` builds an isolated web app and temporary API/database.
+  It tests actual same-origin web routes, HttpOnly cookies, rejected cross-origin
+  writes, callback state binding, invite/signup, returning login, and CLI approval.
+  The external Google exchange is mocked in this test only, not in product code.
+- CLI tests confirm polling, saving credentials, no password prompt or token
+  printing, safe URL requirements, and clean timeout without saving a session.
+- Full `npm run qa` regression pipeline and production build run locally.
+- No real Google consent/account was used; no browser screenshot verification
+  was performed in this implementation pass.
+
+## Activation gate
+
+Needs the owner's Google Cloud OAuth client, exact authorized redirect URL,
+reviewed branding/provider requirements, and a real-provider acceptance pass.
+See `docs/GOOGLE_SIGN_IN.md`. Not merged or deployed while this gate is open.

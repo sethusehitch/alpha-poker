@@ -23,6 +23,10 @@ class Settings:
     operator_usernames: frozenset[str] = frozenset()
     github_token: str | None = None
     feedback_retention_days: int = 90
+    google_client_id: str | None = None
+    google_client_secret: str | None = None
+    google_redirect_uri: str = "https://alphapoker.io/browser-api/auth/google/callback"
+    public_web_url: str = "https://alphapoker.io"
 
     def __post_init__(self) -> None:
         if not 2 <= self.auto_run_hand_count <= 100_000 or self.auto_run_hand_count % 2:
@@ -60,6 +64,10 @@ class Settings:
             ),
             github_token=os.environ.get("GITHUB_TOKEN") or None,
             feedback_retention_days=int(os.environ.get("ALPHA_POKER_FEEDBACK_RETENTION_DAYS", "90")),
+            google_client_id=os.environ.get("ALPHA_POKER_GOOGLE_CLIENT_ID") or None,
+            google_client_secret=os.environ.get("ALPHA_POKER_GOOGLE_CLIENT_SECRET") or None,
+            google_redirect_uri=os.environ.get("ALPHA_POKER_GOOGLE_REDIRECT_URI", "https://alphapoker.io/browser-api/auth/google/callback"),
+            public_web_url=os.environ.get("ALPHA_POKER_PUBLIC_WEB_URL", "https://alphapoker.io").rstrip("/"),
         )
 
     def ensure_dirs(self) -> None:

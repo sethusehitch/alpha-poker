@@ -157,7 +157,7 @@ test("instructions download the kit and hand the complete workflow to a coding a
   const response = await render();
   const html = await response.text();
 
-  assert.match(html, /href="\/alpha-poker-starter\.zip\?v=local-recap-1"/);
+  assert.match(html, /href="\/alpha-poker-starter\.zip\?v=local-recap-2"/);
   assert.match(html, /download/);
   assert.match(html, /alpha-poker-starter\.zip/g);
   assert.match(html, /most recently modified file matching alpha-poker-starter\*\.zip/);

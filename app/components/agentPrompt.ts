@@ -2,7 +2,7 @@
 // two artifacts, so the kit filename and the agent prompt live in one place
 // rather than drifting between the public and authenticated surfaces.
 export const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
-export const STARTER_KIT_URL = `/${STARTER_KIT_FILENAME}?v=local-recap-1`;
+export const STARTER_KIT_URL = `/${STARTER_KIT_FILENAME}?v=local-recap-2`;
 
 export const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything.
 

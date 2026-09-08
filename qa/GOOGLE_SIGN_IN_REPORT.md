@@ -28,6 +28,10 @@ Branch: codex/google-signin, based on main 2ed9676.
 - CLI tests confirm polling, saving credentials, no password prompt or token
   printing, safe URL requirements, and clean timeout without saving a session.
 - Full `npm run qa` regression pipeline and production build run locally.
+- Re-ran the full pipeline successfully after the shared-backdrop change and
+  close-link lint fix (57f76b7). Re-ran the isolated HTTP integration successfully
+  as well. These automated provider-stub tests do not replace the remaining
+  real Google returning-login and account-linking acceptance checks.
 - Real Google consent completed by the owner on September 8. An isolated local
   database verified Google signup, invite entry, public username, Bear avatar,
   connected status in Profile, CLI approval, authenticated `whoami`, starter

@@ -1,2 +1,6 @@
 import { GoogleOnboarding } from "../components/GoogleOnboarding";
-export default function Join() { return <GoogleOnboarding />; }
+import { AuthPageBackdrop } from "../components/AuthPageBackdrop";
+
+export default function Join() {
+  return <AuthPageBackdrop><GoogleOnboarding /></AuthPageBackdrop>;
+}

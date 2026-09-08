@@ -28,11 +28,22 @@ Branch: codex/google-signin, based on main 2ed9676.
 - CLI tests confirm polling, saving credentials, no password prompt or token
   printing, safe URL requirements, and clean timeout without saving a session.
 - Full `npm run qa` regression pipeline and production build run locally.
-- No real Google consent/account was used; no browser screenshot verification
-  was performed in this implementation pass.
+- Real Google consent completed by the owner on September 8. An isolated local
+  database verified Google signup, invite entry, public username, Bear avatar,
+  connected status in Profile, CLI approval, authenticated `whoami`, starter
+  upload, and 20-hand practice with a downloaded training archive.
+- Browser inspection caught a missing account-dialog host on the logged-out
+  CLI page. Both signup and CLI now share the homepage backdrop and account
+  dialog host. Screenshot checked the restored dimmed/blurred site backdrop.
+- Returning real Google login and existing-password-account linking remain to
+  be verified. Chrome paused automation because another extension UI was open.
+- Synthetic installer tests verify mode-0600 credentials/backups, preservation
+  of unrelated invite settings, no printed credentials, and rejection of a
+  mismatched Google project without modifying the environment.
 
 ## Activation gate
 
-Needs the owner's Google Cloud OAuth client, exact authorized redirect URL,
-reviewed branding/provider requirements, and a real-provider acceptance pass.
+The dedicated Google Cloud OAuth client and local configuration are created.
+Remaining: complete real-provider acceptance, production configuration and
+provider readiness checks, final regression/CI and coordinated release.
 See `docs/GOOGLE_SIGN_IN.md`. Not merged or deployed while this gate is open.

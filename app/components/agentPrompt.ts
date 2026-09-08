@@ -16,10 +16,10 @@ Your first response after inspecting the kit must be short and follow this order
 | What you can do | What happens | Changes your Elo? |
 | --- | --- | --- |
 | Build a bot | Choose a name and playing style, then create and validate it | No |
-| Train | Practice against the current leader and improve using hand logs | No |
+| Train | Practice against the current leader, then watch the highlights | No |
 | Compete | Upload the bot and enter the official round-robin league | Yes |
 | Challenge someone | Play a best-of-five poker series after the other player accepts | No |
-| Review hands | Examine interesting decisions and find improvements | No |
+| Review hands | Watch your saved hands at the poker table | No |
 | Check progress | See validation, matches, Elo, record, and leaderboard position | No |
 
 3. Fetch the current public leaderboard from the hosted API in WORKFLOWS.md. Show at most the top three as a compact table with rank, bot, player, Elo, and a plain-language win-loss-draw record. Never invent standings. If the leaderboard is unavailable or empty, say so briefly and continue.
@@ -27,7 +27,9 @@ Your first response after inspecting the kit must be short and follow this order
 5. Ask what I want to do. Offer these concise choices: Build my first bot, Train my bot, Compete, Challenge a player, Review hands, or Check progress. If I appear new, recommend Build my first bot.
 6. Stop and wait for my choice. Do not begin registration, installation, bot changes, training, submission, or a challenge yet.
 
-If I choose Build my first bot, guide me through four visible milestones: Create, Build, Practice, and Compete. During Create, ask for a bot name and offer simple styles such as Bold, Patient, Tricky, or Surprise me. During Build, create bot.py and bot.json and validate them, then summarize the strategy in ordinary language. During Practice, train against the current leader, inspect the downloaded hands, explain one strength and one improvement in plain language, make a useful improvement, and validate again. During Compete, explain that an accepted upload replaces my one active bot and ask for explicit approval immediately before submitting. After submission, confirm the real status and offer to check again if the official league is still running.
+If I choose Build my first bot, guide me through four visible milestones: Create, Build, Practice, and Compete. During Create, ask for a bot name and offer simple styles such as Bold, Patient, Tricky, or Surprise me. During Build, create bot.py and bot.json and validate them, then summarize the strategy in ordinary language. During Practice, train against the current leader, inspect the downloaded hands, and explain one strength and one decision worth investigating in plain language. Offer to watch the highlights and ask what hypothesis or strategy change I want to investigate. Do not change strategy automatically. Implement a change only when I request it, then validate again. During Compete, explain that an accepted upload replaces my one active bot and ask for explicit approval immediately before submitting. After submission, confirm the real status and offer to check again if the official league is still running.
+
+After every successful training run with saved hands, briefly summarize the result and ask, "Want to watch the highlights?" If I already asked to train and watch, open the recap without asking again. For Review hands, use the local recap workflow in WORKFLOWS.md to open the same animated poker-table viewer used on the website. Open its printed local URL in a browser side panel when available, otherwise open the regular browser or provide the link. Explain that I can watch highlights or select any retained hand. Run the commands yourself; do not make me copy terminal commands. Never invent hands or results if replay evidence is unavailable, and never treat watching a replay as permission to edit my bot.
 
 If I choose another capability, follow that workflow directly. Experienced users do not need to complete the rookie path. Introduce Rivals and advanced log tools after a beginner's first bot is competing, but make them available immediately when I explicitly choose Challenge someone, Review hands, or Check progress.
 

@@ -147,6 +147,17 @@ test("the shared agent prompt opens with a choice-driven rookie experience", asy
   assert.doesNotMatch(prompt, /First, give me a short overview of every available workflow/);
 });
 
+test("onboarding advertises visual recaps and preserves student strategy decisions", async () => {
+  for (const path of ["../app/components/agentPrompt.ts", "../starter-kit/WORKFLOWS.md"]) {
+    const source = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(source, /Watch your saved hands at the poker table/);
+    assert.match(source, /Want to watch the highlights\?/);
+    assert.match(source, /(?:Do not|Never) change strategy automatically/);
+    assert.match(source, /hypothesis or strategy change/);
+    assert.doesNotMatch(source, /make a useful improvement/);
+  }
+});
+
 test("the copy control reports both success and failure", async () => {
   const source = await readFile(
     new URL("../app/components/CopyPromptButton.tsx", import.meta.url),

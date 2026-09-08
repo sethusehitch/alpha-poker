@@ -39,10 +39,15 @@ and operate the CLI itself.
 
 Keep your bot on your computer and play practice hands against a frozen copy of
 the current leader. Ask your coding agent to start a training session, inspect
-the results, and improve the strategy. It will operate the bundled CLI for you.
+the results, and show the highlights. It will operate the bundled CLI for you.
+You choose which strategy changes to investigate before the agent edits your bot.
 
 Training does not affect the leaderboard. When it finishes, the CLI downloads a
 ZIP containing the hand logs into the current directory.
+Your agent will offer to open those hands in the same animated poker-table
+viewer used on the website. Ask "Show my latest recap" to reopen it, watch the
+highlights, or choose an individual hand. Viewing saved hands needs no login
+or internet connection and does not upload your logs.
 
 ## Challenge a rival
 

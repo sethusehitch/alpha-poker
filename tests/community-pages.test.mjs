@@ -40,7 +40,7 @@ test("/feature-requests renders the community header, hero, and offline-safe lis
   const body = await html("/feature-requests");
 
   assert.match(body, /<title>Feature requests — Alpha Poker<\/title>/);
-  assert.match(body, /Vote on ideas from the Alpha Poker community\./);
+  assert.match(body, /Vote on what’s next\. See what’s already completed\./);
   assert.match(body, /What should we build next\?/);
   assert.match(body, /aria-label="Main"/);
   const headerMarkup = body.match(/<header[\s\S]*?<\/header>/)?.[0] ?? "";
@@ -78,12 +78,15 @@ test("unknown routes provide a useful path back to the arena", async () => {
   assert.match(body, /aria-label="Alpha Poker home"/);
 });
 
-test("/feature-requests?tab=new and ?tab=planned deep-link to the right tab", async () => {
+test("feature request tabs support Completed and old Planned links", async () => {
   const newTab = await html("/feature-requests?tab=new");
   assert.match(newTab, /aria-current="page"[^>]*>New/);
 
   const plannedTab = await html("/feature-requests?tab=planned");
-  assert.match(plannedTab, /aria-current="page"[^>]*>Planned/);
+  assert.match(plannedTab, /aria-current="page"[^>]*>Completed/);
+  const completedTab = await html("/feature-requests?tab=completed");
+  assert.match(completedTab, /aria-current="page"[^>]*>Completed/);
+  assert.doesNotMatch(completedTab, />Planned<\/a>/);
 });
 
 test("feature request dates hydrate identically across server and browser time zones", async () => {

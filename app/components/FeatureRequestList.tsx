@@ -19,7 +19,7 @@ export type FeatureRequest = {
   created_at: string;
 };
 
-export type FeatureTab = "top" | "new" | "planned";
+export type FeatureTab = "top" | "new" | "completed";
 
 const TITLE_DISPLAY_LENGTH = 80;
 const USERNAME_DISPLAY_LENGTH = 20;
@@ -318,7 +318,7 @@ function OperatorStatusMenu({
 }
 
 function EmptyState({ tab, onSuggest }: { tab: FeatureTab; onSuggest: () => void }) {
-  if (tab === "planned") {
+  if (tab === "completed") {
     return (
       <div className="rounded-[10px] border border-dashed border-zinc-300 py-14 text-center">
         <span aria-hidden="true" className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
@@ -326,8 +326,8 @@ function EmptyState({ tab, onSuggest }: { tab: FeatureTab; onSuggest: () => void
             <path d="M4 6h12M4 10h12M4 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </span>
-        <h2 className="mt-4 text-lg font-semibold text-zinc-950">Nothing planned yet.</h2>
-        <p className="mx-auto mt-1.5 max-w-sm text-[0.9375rem] text-zinc-600">Ideas we decide to build will show up here.</p>
+        <h2 className="mt-4 text-lg font-semibold text-zinc-950">Nothing completed yet.</h2>
+        <p className="mx-auto mt-1.5 max-w-sm text-[0.9375rem] text-zinc-600">Finished requests will show up here.</p>
         <a
           href="/feature-requests"
           className="mt-6 inline-flex rounded-[5px] text-sm font-semibold text-blue-700 transition-colors hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
@@ -665,6 +665,10 @@ export function FeatureRequestList({
         body: JSON.stringify({ status }),
       });
       if (!response.ok) throw new Error("status_failed");
+      if ((tab === "completed") !== (status === "shipped")) {
+        setItems((current) => current.filter((row) => row.id !== item.id));
+        setSelectedId(null);
+      }
     } catch {
       setItems((current) => current.map((row) => (row.id === item.id ? { ...row, status: previous } : row)));
       showToast({ message: "Couldn't update status.", kind: "error" });
@@ -755,7 +759,7 @@ export function FeatureRequestList({
               {([
                 { key: "top", label: "Top", href: "/feature-requests" },
                 { key: "new", label: "New", href: "/feature-requests?tab=new" },
-                { key: "planned", label: "Planned", href: "/feature-requests?tab=planned" },
+                { key: "completed", label: "Completed", href: "/feature-requests?tab=completed" },
               ] as const).map((entry) => (
                 <a
                   key={entry.key}

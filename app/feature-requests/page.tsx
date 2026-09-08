@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 
 function resolveTab(value: string | string[] | undefined): FeatureTab {
   const raw = Array.isArray(value) ? value[0] : value;
-  return raw === "new" || raw === "planned" ? raw : "top";
+  if (raw === "completed" || raw === "planned") return "completed";
+  return raw === "new" ? raw : "top";
 }
 
 export default async function FeatureRequestsPage({
@@ -38,7 +39,7 @@ export default async function FeatureRequestsPage({
             What should we build next?
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-[1.08rem] leading-[1.6] tracking-[-0.018em] text-zinc-600 sm:text-[1.25rem]">
-            Vote on ideas from the Alpha Poker community.
+            Vote on what’s next. See what’s already completed.
           </p>
         </div>
         <FeatureRequestList tab={tab} initialItems={initialItems} initialNextCursor={initialNextCursor} initialError={initialError} />

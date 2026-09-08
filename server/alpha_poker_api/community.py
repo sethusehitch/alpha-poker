@@ -158,15 +158,14 @@ def register_community_routes(app: FastAPI, db: Database, settings: Settings) ->
             except ValueError:
                 offset = 0
         where = "WHERE fr.hidden = 0"
-        if tab == "planned":
-            where += " AND fr.status IN ('planned','in_progress','shipped')"
+        if tab in ("completed", "planned"):
+            where += " AND fr.status = 'shipped'"
+        else:
+            where += " AND fr.status != 'shipped'"
         if tab == "new":
             order = "fr.created_at DESC"
-        elif tab == "planned":
-            order = (
-                "CASE fr.status WHEN 'planned' THEN 0 WHEN 'in_progress' THEN 1 WHEN 'shipped' THEN 2 ELSE 3 END, "
-                "score DESC, fr.created_at DESC"
-            )
+        elif tab in ("completed", "planned"):
+            order = "fr.updated_at DESC, fr.id DESC"
         else:
             order = "score DESC, fr.created_at DESC"
         query = (

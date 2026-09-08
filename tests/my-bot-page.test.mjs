@@ -72,10 +72,10 @@ test("the submitted state stays on facts /browser-api/account/status returns", a
     source,
     /\/browser-api\/runs\/\$\{encodeURIComponent\(result\.id\)\}\/artifacts/,
   );
-  assert.match(
-    source,
-    /\/browser-api\/submissions\/\$\{encodeURIComponent\(submission\.submission_id\)\}\/logs/,
-  );
+  assert.doesNotMatch(source, /Validation log|Not rated yet/);
+  assert.match(source, /Pending opponent/);
+  assert.match(source, /motion-safe:animate-spin/);
+  assert.match(source, /aria-label="Change picture"/);
 
   // The page reports; it never offers an automatic "improve my bot" action.
   assert.doesNotMatch(source, /Improve/i);

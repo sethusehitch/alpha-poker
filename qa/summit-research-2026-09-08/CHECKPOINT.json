@@ -1,0 +1,343 @@
+{
+  "status": "development_not_accepted",
+  "full_evidence": "/Users/sethsaperstein/Documents/AlphaSchool/summit-strengthening-2026-09-08",
+  "candidates": [
+    {
+      "version": "v16",
+      "source_sha256": "932fb15e17030122600e94d52e9441fc0c0181a3dbec4df7289d7849f2875e90",
+      "development": {
+        "elapsed_seconds": 121.77104125000187,
+        "hands": 6200,
+        "games": 392,
+        "errors": 0,
+        "matchups": [
+          {
+            "opponent": "mirage",
+            "wins": 19,
+            "series": 20
+          },
+          {
+            "opponent": "summit",
+            "wins": 16,
+            "series": 20
+          },
+          {
+            "opponent": "spark",
+            "wins": 17,
+            "series": 20
+          },
+          {
+            "opponent": "dojo-calibration-round2-2026-09-08/baselines/smallpressure",
+            "wins": 14,
+            "series": 20
+          },
+          {
+            "opponent": "dojo-calibration-2026-09-08/trials/middle-a/frozen3",
+            "wins": 10,
+            "series": 20
+          }
+        ],
+        "source_hashes_unchanged": true
+      },
+      "acceptance": {
+        "mirage_gate_passed": false,
+        "batches": [
+          {
+            "elapsed_seconds": 24.46121658300399,
+            "hands": 1587,
+            "games": 79,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 16,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          },
+          {
+            "elapsed_seconds": 23.018879875016864,
+            "hands": 1425,
+            "games": 77,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 16,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          }
+        ],
+        "source_manifest_sha256": "d71758ccb5404ffae847e6aa60ed66e5464a316d0615c290cc6058c5cedac488"
+      }
+    },
+    {
+      "version": "v17",
+      "source_sha256": "1bc3a4356b7db0651bf3f7d02e1eafad100fa08099645369586f608eacc1e4c9",
+      "development": [
+        {
+          "candidate": "v17",
+          "opponent": "mirage",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 54,
+          "games": 78,
+          "errors": 0
+        },
+        {
+          "candidate": "v17",
+          "opponent": "spark",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 54,
+          "games": 77,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v18",
+      "source_sha256": "6ce46ac8b8fd2a305ae10384af395efdb390c4a18a20a32fcaac68ad426ef7dd",
+      "development": [
+        {
+          "candidate": "v18",
+          "opponent": "mirage",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 57,
+          "games": 82,
+          "errors": 0
+        },
+        {
+          "candidate": "v18",
+          "opponent": "spark",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 55,
+          "games": 76,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v19",
+      "source_sha256": "cac9c507af4acdcceda1229550577c1abb74196fb930b2558a6b350297b06613",
+      "development": [
+        {
+          "candidate": "v19",
+          "opponent": "mirage",
+          "wins": 15,
+          "series": 20,
+          "game_wins": 53,
+          "games": 80,
+          "errors": 0
+        },
+        {
+          "candidate": "v19",
+          "opponent": "spark",
+          "wins": 20,
+          "series": 20,
+          "game_wins": 60,
+          "games": 80,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v20",
+      "source_sha256": "cde90ef615bb0a8bb6ef388531e4ee76198510de370fcadcdb425d99d859b9b0",
+      "development": [
+        {
+          "candidate": "v20",
+          "opponent": "mirage",
+          "wins": 19,
+          "series": 20,
+          "game_wins": 58,
+          "games": 78,
+          "errors": 0
+        },
+        {
+          "candidate": "v20",
+          "opponent": "spark",
+          "wins": 19,
+          "series": 20,
+          "game_wins": 59,
+          "games": 77,
+          "errors": 0
+        }
+      ],
+      "acceptance": {
+        "mirage_gate_passed": false,
+        "batches": [
+          {
+            "elapsed_seconds": 26.4506456250092,
+            "hands": 1645,
+            "games": 78,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 17,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          },
+          {
+            "elapsed_seconds": 21.69812283400097,
+            "hands": 1420,
+            "games": 76,
+            "errors": 0,
+            "matchups": [
+              {
+                "opponent": "mirage",
+                "wins": 17,
+                "series": 20
+              }
+            ],
+            "source_hashes_unchanged": true
+          }
+        ],
+        "source_manifest_sha256": "6035113b967f10bdeeb874bb5b4db21ddc6c1e423554ff5c546439081e2a02de"
+      }
+    },
+    {
+      "version": "v21",
+      "source_sha256": "545543fc6790692240f7efc87b83c8dd2ec46773c9e69c079807f49acf1008aa",
+      "development": [
+        {
+          "candidate": "v21",
+          "opponent": "mirage",
+          "wins": 16,
+          "series": 20,
+          "game_wins": 52,
+          "games": 81,
+          "errors": 0
+        },
+        {
+          "candidate": "v21",
+          "opponent": "spark",
+          "wins": 18,
+          "series": 20,
+          "game_wins": 58,
+          "games": 81,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v22",
+      "source_sha256": "7b778618fdf352fea35b6543d75f1a52bf0a341db7e5741c7a38fa619d758482",
+      "development": [
+        {
+          "candidate": "v22",
+          "opponent": "mirage",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 55,
+          "games": 82,
+          "errors": 0
+        },
+        {
+          "candidate": "v22",
+          "opponent": "spark",
+          "wins": 18,
+          "series": 20,
+          "game_wins": 58,
+          "games": 80,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v23",
+      "source_sha256": "4d2fcd27535fc5dec7c876158e709e5b8c3d88d14e95fa9335ff2935c3c17240",
+      "development": [
+        {
+          "candidate": "v23",
+          "opponent": "mirage",
+          "wins": 16,
+          "series": 20,
+          "game_wins": 54,
+          "games": 80,
+          "errors": 0
+        },
+        {
+          "candidate": "v23",
+          "opponent": "spark",
+          "wins": 16,
+          "series": 20,
+          "game_wins": 55,
+          "games": 79,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v24",
+      "source_sha256": "5f644e929b5077a45e1919b16b54f900f49fd94a53cd6f949e9534b073462e71",
+      "development": [
+        {
+          "candidate": "v24",
+          "opponent": "mirage",
+          "wins": 14,
+          "series": 20,
+          "game_wins": 51,
+          "games": 86,
+          "errors": 0
+        },
+        {
+          "candidate": "v24",
+          "opponent": "spark",
+          "wins": 18,
+          "series": 20,
+          "game_wins": 57,
+          "games": 82,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v25",
+      "source_sha256": "71f8f1b588441886f38dcb1a2017840e159e7498dd0d88182614612e7f985750",
+      "development": [
+        {
+          "candidate": "v25",
+          "opponent": "mirage",
+          "wins": 17,
+          "series": 20,
+          "game_wins": 55,
+          "games": 77,
+          "errors": 0
+        },
+        {
+          "candidate": "v25",
+          "opponent": "spark",
+          "wins": 19,
+          "series": 20,
+          "game_wins": 58,
+          "games": 72,
+          "errors": 0
+        }
+      ]
+    },
+    {
+      "version": "v26",
+      "source_sha256": "ccc781d09a4b3eaef1b91ba8ac21643d8d0d745b031acdf81bf7c4c797cb8b70",
+      "development_status": "in progress or not run"
+    },
+    {
+      "version": "v27",
+      "source_sha256": "cda885295952950167ab0ae770a5611598f598b56c0d7a776e659515c7f0fb56",
+      "development_status": "in progress or not run"
+    },
+    {
+      "version": "v28",
+      "source_sha256": "81647a3ef56adaee55b9ab9179e00ca3bb8883d5e4f8cb5ab98379d839f8c05e",
+      "development_status": "in progress or not run"
+    }
+  ]
+}

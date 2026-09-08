@@ -1,0 +1,74 @@
+{
+  "rows": [
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/middle-a/frozen3",
+      "baseline": 7,
+      "candidate": 7,
+      "delta": 0
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-a/frozen2",
+      "baseline": 0,
+      "candidate": 4,
+      "delta": 4
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-b/v1",
+      "baseline": 7,
+      "candidate": 9,
+      "delta": 2
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-v3-a/v3",
+      "baseline": 4,
+      "candidate": 5,
+      "delta": 1
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-a",
+      "baseline": 5,
+      "candidate": 6,
+      "delta": 1
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-b/checkpoint-value1",
+      "baseline": 6,
+      "candidate": 5,
+      "delta": -1
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/alwayscall",
+      "baseline": 10,
+      "candidate": 10,
+      "delta": 0
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/tightvalue",
+      "baseline": 9,
+      "candidate": 8,
+      "delta": -1
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/balancedvalue",
+      "baseline": 7,
+      "candidate": 9,
+      "delta": 2
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/smallpressure",
+      "baseline": 6,
+      "candidate": 9,
+      "delta": 3
+    },
+    {
+      "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/overbetpressure",
+      "baseline": 9,
+      "candidate": 8,
+      "delta": -1
+    }
+  ],
+  "baseline_wins": 70,
+  "candidate_wins": 80,
+  "large_drops": [],
+  "errors": 0
+}

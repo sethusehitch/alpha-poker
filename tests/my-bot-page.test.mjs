@@ -47,15 +47,14 @@ test("/my-bot is a real route, not a dialog", async () => {
 test("the empty state offers the starter kit and the agent instructions", async () => {
   const source = await workspaceSource();
 
-  assert.match(source, /Your seat is open/);
+  assert.match(source, /No bot uploaded yet/);
   assert.match(source, /Download starter kit/);
   assert.match(source, /label="Copy agent instructions"/);
   assert.match(source, /href=\{STARTER_KIT_URL\}/);
   assert.match(source, /text=\{BUILD_BOT_PROMPT\}/);
-  // One identity slot renders in both states: the dashed empty seat and the
-  // portrait that replaces it.
-  assert.match(source, /border-dashed border-blue-200/);
-  assert.match(source, /<BotAvatar name=\{session\.username\} avatar=\{visibleStatus\.avatar\}/);
+  // The account-owned picture is shown both before and after submitting a bot.
+  assert.equal((source.match(/<BotAvatar name=\{session\.username\} avatar=\{visibleStatus\.avatar\}/g) ?? []).length, 2);
+  assert.doesNotMatch(source, /border-dashed border-blue-200/);
 });
 
 test("the submitted state stays on facts /browser-api/account/status returns", async () => {

@@ -270,17 +270,10 @@ export function MyBotWorkspace() {
       <Shell>
         <Plate>
           <div className="flex flex-col items-center gap-6 px-5 py-12 text-center sm:px-10">
-            {/* The empty seat is the memorable identity slot: the same plate the
-                submitted bot's portrait fills once a package is accepted. */}
-            <span
-              aria-hidden="true"
-              className="grid h-28 w-28 place-items-center rounded-[1.75rem] border-2 border-dashed border-blue-200 bg-white/70 text-4xl font-bold text-blue-300"
-            >
-              ?
-            </span>
+            <BotAvatar name={session.username} avatar={visibleStatus.avatar} circle className="h-28 w-28" />
             <div>
               <p className="text-3xl font-bold tracking-tight text-zinc-950">
-                Your seat is open
+                No bot uploaded yet
               </p>
               <p className="mt-2 text-zinc-600">
                 Two steps and your agent builds the bot.

@@ -41,7 +41,12 @@ test("recap playback uses recorded actor/payment metadata and isolated step pres
   assert.match(component, /key=\{`\$\{hand.hand_id\}:\$\{stepIndex\}:\$\{visit\}`\}/);
   assert.match(component, /actor === top.seat \? "seat-active"/);
   assert.match(component, /actor === bottom.seat \? "seat-active"/);
-  assert.match(component, /flying \? step.pot_before : step.pot/);
+  assert.match(component, /flying && sweeping \? chips.gathered_before : chips.gathered_pot/);
+  assert.match(component, /flying \? chips.wagers_before : chips.wagers/);
+  assert.match(component, /sweeping \? center : wager/);
+  assert.match(component, /completed.current.size === transfers.length/);
+  assert.match(component, /equity\?\.method === "estimated"/);
+  assert.match(component, /Both hands must be revealed at a completed showdown/);
   assert.match(component, /onAnimationEnd=.*setArrived\(true\)/);
   assert.match(component, /matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
   assert.match(component, /motion.removeEventListener/);
@@ -50,7 +55,7 @@ test("recap playback uses recorded actor/payment metadata and isolated step pres
   assert.match(css, /recap-chip-flight 1040ms/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.seat\.seat-active/);
-  for (const field of ["actor_seat", "action_kind", "committed_amount", "pot_before", "action_label"]) assert.ok(types.includes(`${field}?:`));
+  for (const field of ["actor_seat", "action_kind", "committed_amount", "pot_before", "action_label", "table_chips", "equity"]) assert.ok(types.includes(`${field}?:`));
 });
 
 test("highlight heading and all controls are above or beside the table, without duplicate controls", async () => {
@@ -97,5 +102,7 @@ test("recorded winner, loss, split, unknown and action states render honest gold
     if (winners.length === 2 && street === "result") assert.match(html, />Split pot</);
     if (actor !== null) assert.match(html, /data-seat="1" class="[^"]*seat-active/);
     assert.equal((html.match(/class="replay-button"/g)??[]).length,1);
+    assert.doesNotMatch(html,/data-wager-seat|chip-flight/); // old payload: no invented ledger
+    assert.match(html,/Win chance unavailable/);
   }
 });

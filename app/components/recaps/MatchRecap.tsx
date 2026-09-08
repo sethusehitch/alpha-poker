@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { BotAvatar } from "../BotAvatar";
 import { AlphaPokerMark } from "../AlphaPokerMark";
 import { useSession } from "../useSession";
@@ -24,6 +24,13 @@ function Card({ value }: { value?: string }) {
 function HoleCards({ values }: { values: string[] }) {
   return <><Card value={values[0]} /><Card value={values[1]} /></>;
 }
+function WinChance({ step, seat }: { step: ReplayStep; seat: number }) {
+  const equity = step.equity?.version === "showdown-equity-v1" ? step.equity : null;
+  const value = equity?.percentages[seat];
+  const estimated = equity?.method === "estimated";
+  const label = value == null ? "Win chance unavailable. Both hands must be revealed at a completed showdown." : `Win chance ${value} percent${estimated ? ", estimated" : ", exact"}. Retrospective showdown equity; ties count half.${estimated ? ` Based on ${amount(equity?.trials)} sampled boards${equity?.sampling_error_pp != null ? `, approximately ±${equity.sampling_error_pp} percentage points at 95% confidence` : ""}.` : ""}`;
+  return <span className="seat-equity" data-equity={value ?? "unknown"} data-method={equity?.method ?? "unavailable"} aria-label={label} title={label}>Win chance <b>{value == null ? "—" : `${value}%`}</b>{estimated && <small>estimated</small>}</span>;
+}
 function PlayerSummary({ player }: { player: ReplayPlayer }) {
   return <div className={`player-summary ${player.is_viewer ? "hero" : "opponent"}`}>
     <div className="player-name"><BotAvatar name={player.username} circle /><div><strong>{player.username}</strong><span>{player.is_viewer ? "Your bot" : "Opponent"}</span></div>{player.is_viewer && <small className="you-tag">You</small>}</div>
@@ -38,44 +45,63 @@ function ReplayTable({ hand, step, bottom, top }: { hand: Highlight; step: Repla
   const scene = useRef<HTMLDivElement>(null);
   const pot = useRef<HTMLDivElement>(null);
   const actor = step.street !== "result" && step.street !== "showdown" && (step.actor_seat === 0 || step.actor_seat === 1) ? step.actor_seat : null;
-  const commits = actor !== null && ["small_blind", "big_blind", "call", "bet", "raise", "all_in"].includes(step.action_kind ?? "") && (step.committed_amount ?? 0) > 0;
+  const chips = step.table_chips?.version === "street-wagers-v1" ? step.table_chips : null;
+  const sweeping = chips?.phase === "sweep";
+  const transfers = useMemo(() => {
+    if (!chips) return [];
+    if (chips.phase === "sweep") return chips.sweep.flatMap((paid, seat) => paid != null && paid > 0 ? [{ seat, paid }] : []);
+    return chips.phase === "payment" && actor !== null && (step.committed_amount ?? 0) > 0 ? [{ seat: actor, paid: step.committed_amount! }] : [];
+  }, [chips, actor, step.committed_amount]);
   const [arrived, setArrived] = useState(false);
-  const [path, setPath] = useState<CSSProperties | null>(null);
+  const completed = useRef(new Set<number>());
+  const [paths, setPaths] = useState<{ seat: number; paid: number; style: CSSProperties }[]>([]);
   useLayoutEffect(() => {
-    if (!commits) return;
+    if (!transfers.length) return;
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
     function update() {
       if (motion.matches) { setArrived(true); return; }
       const table = scene.current?.getBoundingClientRect();
-      const badge = scene.current?.querySelector(`[data-seat="${actor}"]`)?.getBoundingClientRect();
-      const target = pot.current?.querySelector(".pot-chip")?.getBoundingClientRect();
-      if (!table || !badge || !target) { setArrived(true); return; }
-      setPath({
-        "--from-x": `${badge.x + badge.width / 2 - table.x}px`,
-        "--from-y": `${(actor === top.seat ? badge.bottom : badge.top) - table.y}px`,
-        "--to-x": `${target.x + target.width / 2 - table.x}px`,
-        "--to-y": `${target.y + target.height / 2 - table.y}px`,
-      } as CSSProperties);
+      if (!table) { setArrived(true); return; }
+      const next = transfers.flatMap(({ seat, paid }) => {
+        const badge = scene.current?.querySelector(`[data-seat="${seat}"]`)?.getBoundingClientRect();
+        const wager = scene.current?.querySelector(`[data-wager-seat="${seat}"] .wager-chip`)?.getBoundingClientRect();
+        const center = pot.current?.querySelector(".pot-chip")?.getBoundingClientRect();
+        const source = sweeping ? wager : badge;
+        const target = sweeping ? center : wager;
+        if (!source || !target) return [];
+        return [{ seat, paid, style: {
+          "--from-x": `${source.x + source.width / 2 - table.x}px`,
+          "--from-y": `${(sweeping ? source.y + source.height / 2 : seat === top.seat ? source.bottom : source.top) - table.y}px`,
+          "--to-x": `${target.x + target.width / 2 - table.x}px`,
+          "--to-y": `${target.y + target.height / 2 - table.y}px`,
+        } as CSSProperties }];
+      });
+      if (next.length !== transfers.length) { setArrived(true); return; }
+      setPaths(next);
     }
     update();
     motion.addEventListener("change", update);
     window.addEventListener("resize", update);
     return () => { motion.removeEventListener("change", update); window.removeEventListener("resize", update); };
-  }, [actor, commits, top.seat]);
-  const flying = commits && !arrived;
-  const shownPot = flying ? step.pot_before : step.pot;
+  }, [transfers, sweeping, top.seat]);
+  const flying = transfers.length > 0 && !arrived;
+  // A legacy payload has a total pot, not enough evidence for a street ledger.
+  // Show it honestly without inventing contributions or direct-to-pot flights.
+  const shownPot = chips ? flying && sweeping ? chips.gathered_before : chips.gathered_pot : step.pot;
+  const wagers = chips ? flying ? chips.wagers_before : chips.wagers : [];
   const final = step.street === "result";
   const split = hand.winners.length === 2;
   const winner = (player: ReplayPlayer) => final && hand.winners.includes(player.username);
   const resultLabel = split ? "Split pot" : hand.winners.length === 1 ? `${hand.winners[0]} wins` : hand.outcome;
-  return <div ref={scene} className="table-scene" data-hand-id={hand.hand_id} data-step-index={hand.steps.indexOf(step)} data-actor-seat={actor ?? "none"} data-chip-state={flying ? "flying" : commits ? "settled" : "none"}>
+  return <div ref={scene} className="table-scene" data-hand-id={hand.hand_id} data-step-index={hand.steps.indexOf(step)} data-actor-seat={actor ?? "none"} data-chip-state={flying ? sweeping ? "sweeping" : "flying" : transfers.length ? "settled" : "none"}>
     <div className="scene-label">HAND {hand.hand_number} <span>•</span> STEP {hand.steps.indexOf(step) + 1}/{hand.steps.length}</div><div className="street-label">{step.street}</div>
     <div className="poker-table"><div className="table-line" /><div className="table-wordmark"><AlphaPokerMark /><span>ALPHA POKER</span></div></div>
-    <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""} ${winner(top) ? "seat-winner" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : winner(top) ? split ? ", split pot" : ", winner" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span></div>{winner(top) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}<div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
+    <div data-seat={top.seat} className={`seat top-seat ${actor === top.seat ? "seat-active" : ""} ${winner(top) ? "seat-winner" : ""}`} aria-label={`${top.username}${actor === top.seat ? ", acting player" : winner(top) ? split ? ", split pot" : ", winner" : ""}`}><BotAvatar name={top.username} circle className="seat-avatar" /><div className="seat-info"><strong>{top.username}</strong><span>{amount(step.stacks[top.seat])} <small>chips</small></span><WinChance step={step} seat={top.seat} /></div>{winner(top) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}<div className="seat-cards"><HoleCards values={step.hole_cards[top.seat] ?? []} /></div>{hand.dealer === top.seat && <span className="dealer">D</span>}</div>
     <div className={`table-action ${actor !== null ? "player-action" : ""} ${final && hand.winners.length ? "result-action" : ""}`} title={step.action_label ?? step.summary} aria-label={step.action_label ?? step.summary} aria-live="polite">{final ? resultLabel : step.action_label ?? step.summary}</div>
-    <div className="board-area"><div ref={pot} className={`pot ${commits ? "pot-receiving" : ""} ${final && hand.winners.length ? "pot-awarded" : ""}`} data-pot={shownPot ?? "unknown"}>{commits && <i className={`pot-chip ${arrived ? "chip-arrived" : ""}`} aria-hidden="true" />}<span>{final ? "Pot awarded" : "Pot"}</span><strong>{amount(shownPot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
-    <div data-seat={bottom.seat} className={`seat bottom-seat ${actor === bottom.seat ? "seat-active" : ""} ${winner(bottom) ? "seat-winner" : ""}`} aria-label={`${bottom.username}${actor === bottom.seat ? ", acting player" : winner(bottom) ? split ? ", split pot" : ", winner" : ""}`}><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span></div>{winner(bottom) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
-    {flying && path && <div className="chip-flight" style={path} aria-hidden="true" onAnimationEnd={event => { if (event.animationName === "recap-chip-flight") setArrived(true); }}><i /><small>+{amount(step.committed_amount)}</small></div>}
+    <div className="board-area"><div ref={pot} className={`pot ${final && hand.winners.length ? "pot-awarded" : ""}`} data-pot={shownPot ?? "unknown"}>{chips && <i className={`pot-chip ${(shownPot ?? 0) > 0 ? "chip-arrived" : ""}`} aria-hidden="true" />}<span>{final ? "Pot awarded" : chips ? "Gathered pot" : "Total pot"}</span><strong>{amount(shownPot)}</strong></div><div className="board">{Array.from({ length: 5 }, (_, slot) => step.board[slot] ? <Card key={slot} value={step.board[slot]} /> : <div key={slot} className="board-slot" aria-label="Not dealt" />)}</div></div>
+    <div data-seat={bottom.seat} className={`seat bottom-seat ${actor === bottom.seat ? "seat-active" : ""} ${winner(bottom) ? "seat-winner" : ""}`} aria-label={`${bottom.username}${actor === bottom.seat ? ", acting player" : winner(bottom) ? split ? ", split pot" : ", winner" : ""}`}><div className="hero-cards"><HoleCards values={step.hole_cards[bottom.seat] ?? []} /></div><BotAvatar name={bottom.username} circle className="seat-avatar" /><div className="seat-info"><strong>{bottom.username} {bottom.is_viewer && <small className="seat-you">You</small>}</strong><span>{amount(step.stacks[bottom.seat])} <small>chips</small></span><WinChance step={step} seat={bottom.seat} /></div>{winner(bottom) && <span className="seat-result">{split ? "Split pot" : "Winner"}</span>}{hand.dealer === bottom.seat && <span className="dealer bottom-dealer">D</span>}</div>
+    {chips && [top, bottom].map(player => <div key={player.seat} data-wager-seat={player.seat} data-wager={wagers[player.seat] ?? "unknown"} className={`seat-wager ${player.seat === top.seat ? "top-wager" : "bottom-wager"} ${wagers[player.seat] === 0 ? "empty-wager" : ""} ${flying && sweeping ? "wager-sweeping" : ""}`} aria-label={`${player.username} wager: ${amount(wagers[player.seat])}`}><i className="wager-chip" aria-hidden="true" /><span>Wager <strong>{wagers[player.seat] == null ? "—" : amount(wagers[player.seat])}</strong></span></div>)}
+    {flying && paths.map(path => <div key={path.seat} className={`chip-flight ${sweeping ? "chip-sweep" : "chip-payment"}`} data-flight-seat={path.seat} style={path.style} aria-hidden="true" onAnimationEnd={event => { if (event.animationName === "recap-chip-flight") { completed.current.add(path.seat); if (completed.current.size === transfers.length) setArrived(true); } }}><i /><small>{sweeping ? "" : "+"}{amount(path.paid)}</small></div>)}
   </div>;
 }
 

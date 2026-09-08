@@ -77,11 +77,60 @@ payments stay null. Unknown metadata in older payloads renders without a flight.
 Board, reveal, forfeit, and result steps have a neutral table state.
 
 The acting badge gets a cobalt ring. A recorded positive payment flies from that
-badge to the pot over 1040ms; the pot changes from its recorded before-value to
-the step's after-value on arrival. Each visited step owns a keyed presentation,
-so backward/forward navigation cannot accumulate chips or retain a stale flight.
-Pausing leaves the current payment to settle, without starting another flight.
-Reduced motion skips the flight and shows the destination/pot immediately.
+badge to its **seat wager**, not to the central pot, over 1040ms. Seat wagers
+accumulate through the current street. Optional `table_chips` metadata is
+versioned `street-wagers-v1`; it includes before/after wagers, gathered pot, and
+explicit sweep amounts. The old `step.pot` remains the total for older clients.
+The center shows **Gathered pot**, excluding every outstanding wager.
+
+At a retained street boundary, a neutral gather step lifts both wager stacks
+and sweeps them to the center together. Source stacks disappear while in flight;
+the center updates and wagers clear when both flights arrive. This happens before
+new board cards or final award/gold state. Empty streets add no empty sweep.
+Preflop folds and all-in runouts gather exactly once. A missing payment stays
+unknown, never inferred from a raise target or total; a recorded authoritative
+total can restore the gathered pot only once all wagers have been cleared.
+Missing-start legacy fragments do not invent initial contributions. Old payloads
+without a ledger show **Total pot** and no invented wager animation.
+
+Each visited step owns a keyed presentation, so Replay and highlight navigation
+cannot accumulate chips or retain a stale flight. Pausing leaves current chips
+to settle without advancing the action. Replay also resets the action timer if
+pressed again on step 1. Reduced motion shows the correct destination immediately.
+Action cadence remains 2200ms; both payment and sweep animations remain 1040ms.
+
+## Win chance / retrospective showdown equity
+
+Optional `equity` metadata is versioned `showdown-equity-v1`. Calculation runs
+server-side using the same `alpha_poker.evaluator.evaluate` as the engine. It
+requires a completed showdown result and **two explicit, valid hole-card reveals**.
+Folded/mucked cards, one-sided reveals, malformed cards, forfeits, and missing
+board evidence produce no equity. Even a viewer's own retained cards do not
+bypass this gate. The authorization and per-step card-visibility rules are
+unchanged. Eligible odds are retrospective, conditioned on both legitimately
+revealed hands, even while the animation has not yet exposed those cards.
+
+Only the current board and the four known hole cards are removed from the deck.
+Future runout cards are not used early. Flop, turn, and river enumerate all
+990, 44, and 1 remaining runouts exactly. Ties count as half a win for each seat,
+so "Win chance" is pot-share equity, not outright win probability. One percentage
+is rounded to a tenth and the other is its complement.
+
+Preflop has 1,712,304 possible boards. A timed exact 10,000-board prefix took
+0.95s locally, projecting about 163 seconds for full enumeration. Instead, we
+sample **2,048 distinct uniformly sampled boards**, with fixed seed 20260907.
+Preflop is visibly marked **estimated**. Its nominal worst-case binomial 95%
+sampling error is about **±2.2 percentage points**, not a guaranteed bound on
+this fixed sample. The accessible tooltip and payload include this margin.
+Suit/rank order is canonicalized and seats are mapped back, so mirrored seats
+receive complementary results without a second calculation.
+
+A per-recap cache and bounded 128-entry evaluator LRU reuse identical states.
+Selection-only normalization never computes equity. The local benchmark measured
+0.198s for cold preflop, 0.093s flop, 0.004s turn, and <0.001s river. Five distinct
+cold hands across all streets took **1.507s**, below the <=2.5s local target.
+The test guard allows 3.5s for scheduling headroom; cache reuse is tested separately.
+Run `qa/recap_equity_benchmark.py` to reproduce the bounded benchmark.
 
 ## Local QA
 
@@ -101,12 +150,13 @@ no separate renderer, token transfer, or local file import is needed.
 `qa/recap-browser.mjs` uses a separate headless Chrome profile under `.wrangler`
 and a local debugging endpoint on 9312. It logs in, checks net/gross accounting,
 checks sidebar-only controls and heading/context, exercises Replay/Play/Pause
-and highlight arrows, checks both physical actors and synchronized chip/pot
-movement, interrupts flights, and changes the reduced-motion preference. It
-plays the entire hand at its real 2200ms cadence and verifies gold appears only
-at the final result. Action and final screenshots are captured at 1600x1000 and
-390x844. It asserts no horizontal overflow and visible controls, then verifies
-signed-out private-state clearing. `RECAP_SCREENSHOT_DIR` controls the output.
+and highlight arrows, checks both physical actors, accumulated seat wagers,
+simultaneous street sweeps and central-pot accounting, changing equity when the
+board arrives, interrupted flights, and reduced motion. It plays the entire
+hand at its real 2200ms cadence and verifies final-only gold. Action, sweep, and
+final screenshots are captured at 1600x1000 and 390x844. It asserts no horizontal
+overflow and visible controls, then verifies signed-out private-state clearing.
+`RECAP_SCREENSHOT_DIR` controls the output.
 
 The repository's rendered-page tests expect the offline API state. Run them
 with `ALPHA_POKER_API_URL=http://127.0.0.1:9/v1` so another local API cannot alter

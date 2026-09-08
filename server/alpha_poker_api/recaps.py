@@ -11,6 +11,8 @@ from typing import Any
 from urllib.parse import quote
 
 from alpha_poker.evaluator import describe, evaluate
+from .recap_chips import street_wagers
+from .recap_equity import showdown_equity
 
 
 def integer(value: Any) -> int | None:
@@ -37,7 +39,7 @@ def _category(hole: list[str], board: list[str]) -> str | None:
     return label
 
 
-def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *, include_steps: bool = True) -> dict:
+def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *, include_steps: bool = True, equity_cache: dict | None = None) -> dict:
     names = [matchup["player_a"], matchup["player_b"]]
     record_names = record.get("players")
     # Legacy records may list the matchup pair in reverse order.
@@ -179,6 +181,19 @@ def normalize_hand(record: dict, row: dict, matchup: dict, viewer: str | None, *
         steps[-1] = final
     else:
         steps.append(final)
+    complete_start = len(events) >= 2 and {e.get("type") for e in events[:2]} == {"small_blind", "big_blind"} and {e.get("seat") for e in events[:2]} == {0, 1}
+    steps = street_wagers(steps, complete_start=complete_start)
+    if equity_cache is None:
+        equity_cache = {}
+    # No equity from private, mucked, malformed, or merely retained hole cards.
+    # This gate is independent of viewer identity; both explicit reveals and a
+    # completed showdown result are required even for the owner of a folded hand.
+    equity_holes = [showdown_cards.get(s, []) for s in range(2)]
+    eligible = reason == "showdown" and revealed == {0, 1} and all(len(h) == 2 for h in equity_holes)
+    for step in steps:
+        expected = {"preflop": 0, "flop": 3, "turn": 4, "river": 5, "showdown": 5, "result": 5}.get(step["street"])
+        board_known = expected is not None and len(step["board"]) == expected
+        step["equity"] = showdown_equity(equity_holes, step["board"], equity_cache) if eligible and board_known else None
     return {**metadata,
             "players": players, "dealer": record.get("dealer") if type(record.get("dealer")) is int and record["dealer"] in (0, 1) else None,
             "board": board, "pot": pot, "winners": winner_names, "outcome": outcome,
@@ -277,9 +292,10 @@ def match_recap(db, matchup: dict, viewer: str | None, *, challenge_id: str | No
             hands.append({key: normalized[key] for key in ("hand_id", "hand_number", "profit_a", "pot", "big_blind", "winners", "reason")})
         complete = len(hands) == matchup["hands"]
         highlights = []
+        equity_cache = {}
         for selected in select_highlights(hands, complete=complete):
             row = dict(conn.execute("SELECT * FROM hands WHERE id=? AND run_id=?", (selected["hand_id"], matchup["run_id"])).fetchone())
-            normalized = normalize_hand(json.loads(row["record_json"]), row, matchup, viewer)
+            normalized = normalize_hand(json.loads(row["record_json"]), row, matchup, viewer, equity_cache=equity_cache)
             highlights.append({**normalized, "label": selected["label"], "labels": selected["labels"]})
     path = f"/recaps/challenges/{quote(challenge_id, safe='')}" if challenge_id else f"/recaps/runs/{quote(matchup['run_id'], safe='')}/matches/{quote(matchup['id'], safe='')}"
     return {"schema_version": "recap-v1", "source": "direct_challenge" if challenge_id else "round_robin",

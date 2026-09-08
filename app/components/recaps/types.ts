@@ -7,6 +7,23 @@ export type ReplayStep = {
   committed_amount?: number | null;
   pot_before?: number | null;
   action_label?: string;
+  table_chips?: {
+    version: "street-wagers-v1";
+    phase: "payment" | "sweep" | "idle";
+    gathered_before: number | null;
+    gathered_pot: number | null;
+    wagers_before: (number | null)[];
+    wagers: (number | null)[];
+    sweep: (number | null)[];
+  };
+  equity?: {
+    version: "showdown-equity-v1";
+    percentages: number[];
+    method: "exact" | "estimated";
+    trials: number;
+    tie_policy: "split";
+    sampling_error_pp?: number | null;
+  } | null;
   board: string[];
   pot: number | null;
   stacks: (number | null)[];

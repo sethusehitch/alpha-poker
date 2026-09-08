@@ -50,7 +50,10 @@ async function state() {
     action:t.querySelector('.table-action').textContent,phase:t.dataset.chipState,pot:t.querySelector('.pot').dataset.pot,
     flights:t.querySelectorAll('.chip-flight').length,ring:a?getComputedStyle(a).boxShadow:null,
     animation:f?getComputedStyle(f).animationName:null,position:f?f.getBoundingClientRect().y:null,
-    destination:!!t.querySelector('.chip-arrived'),step:Number(t.dataset.stepIndex),hand:t.dataset.handId
+    wagers:[0,1].map(s=>{const v=t.querySelector('[data-wager-seat="'+s+'"]').dataset.wager;return v==='unknown'?null:Number(v)}),
+    equity:[0,1].map(s=>{const v=t.querySelector('[data-seat="'+s+'"] .seat-equity').dataset.equity;return v==='unknown'?null:Number(v)}),
+    method:t.querySelector('.seat-equity').dataset.method,
+    sweepFlights:t.querySelectorAll('.chip-sweep').length,step:Number(t.dataset.stepIndex),hand:t.dataset.handId
   }})()`);
 }
 async function screenshot(name) {
@@ -69,6 +72,7 @@ const recap = await evaluate("fetch('/browser-api/challenges/ch_recap_qa/recap')
 const hand = recap.highlights.find(h => h.hand_id === "recap_qa_6");
 const handIndex = recap.highlights.indexOf(hand);
 const callStep = hand.steps.findIndex(s => s.action_kind === "call" && s.committed_amount > 0);
+const sweepStep = hand.steps.findIndex(s => s.table_chips.phase === "sweep");
 function assertActor(actual, step) {
   assert.equal(actual.actor, String(step.actor_seat ?? "none"));
   assert.deepEqual(actual.active, step.actor_seat == null ? [] : [step.actor_seat]);
@@ -78,6 +82,8 @@ function assertActor(actual, step) {
     assert.equal(actual.goldResult, false);
   }
   if (step.actor_seat != null) assert.notEqual(actual.ring, "none");
+  assert.deepEqual(actual.equity,step.equity?.percentages ?? [null,null]);
+  assert.equal(actual.method,step.equity?.method ?? "unavailable");
 }
 async function assertFinal(expected = hand) {
   const current = await state();
@@ -88,6 +94,7 @@ async function assertFinal(expected = hand) {
   assert.equal(current.goldResult, expected.winners.length > 0);
   assert.equal(current.pot, String(expected.pot));
   assert.equal(current.flights, 0);
+  assert.deepEqual(current.wagers,[0,0]);
   const viewer = expected.players.find(p=>p.is_viewer) ?? expected.players[0];
   const summary = await evaluate("document.querySelector('.win-label').textContent");
   if (viewer.profit < 0) assert.ok(summary.includes("lost"));
@@ -100,16 +107,17 @@ async function assertFlight(index) {
   assert.equal(current.phase, "flying");
   assert.equal(current.flights, 1);
   assert.equal(current.animation, "recap-chip-flight");
-  assert.equal(current.pot, String(hand.steps[index].pot_before));
+  assert.equal(current.pot, String(hand.steps[index].table_chips.gathered_before));
+  assert.deepEqual(current.wagers,hand.steps[index].table_chips.wagers_before);
   return current;
 }
 async function assertSettled(index) {
   await until("document.querySelector('.table-scene').dataset.chipState === 'settled'");
   const current = await state();
   assertActor(current, hand.steps[index]);
-  assert.equal(current.pot, String(hand.steps[index].pot));
+  assert.equal(current.pot, String(hand.steps[index].table_chips.gathered_pot));
+  assert.deepEqual(current.wagers,hand.steps[index].table_chips.wagers);
   assert.equal(current.flights, 0);
-  assert.equal(current.destination, true);
 }
 async function waitStep(index) {
   await until(`Number(document.querySelector('.table-scene').dataset.stepIndex) === ${index}`, 45000);
@@ -136,7 +144,7 @@ for (const [label, width, height] of [["desktop",1600,1000],["mobile",390,844]])
   assert.ok(layout.titleBottom < layout.tableTop);
   if (label === "mobile") { assert.ok(layout.controlBottom < layout.tableTop); assert.ok(layout.tableBottom <= height); }
   assert.equal(await evaluate(`(()=>{const badge=document.querySelector('.bottom-seat .seat-result'),cards=document.querySelector('.hero-cards');if(!badge)return true;const b=badge.getBoundingClientRect(),c=cards.getBoundingClientRect();return b.left>=c.right||b.top>=c.bottom||b.right<=c.left||b.bottom<=c.top})()`),true,"Winner badge must not cover hole cards");
-  await screenshot(`codex-recap-simple-result-${label}`);
+  await screenshot(`codex-recap-wagers-result-${label}`);
   await click('[aria-label="Previous highlight"]');
   await assertFinal(recap.highlights[handIndex - 1]);
   assert.equal(await evaluate("document.querySelector('h1').textContent"), recap.highlights[handIndex - 1].label);
@@ -163,8 +171,29 @@ for (const [label, width, height] of [["desktop",1600,1000],["mobile",390,844]])
   const start = await assertFlight(callStep);
   await wait(150);
   assert.notEqual((await state()).position,start.position);
-  await screenshot(`codex-recap-simple-action-${label}`);
+  await screenshot(`codex-recap-wagers-action-${label}`);
   await assertSettled(callStep);
+  const preflopEquity = (await state()).equity;
+  await click('.play-button');
+  await waitStep(sweepStep);
+  await click('.play-button');
+  const sweep = await state();
+  assertActor(sweep,hand.steps[sweepStep]);
+  assert.equal(sweep.phase,"sweeping");
+  assert.equal(sweep.sweepFlights,2);
+  assert.equal(sweep.pot,String(hand.steps[sweepStep].table_chips.gathered_before));
+  assert.deepEqual(sweep.wagers,hand.steps[sweepStep].table_chips.wagers_before);
+  await wait(150);
+  await screenshot(`codex-recap-wagers-sweep-${label}`);
+  await assertSettled(sweepStep);
+  assert.deepEqual((await state()).wagers,[0,0]);
+  await click('.play-button');
+  await waitStep(sweepStep + 1);
+  await click('.play-button');
+  const flop = await state();
+  assertActor(flop,hand.steps[sweepStep + 1]);
+  assert.equal(flop.method,"exact");
+  assert.notDeepEqual(flop.equity,preflopEquity,"Board arrival must update odds");
   // Restart partway through, then cancel mid-flight with a highlight change.
   await click('.replay-button');
   await assertFlight(0);
@@ -180,6 +209,10 @@ for (const [label, width, height] of [["desktop",1600,1000],["mobile",390,844]])
   await assertSettled(0);
   await click('.replay-button');
   await assertSettled(0);
+  // Reduced motion also gathers both wagers immediately, without a flight.
+  await waitStep(sweepStep);
+  await assertSettled(sweepStep);
+  assert.deepEqual((await state()).wagers,[0,0]);
   await click('.play-button');
   await call("Emulation.setEmulatedMedia",{features:[]});
   // Complete the unmodified cadence, checking every action/neutral state.
@@ -190,7 +223,7 @@ for (const [label, width, height] of [["desktop",1600,1000],["mobile",390,844]])
   }
   await assertFinal();
   await until("document.querySelector('.play-button').textContent.includes('Play')");
-  console.log(`${label}: heading/context, sidebar-only controls, Replay/Play/Pause, real highlight navigation, actor/flight accounting, full 2200ms cadence, final-only gold, reduced motion, no overflow`);
+  console.log(`${label}: sidebar-only controls; Replay/Play/Pause; wager payments and street sweeps; exact/estimated odds; full 2200ms cadence; final-only gold; reduced motion; no overflow`);
 }
 await call("Network.clearBrowserCookies");
 await call("Page.reload");

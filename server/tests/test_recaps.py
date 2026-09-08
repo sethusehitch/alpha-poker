@@ -134,7 +134,8 @@ def test_action_metadata_tracks_physical_actor_and_actual_paid_chips(kind, mirro
     record = hand_record(kind, mirror=mirror)
     hand = normalized(record)
     prior_pot = 0
-    for event, step in zip(record["events"], hand["steps"]):
+    recorded_steps = [s for s in hand["steps"] if s["table_chips"]["phase"] != "sweep"]
+    for event, step in zip(record["events"], recorded_steps, strict=True):
         if event["type"] in {"small_blind", "big_blind", "action"}:
             seat = event["seat"]
             action = event.get("action", event["type"])
@@ -240,6 +241,9 @@ def test_direct_authorization_scope_discovery_and_retention(recap_client):
             assert first["action_kind"] == "small_blind"
             assert first["committed_amount"] == 10 and first["pot_before"] == 0
             assert first["action_label"] == f"{actor['username']} posts the small blind 10"
+            assert first["table_chips"]["gathered_pot"] == 0
+            assert first["table_chips"]["wagers"] == [10, 0]
+            assert (first["equity"] is None) == bool(hand["hand_number"] % 2)
             assert actor["username"] == ("bob" if hand["hand_number"] % 2 else "alice")
             assert all(not values for seat, values in enumerate(first["hole_cards"]) if hand["players"][seat]["username"] != viewer)
     assert client.get("/v1/challenges/ch_1", headers=headers["alice"]).json()["playback_url"] == data["playback_url"]

@@ -187,7 +187,7 @@ test("bot status and log downloads live on /my-bot, not the account dialog", asy
   ]);
 
   assert.match(myBot, /browser-api\/account\/status/);
-  assert.match(myBot, /Validation log/);
+  assert.doesNotMatch(myBot, /Validation log/);
   assert.match(myBot, /Latest result logs/);
   assert.match(myBot, /participant_message/);
 

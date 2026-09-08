@@ -197,7 +197,7 @@ export function AuthButton() {
                       <p className="text-xs text-zinc-500">Same account as the Alpha Poker CLI.</p>
                     </div>
                   </div>
-                  <a href="/profile" className="mt-5 block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center font-semibold text-white hover:bg-blue-700">Profile &amp; character</a>
+                  <a href="/profile" className="mt-5 block w-full rounded-lg bg-blue-600 px-4 py-2.5 text-center font-semibold text-white hover:bg-blue-700">Profile</a>
                   <button type="button" onClick={logout} className="mt-3 w-full rounded-lg border border-zinc-300 px-4 py-2.5 font-semibold text-zinc-900 hover:bg-zinc-50">
                     Log out
                   </button>

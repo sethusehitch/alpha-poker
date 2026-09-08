@@ -15,5 +15,9 @@ for (const [source, name] of [
   await writeFile(resolve(target, name), contents);
 }
 await copyFile(resolve(root, "public/robot-avatars.png"), resolve(root, "cli/alpha_poker_cli/viewer/robot-avatars.png"));
+await mkdir(resolve(root, "cli/alpha_poker_cli/viewer/characters"), {recursive: true});
+for (const name of ["elephant", "bear", "octopus", "bird"]) {
+  await copyFile(resolve(root, `public/characters/${name}.webp`), resolve(root, `cli/alpha_poker_cli/viewer/characters/${name}.webp`));
+}
 await writeFile(resolve(root, "cli/alpha_poker_cli/viewer/THIRD_PARTY_LICENSES.txt"),
   (await Promise.all(["react", "react-dom", "scheduler"].map(async name => `${name}\n${await readFile(resolve(root, `node_modules/${name}/LICENSE`), "utf8")}`))).join("\n\n"));

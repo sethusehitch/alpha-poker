@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { on } from "../uiBus";
 import { type Avatar, DEFAULT_AVATAR, safeAvatarUrl } from "./avatar";
 
 const requests = new Map<string, Promise<Avatar | null>>();
+export const OfflineCharacters = createContext(false);
 function lookup(username: string) {
   let request = requests.get(username);
   if (!request) {
@@ -18,8 +19,10 @@ function lookup(username: string) {
 export function CharacterImage({ username, avatar, className = "", alt = "" }: {
   username: string; avatar?: Avatar | null; className?: string; alt?: string;
 }) {
+  const offline = useContext(OfflineCharacters);
   const [resolved, setResolved] = useState<{ username: string; avatar: Avatar } | null>(null);
   useEffect(() => {
+    if (offline) return;
     let active = true;
     if (!avatar && username) void lookup(username).then(value => {
       if (active && value) setResolved({ username, avatar: value });
@@ -30,9 +33,11 @@ export function CharacterImage({ username, avatar, className = "", alt = "" }: {
       setResolved({ username, avatar: detail.avatar });
     });
     return () => { active = false; off(); };
-  }, [username, avatar]);
+  }, [username, avatar, offline]);
   const current = resolved?.username === username ? resolved.avatar : avatar;
-  return <img src={safeAvatarUrl(current)} alt={alt} draggable={false}
+  const fallback = offline ? DEFAULT_AVATAR.url.slice(1) : DEFAULT_AVATAR.url;
+  const src = offline ? fallback : safeAvatarUrl(current);
+  return <img src={src} alt={alt} draggable={false}
     className={`h-full w-full rounded-full object-cover ${className}`}
-    onError={event => { if (!event.currentTarget.src.endsWith(DEFAULT_AVATAR.url)) event.currentTarget.src = DEFAULT_AVATAR.url; }} />;
+    onError={event => { if (!event.currentTarget.src.endsWith(fallback)) event.currentTarget.src = fallback; }} />;
 }

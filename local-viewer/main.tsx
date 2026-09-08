@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RecapView } from "../app/components/recaps/MatchRecap";
 import { AlphaPokerMark } from "../app/components/AlphaPokerMark";
+import { OfflineCharacters } from "../app/components/characters/CharacterImage";
 import type { MatchRecap } from "../app/components/recaps/types";
 import "../app/globals.css";
 import "./style.css";
@@ -37,4 +38,4 @@ function LocalViewer() {
     {error ? <p role="alert" className="local-notice">{error}</p> : result?.key === key ? <RecapView key={key} data={result.data} backHref={null} selectionLabel={hand ? "Hand" : "Highlight"}/> : <p role="status" className="local-notice">Loading recap…</p>}
   </>;
 }
-createRoot(document.getElementById("root")!).render(<LocalViewer/>);
+createRoot(document.getElementById("root")!).render(<OfflineCharacters.Provider value={true}><LocalViewer/></OfflineCharacters.Provider>);

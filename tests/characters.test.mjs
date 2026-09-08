@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 import { safeAvatarUrl, DEFAULT_AVATAR } from '../app/components/characters/avatar.ts';
 import { cropGeometry, inspectUpload } from '../app/components/characters/imageCrop.ts';
 
@@ -23,4 +24,13 @@ test('crop geometry fills the square without gaps at every supported zoom and po
 test('upload rejects non-images and oversized files before browser decoding', async () => {
   await assert.rejects(inspectUpload(new File(['<svg/>'],'x.svg')), /valid JPG/);
   await assert.rejects(inspectUpload(new File([new Uint8Array(2097153)],'x.png')), /2 MB/);
+});
+test('offline recap disables avatar lookup and packages its relative fallback', async () => {
+  const source = await readFile(new URL('../app/components/characters/CharacterImage.tsx', import.meta.url), 'utf8');
+  assert.match(source, /if \(offline\) return;/);
+  assert.match(source, /offline \? DEFAULT_AVATAR.url.slice\(1\)/);
+  const viewer = await readFile(new URL('../local-viewer/main.tsx', import.meta.url), 'utf8');
+  assert.match(viewer, /OfflineCharacters.Provider value=\{true\}/);
+  const packaging = await readFile(new URL('../cli/pyproject.toml', import.meta.url), 'utf8');
+  assert.match(packaging, /viewer\/characters\/\*/);
 });

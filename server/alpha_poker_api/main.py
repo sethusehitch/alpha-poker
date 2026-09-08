@@ -18,7 +18,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException,
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response, StreamingResponse
 
 from .auth import DUMMY_PASSWORD_HASH, authenticate_token, hash_password, issue_session, normalize_username, require_user, revoke_session, verify_password
 from .community import is_operator_username, register_community_routes
@@ -29,7 +29,8 @@ from .models import LoginRequest, RegisterRequest, RunCreate, TrainingCreate
 from .ratelimit import RateLimiter
 from .training import action_request, create_session, emit, remember_action, remembered_action
 from .training_runtime import advance_leader, build_runtime, persist_completed_hand, public_action_to_engine, start_hand
-from .rivals import register_rival_routes
+from .rivals import public_challenge, register_rival_routes
+from .recaps import match_recap
 
 MAX_ZIP_BYTES = 2 * 1024 * 1024
 CAPABILITY_TOKEN_PATTERN = re.compile(r"([?&]token=)[^&\s\"]+")
@@ -409,6 +410,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "hands": r["hands"], "player_a_bb_per_100": r["player_a_bb_per_100"],
             "confidence_95": [r["ci_low"], r["ci_high"]], "wins_a": r["wins_a"],
             "wins_b": r["wins_b"], "ties": r["ties"],
+            "playback_url": f"/recaps/runs/{run_id}/matches/{r['id']}",
         } for r in db.all("SELECT * FROM matchups WHERE run_id=? ORDER BY player_a, player_b", (run_id,))]
 
     @app.get("/v1/runs")
@@ -438,6 +440,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
         authorize_run_access(run, authorization, x_alpha_username)
         return {"run_id": run_id, "matchups": _matchups(run_id)}
+
+    @app.get("/v1/runs/{run_id}/matchups/{matchup_id}/recap")
+    def matchup_recap(run_id: str, matchup_id: str, response: Response, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):
+        response.headers["Cache-Control"] = "private, no-store"
+        run = db.one("SELECT * FROM runs WHERE id=?", (run_id,))
+        if not run:
+            raise HTTPException(404, {"code": "run_not_found", "message": "Run not found"})
+        authorize_run_access(run, authorization, x_alpha_username)
+        if run["status"] != "completed":
+            raise HTTPException(409, {"code": "recap_not_ready", "message": "The match recap is not ready"})
+        matchup = db.one("SELECT * FROM matchups WHERE run_id=? AND id=?", (run_id, matchup_id))
+        if not matchup:
+            raise HTTPException(404, {"code": "matchup_not_found", "message": "Matchup not found in this run"})
+        challenge = db.one("SELECT * FROM rival_challenges WHERE run_id=?", (run_id,)) if not run["official"] else None
+        viewer = authenticate_token(db, authorization)
+        if not run["official"]:
+            viewer = rival_username(authorization, x_alpha_username)
+        recap = match_recap(db, matchup, viewer, challenge_id=challenge["id"] if challenge else None)
+        if challenge:
+            recap["challenge"] = public_challenge(db, challenge, viewer)
+        return recap
 
     @app.get("/v1/runs/{run_id}/summary")
     def run_summary(run_id: str, authorization: str | None = Header(None), x_alpha_username: str | None = Header(None)):

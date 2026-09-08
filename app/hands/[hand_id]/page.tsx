@@ -36,6 +36,7 @@ export default async function HandPage({
           .
         </p>
         <HandReplay handId={hand_id} />
+        {query.result && <a href={`/recaps/challenges/${encodeURIComponent(query.result)}?hand=${encodeURIComponent(hand_id)}`} className="mt-6 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">View highlighted recap</a>}
       </main>
     </>
   );

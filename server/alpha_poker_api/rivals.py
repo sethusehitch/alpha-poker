@@ -9,10 +9,11 @@ from collections.abc import Callable
 from typing import Annotated, Any, Literal
 import threading
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from .db import Database, now_iso
+from .recaps import match_recap
 
 
 OPEN_STATUSES = ("pending", "queued", "running")
@@ -140,6 +141,7 @@ def public_challenge(db: Database, challenge: dict[str, Any], viewer: str | None
         ),
         "bot_names": _bot_names(db, challenge),
         "recap_url": f"/v1/challenges/{challenge['id']}/recap" if can_view_recap and challenge["status"] == "completed" else None,
+        "playback_url": f"/recaps/challenges/{challenge['id']}" if can_view_recap and challenge["status"] == "completed" else None,
         "artifacts_url": f"/v1/runs/{run_id}/artifacts" if can_view_recap and run_id and challenge["status"] == "completed" else None,
     }
 
@@ -615,22 +617,27 @@ def register_rival_routes(
     @app.get("/v1/challenges/{challenge_id}/recap")
     def challenge_recap(
         challenge_id: str,
+        response: Response,
         authorization: str | None = Header(None),
         x_alpha_username: str | None = Header(None),
     ):
         username = caller(authorization, x_alpha_username)
         challenge = _challenge_for_user(db, challenge_id, username)
+        response.headers["Cache-Control"] = "private, no-store"
         if challenge["status"] != "completed" or not challenge["run_id"]:
             raise HTTPException(409, {"code": "recap_not_ready", "message": "Challenge recap is not ready"})
-        matchup = db.one("SELECT * FROM matchups WHERE run_id=?", (challenge["run_id"],))
-        hands = db.all(
-            "SELECT id AS hand_id,hand_number,winner,pot FROM hands WHERE run_id=? ORDER BY pot DESC,hand_number LIMIT 10",
-            (challenge["run_id"],),
-        )
+        matchup = db.one("SELECT * FROM matchups WHERE run_id=? AND player_a=? AND player_b=?",
+                         (challenge["run_id"], challenge["challenger_username"], challenge["challenged_username"]))
+        if not matchup:
+            raise HTTPException(404, {"code": "recap_unavailable", "message": "The completed match record is unavailable"})
+        recap = match_recap(db, matchup, username, challenge_id=challenge_id)
         return {
+            **recap,
             "challenge": public_challenge(db, challenge, username),
             "matchup": matchup,
-            "best_hands": hands,
+            "best_hands": [{"hand_id": h["hand_id"], "hand_number": h["hand_number"],
+                            "winner": h["winners"][0] if len(h["winners"]) == 1 else None,
+                            "pot": h["pot"], "label": h["label"], "outcome": h["outcome"]} for h in recap["highlights"]],
             "artifacts_url": f"/v1/runs/{challenge['run_id']}/artifacts",
         }
 

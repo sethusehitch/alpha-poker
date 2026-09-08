@@ -247,6 +247,10 @@ export function AppHeader({ currentPath }: { currentPath: string }) {
       } else if (opponent) {
         params.set("rival", opponent);
         if (challenge.status === "completed") {
+          if (challenge.playback_url) {
+            window.location.assign(`/recaps/challenges/${encodeURIComponent(challenge.challenge_id)}`);
+            return;
+          }
           params.set("result", challenge.challenge_id);
         } else if (
           challenge.status === "pending" &&
@@ -415,6 +419,7 @@ export function AppHeader({ currentPath }: { currentPath: string }) {
                         <span className="font-semibold">
                           {notificationCopy(note)}
                         </span>
+                        {["challenge_won", "challenge_lost", "challenge_drawn"].includes(note.type) && <span className="ml-2 text-xs font-semibold text-blue-700">View recap</span>}
                         <span className="mt-1 flex items-center gap-2 text-xs font-medium text-zinc-500">
                           <time dateTime={note.created_at}>
                             {notificationTime(note.created_at)}

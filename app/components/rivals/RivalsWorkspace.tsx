@@ -341,7 +341,11 @@ function ChallengeRow({
             {challenge.margin_play_chips.toLocaleString()} play chips
           </span>
         )}
-      {onOpen ? (
+      {challenge.status === "completed" && challenge.playback_url ? (
+        <a href={`/recaps/challenges/${encodeURIComponent(challenge.challenge_id)}`} className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50">
+          View recap
+        </a>
+      ) : onOpen ? (
         <button
           onClick={() => onOpen(challenge)}
           type="button"
@@ -423,6 +427,9 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
             </p>
           )}
           <h3 className="mt-6 font-semibold">Focused hand replay</h3>
+          <a href={`/recaps/challenges/${encodeURIComponent(data.challenge.challenge_id)}`} className="mt-3 inline-flex rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
+            View highlighted recap
+          </a>
           <ul className="mt-2 divide-y rounded-xl border border-zinc-200">
             {data.best_hands.map((hand) => (
               <li key={hand.hand_id}>
@@ -431,6 +438,7 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
                   className="flex items-center justify-between px-4 py-3 text-sm hover:bg-blue-50"
                 >
                   <span>
+                    {hand.label && <span className="mb-1 block text-xs font-medium text-blue-700">{hand.label}</span>}
                     {hand.winner ? (
                       <>
                         Hand {hand.hand_number}{" "}
@@ -440,7 +448,7 @@ function RecapDrawer({ id, close }: { id: string; close: () => void }) {
                       </>
                     ) : (
                       <span className="text-zinc-600">
-                        Hand {hand.hand_number} tied
+                        Hand {hand.hand_number}: {hand.outcome === "Split pot" ? "split pot" : "result unavailable"}
                       </span>
                     )}
                   </span>

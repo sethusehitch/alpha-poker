@@ -53,6 +53,8 @@ __pycache__/
 .venv/
 /data/
 /.qa-data/
+/cli/build/
+/cli/*.egg-info/
 
 # Terraform and AWS deployment state
 **/.terraform/

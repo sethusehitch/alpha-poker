@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { rivalsApi, type Challenge, type Rival, type RivalDetail } from "./api";
 import { BotAvatar } from "../BotAvatar";
+import { Portrait, OpponentCardSurface, OPPONENT_BACKDROP, OPPONENT_PANEL } from "./OpponentSurfaces";
 import { emit, on } from "../uiBus";
 import { useSession } from "../useSession";
 
@@ -99,34 +100,6 @@ function isOnline(rival: {
   return rival.has_active_bot ?? Boolean(rival.bot_name);
 }
 
-function Portrait({
-  name,
-  avatar,
-  rank,
-  className,
-}: {
-  name: string;
-  avatar?: { id: string; url: string };
-  rank?: number | null;
-  className: string;
-}) {
-  return (
-    <span className="relative inline-flex shrink-0">
-      <span
-        aria-hidden="true"
-        className="absolute -inset-1.5 rounded-full bg-[radial-gradient(circle_at_35%_30%,#e0ecff,transparent_70%)]"
-      />
-      <BotAvatar
-        name={name}
-        avatar={avatar}
-        rank={rank ?? undefined}
-        circle
-        className={`relative ${className}`}
-      />
-    </span>
-  );
-}
-
 function RivalCard({
   rival,
   onOpen,
@@ -148,9 +121,7 @@ function RivalCard({
       ? "This rival needs an active bot first."
       : "";
   return (
-    <article
-      className={`flex h-[18.5rem] min-h-0 w-full max-w-[20.5625rem] flex-col justify-between overflow-hidden rounded-2xl border bg-white p-4 shadow-[0_8px_28px_rgba(23,35,70,0.04)] transition hover:shadow-[0_12px_32px_rgba(23,35,70,0.08)] ${selected ? "border-blue-500 ring-1 ring-blue-500/20" : "border-zinc-200 hover:border-blue-300"}`}
-    >
+    <OpponentCardSurface selected={selected}>
       {/* min-h-0 + overflow-hidden keep long names or five-digit Elo values
           from stretching the card beyond its fixed compact height. */}
       <div className="flex min-h-0 flex-1 items-start gap-3.5 overflow-hidden">
@@ -225,7 +196,7 @@ function RivalCard({
           View rival
         </button>
       </div>
-    </article>
+    </OpponentCardSurface>
   );
 }
 
@@ -531,7 +502,7 @@ function RivalOverlay({
     detail?.current_challenge?.challenger_username === detail?.rival.username;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-end bg-zinc-950/25 p-0 sm:p-4"
+      className={OPPONENT_BACKDROP}
       role="presentation"
       onMouseDown={onClose}
     >
@@ -544,7 +515,7 @@ function RivalOverlay({
         aria-modal="true"
         aria-labelledby="rival-title"
         tabIndex={-1}
-        className="relative flex h-[92dvh] max-h-[100dvh] w-full max-w-[29rem] flex-col overflow-hidden rounded-t-2xl bg-white p-5 shadow-2xl outline-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:p-7"
+        className={OPPONENT_PANEL}
         onMouseDown={(event) => event.stopPropagation()}
       >
         {/* Exactly one of loading, error, or detail is on screen. A failed

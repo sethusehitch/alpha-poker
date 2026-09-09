@@ -2,7 +2,7 @@
 // two artifacts, so the kit filename and the agent prompt live in one place
 // rather than drifting between the public and authenticated surfaces.
 export const STARTER_KIT_FILENAME = "alpha-poker-starter.zip";
-export const STARTER_KIT_URL = `/${STARTER_KIT_FILENAME}?v=local-recap-2`;
+export const STARTER_KIT_URL = `/${STARTER_KIT_FILENAME}?v=dojo-1`;
 
 export const BUILD_BOT_PROMPT = `Find the most recently modified file matching alpha-poker-starter*.zip in my Downloads folder. Browser duplicate names such as alpha-poker-starter (1).zip are valid. Tell me the exact file you selected, extract it into a new folder, and verify it contains README.md, WORKFLOWS.md, API.md, and the cli folder. Read those files before changing anything.
 
@@ -16,7 +16,7 @@ Your first response after inspecting the kit must be short and follow this order
 | What you can do | What happens | Changes your Elo? |
 | --- | --- | --- |
 | Build a bot | Choose a name and playing style, then create and validate it | No |
-| Train | Practice against the current leader, then watch the highlights | No |
+| Train | Choose a dojo opponent or the current leader, then watch the highlights | No |
 | Compete | Upload the bot and enter the official round-robin league | Yes |
 | Challenge someone | Play a best-of-five poker series after the other player accepts | No |
 | Review hands | Watch your saved hands at the poker table | No |
@@ -27,9 +27,11 @@ Your first response after inspecting the kit must be short and follow this order
 5. Ask what I want to do. Offer these concise choices: Build my first bot, Train my bot, Compete, Challenge a player, Review hands, or Check progress. If I appear new, recommend Build my first bot.
 6. Stop and wait for my choice. Do not begin registration, installation, bot changes, training, submission, or a challenge yet.
 
-If I choose Build my first bot, guide me through four visible milestones: Create, Build, Practice, and Compete. During Create, ask for a bot name and offer simple styles such as Bold, Patient, Tricky, or Surprise me. During Build, create bot.py and bot.json and validate them, then summarize the strategy in ordinary language. During Practice, train against the current leader, inspect the downloaded hands, and explain one strength and one decision worth investigating in plain language. Offer to watch the highlights and ask what hypothesis or strategy change I want to investigate. Do not change strategy automatically. Implement a change only when I request it, then validate again. During Compete, explain that an accepted upload replaces my one active bot and ask for explicit approval immediately before submitting. After submission, confirm the real status and offer to check again if the official league is still running.
+If I choose Build my first bot, guide me through four visible milestones: Create, Build, Practice, and Compete. During Create, ask for a bot name and offer simple styles such as Bold, Patient, Tricky, or Surprise me. During Build, create bot.py and bot.json and validate them, then summarize the strategy in ordinary language. During Practice, let me choose a training opponent using the menu below, inspect the saved hands, and explain one strength and one decision worth investigating in plain language. Offer to watch the highlights and ask what hypothesis or strategy change I want to investigate. Do not change strategy automatically. Implement a change only when I request it, then validate again. During Compete, explain that an accepted upload replaces my one active bot and ask for explicit approval immediately before submitting. After submission, confirm the real status and offer to check again if the official league is still running.
 
 After every successful training run with saved hands, briefly summarize the result and ask, "Want to watch the highlights?" If I already asked to train and watch, open the recap without asking again. For Review hands, use the local recap workflow in WORKFLOWS.md to open the same animated poker-table viewer used on the website. Open its printed local URL in a browser side panel when available, otherwise open the regular browser or provide the link. Explain that I can watch highlights or select any retained hand. Run the commands yourself; do not make me copy terminal commands. Never invent hands or results if replay evidence is unavailable, and never treat watching a replay as permission to edit my bot.
+
+For any training choice, including the beginner Practice milestone, follow Choosing a training opponent in WORKFLOWS.md first. Show the five packaged dojo bots with difficulty and measured Dojo Elo, plus a separate live leader row with its real name and public Elo. Let me choose; suggest the first unbeaten dojo bot for a beginner. Dojo training runs offline without an account. Only the leader uses the hosted WebSocket, and its code must never be downloaded. Keep dojo ratings separate from public Elo. Offer to sync self-reported local practice progress only after my approval. Open the same local recap viewer for either kind of training.
 
 If I choose another capability, follow that workflow directly. Experienced users do not need to complete the rookie path. Introduce Rivals and advanced log tools after a beginner's first bot is competing, but make them available immediately when I explicitly choose Challenge someone, Review hands, or Check progress.
 

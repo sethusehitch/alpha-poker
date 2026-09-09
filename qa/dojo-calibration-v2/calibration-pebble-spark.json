@@ -1,0 +1,53 @@
+{
+  "a": "pebble",
+  "b": "spark",
+  "wins": 0,
+  "losses": 10,
+  "ties": 0,
+  "net_chips": -28640,
+  "errors": 0,
+  "matches": [
+    {
+      "net_chips": -2840,
+      "errors": 0
+    },
+    {
+      "net_chips": -2980,
+      "errors": 0
+    },
+    {
+      "net_chips": -2760,
+      "errors": 0
+    },
+    {
+      "net_chips": -2860,
+      "errors": 0
+    },
+    {
+      "net_chips": -2720,
+      "errors": 0
+    },
+    {
+      "net_chips": -2840,
+      "errors": 0
+    },
+    {
+      "net_chips": -2920,
+      "errors": 0
+    },
+    {
+      "net_chips": -2880,
+      "errors": 0
+    },
+    {
+      "net_chips": -2920,
+      "errors": 0
+    },
+    {
+      "net_chips": -2920,
+      "errors": 0
+    }
+  ],
+  "deal_seed": 9810202600,
+  "strategy_seed": 1893369101800
+}

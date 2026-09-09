@@ -1,0 +1,360 @@
+{
+  "candidate": "v27",
+  "opponent_version": "summit-v2",
+  "source_sha256": "cda885295952950167ab0ae770a5611598f598b56c0d7a776e659515c7f0fb56",
+  "tournament_format": "best_of_five_plhe",
+  "mirage": {
+    "mirage_gate_passed": true,
+    "batches": [
+      {
+        "elapsed_seconds": 28.100870291993488,
+        "hands": 1686,
+        "games": 75,
+        "errors": 0,
+        "matchups": [
+          {
+            "opponent": "mirage",
+            "wins": 18,
+            "series": 20
+          }
+        ],
+        "source_hashes_unchanged": true
+      },
+      {
+        "elapsed_seconds": 28.332596125022974,
+        "hands": 1873,
+        "games": 76,
+        "errors": 0,
+        "matchups": [
+          {
+            "opponent": "mirage",
+            "wins": 18,
+            "series": 20
+          }
+        ],
+        "source_hashes_unchanged": true
+      }
+    ],
+    "source_manifest_sha256": "05b1b49004d8fbf4809904c959dc0b3d59d2c19710af17ce727515124c153194"
+  },
+  "lower_opponents": {
+    "elapsed_seconds": 106.24420816698694,
+    "hands": 7121,
+    "games": 270,
+    "errors": 0,
+    "matchups": [
+      {
+        "opponent": "pebble",
+        "wins": 20,
+        "series": 20
+      },
+      {
+        "opponent": "spark",
+        "wins": 20,
+        "series": 20
+      },
+      {
+        "opponent": "anchor",
+        "wins": 19,
+        "series": 20
+      },
+      {
+        "opponent": "summit",
+        "wins": 18,
+        "series": 20
+      }
+    ],
+    "source_hashes_unchanged": true
+  },
+  "reference_candidate": {
+    "elapsed_seconds": 199.02673783301725,
+    "hands": 9674,
+    "games": 424,
+    "errors": 0,
+    "matchups": [
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/middle-a/frozen3",
+        "wins": 7,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-a/frozen2",
+        "wins": 4,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-b/v1",
+        "wins": 6,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-v3-a/v3",
+        "wins": 6,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-a",
+        "wins": 7,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-b/checkpoint-value1",
+        "wins": 8,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/alwayscall",
+        "wins": 10,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/tightvalue",
+        "wins": 9,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/balancedvalue",
+        "wins": 9,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/smallpressure",
+        "wins": 9,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/overbetpressure",
+        "wins": 8,
+        "series": 10
+      }
+    ],
+    "source_hashes_unchanged": true
+  },
+  "reference_baseline": {
+    "elapsed_seconds": 77.90636449999874,
+    "hands": 13947,
+    "games": 434,
+    "errors": 0,
+    "matchups": [
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/middle-a/frozen3",
+        "wins": 7,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-a/frozen2",
+        "wins": 0,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-b/v1",
+        "wins": 7,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/hard-v3-a/v3",
+        "wins": 4,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-a",
+        "wins": 5,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-2026-09-08/trials/expert-v4-b/checkpoint-value1",
+        "wins": 6,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/alwayscall",
+        "wins": 10,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/tightvalue",
+        "wins": 9,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/balancedvalue",
+        "wins": 7,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/smallpressure",
+        "wins": 6,
+        "series": 10
+      },
+      {
+        "opponent": "/Users/sethsaperstein/Documents/AlphaSchool/dojo-calibration-round2-2026-09-08/baselines/overbetpressure",
+        "wins": 9,
+        "series": 10
+      }
+    ],
+    "source_hashes_unchanged": true
+  },
+  "local_fixed_stack": [
+    {
+      "index": 0,
+      "opponent": "mirage",
+      "seed": 7910000000,
+      "hands": 200,
+      "net_chips": 4371,
+      "errors": 0
+    },
+    {
+      "index": 1,
+      "opponent": "mirage",
+      "seed": 7910001000,
+      "hands": 200,
+      "net_chips": 8109,
+      "errors": 0
+    },
+    {
+      "index": 2,
+      "opponent": "mirage",
+      "seed": 7910002000,
+      "hands": 200,
+      "net_chips": 6935,
+      "errors": 0
+    },
+    {
+      "index": 3,
+      "opponent": "mirage",
+      "seed": 7910003000,
+      "hands": 200,
+      "net_chips": 10852,
+      "errors": 0
+    },
+    {
+      "index": 4,
+      "opponent": "mirage",
+      "seed": 7910004000,
+      "hands": 200,
+      "net_chips": 4733,
+      "errors": 0
+    },
+    {
+      "index": 5,
+      "opponent": "mirage",
+      "seed": 7910005000,
+      "hands": 200,
+      "net_chips": 11352,
+      "errors": 0
+    },
+    {
+      "index": 6,
+      "opponent": "mirage",
+      "seed": 7910006000,
+      "hands": 200,
+      "net_chips": 13036,
+      "errors": 0
+    },
+    {
+      "index": 7,
+      "opponent": "mirage",
+      "seed": 7910007000,
+      "hands": 200,
+      "net_chips": 10297,
+      "errors": 0
+    },
+    {
+      "index": 8,
+      "opponent": "mirage",
+      "seed": 7910008000,
+      "hands": 200,
+      "net_chips": 509,
+      "errors": 0
+    },
+    {
+      "index": 9,
+      "opponent": "mirage",
+      "seed": 7910009000,
+      "hands": 200,
+      "net_chips": -4826,
+      "errors": 0
+    },
+    {
+      "index": 10,
+      "opponent": "summit",
+      "seed": 7910100000,
+      "hands": 200,
+      "net_chips": 8772,
+      "errors": 0
+    },
+    {
+      "index": 11,
+      "opponent": "summit",
+      "seed": 7910101000,
+      "hands": 200,
+      "net_chips": 4827,
+      "errors": 0
+    },
+    {
+      "index": 12,
+      "opponent": "summit",
+      "seed": 7910102000,
+      "hands": 200,
+      "net_chips": 6194,
+      "errors": 0
+    },
+    {
+      "index": 13,
+      "opponent": "summit",
+      "seed": 7910103000,
+      "hands": 200,
+      "net_chips": -250,
+      "errors": 0
+    },
+    {
+      "index": 14,
+      "opponent": "summit",
+      "seed": 7910104000,
+      "hands": 200,
+      "net_chips": 4490,
+      "errors": 0
+    },
+    {
+      "index": 15,
+      "opponent": "summit",
+      "seed": 7910105000,
+      "hands": 200,
+      "net_chips": 7240,
+      "errors": 0
+    },
+    {
+      "index": 16,
+      "opponent": "summit",
+      "seed": 7910106000,
+      "hands": 200,
+      "net_chips": 4656,
+      "errors": 0
+    },
+    {
+      "index": 17,
+      "opponent": "summit",
+      "seed": 7910107000,
+      "hands": 200,
+      "net_chips": 6798,
+      "errors": 0
+    },
+    {
+      "index": 18,
+      "opponent": "summit",
+      "seed": 7910108000,
+      "hands": 200,
+      "net_chips": 8479,
+      "errors": 0
+    },
+    {
+      "index": 19,
+      "opponent": "summit",
+      "seed": 7910109000,
+      "hands": 200,
+      "net_chips": 7181,
+      "errors": 0
+    }
+  ],
+  "scope": "Local integration only; no public Elo or deployment; operational acceptance does not establish a universal win rate or student learning time."
+}

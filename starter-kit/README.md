@@ -35,14 +35,18 @@ Do not submit from a terminal yourself. Ask your coding agent to validate,
 train, upload, and confirm the result. It should explain what it is about to do
 and operate the CLI itself.
 
-## Train against the leader
+## Train in the dojo or against the leader
 
-Keep your bot on your computer and play practice hands against a frozen copy of
-the current leader. Ask your coding agent to start a training session, inspect
+Keep your bot on your computer. Choose one of five packaged dojo opponents for
+offline practice, or face a frozen copy of the current leader over WebSocket.
+Your agent will show the opponents and their ratings before you choose. Dojo Elo
+and public league Elo belong to separate rating pools. Only dojo bots are
+packaged locally; the leader's code stays on the server.
+Ask your coding agent to start a training session, inspect
 the results, and show the highlights. It will operate the bundled CLI for you.
 You choose which strategy changes to investigate before the agent edits your bot.
 
-Training does not affect the leaderboard. When it finishes, the CLI downloads a
+Training does not affect the leaderboard. When it finishes, the CLI saves a
 ZIP containing the hand logs into the current directory.
 Your agent will offer to open those hands in the same animated poker-table
 viewer used on the website. Ask "Show my latest recap" to reopen it, watch the

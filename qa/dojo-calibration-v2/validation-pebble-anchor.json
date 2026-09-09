@@ -1,0 +1,53 @@
+{
+  "a": "pebble",
+  "b": "anchor",
+  "wins": 0,
+  "losses": 10,
+  "ties": 0,
+  "net_chips": -2190,
+  "errors": 0,
+  "matches": [
+    {
+      "net_chips": -240,
+      "errors": 0
+    },
+    {
+      "net_chips": -170,
+      "errors": 0
+    },
+    {
+      "net_chips": -180,
+      "errors": 0
+    },
+    {
+      "net_chips": -150,
+      "errors": 0
+    },
+    {
+      "net_chips": -230,
+      "errors": 0
+    },
+    {
+      "net_chips": -160,
+      "errors": 0
+    },
+    {
+      "net_chips": -230,
+      "errors": 0
+    },
+    {
+      "net_chips": -330,
+      "errors": 0
+    },
+    {
+      "net_chips": -310,
+      "errors": 0
+    },
+    {
+      "net_chips": -190,
+      "errors": 0
+    }
+  ],
+  "deal_seed": 9911302600,
+  "strategy_seed": 1912689401800
+}

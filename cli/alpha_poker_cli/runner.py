@@ -199,6 +199,10 @@ class LocalBot:
                 process.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 pass
+        if process is not None:
+            for stream in (process.stdin, process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
         temporary = getattr(self, "_temporary", None)
         if temporary is not None:
             temporary.cleanup()

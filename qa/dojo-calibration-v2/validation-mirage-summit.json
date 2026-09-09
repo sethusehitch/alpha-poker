@@ -1,0 +1,53 @@
+{
+  "a": "mirage",
+  "b": "summit",
+  "wins": 0,
+  "losses": 10,
+  "ties": 0,
+  "net_chips": -68854,
+  "errors": 0,
+  "matches": [
+    {
+      "net_chips": -16362,
+      "errors": 0
+    },
+    {
+      "net_chips": -10951,
+      "errors": 0
+    },
+    {
+      "net_chips": -1229,
+      "errors": 0
+    },
+    {
+      "net_chips": -8247,
+      "errors": 0
+    },
+    {
+      "net_chips": -2203,
+      "errors": 0
+    },
+    {
+      "net_chips": -1009,
+      "errors": 0
+    },
+    {
+      "net_chips": -3114,
+      "errors": 0
+    },
+    {
+      "net_chips": -9655,
+      "errors": 0
+    },
+    {
+      "net_chips": -10019,
+      "errors": 0
+    },
+    {
+      "net_chips": -6065,
+      "errors": 0
+    }
+  ],
+  "deal_seed": 9919302600,
+  "strategy_seed": 1912697401800
+}

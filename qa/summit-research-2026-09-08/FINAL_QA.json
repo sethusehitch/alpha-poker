@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "command": "npm run qa",
+  "server_tests": 251,
+  "cli_tests": 71,
+  "offline_opponents": 5,
+  "recap_hands_verified": 200,
+  "repeat_safe_account_sync": true,
+  "public_elo_unchanged": true,
+  "deployed": false,
+  "training_route_http_status": 200,
+  "files": {
+    "server/alpha_poker/summit_policy.py": "cda885295952950167ab0ae770a5611598f598b56c0d7a776e659515c7f0fb56",
+    "server/alpha_poker/dojo.py": "8a417238c45123632198b231cfa13146f4110ed0511a0e77dfbe6b4ef1e03d91",
+    "server/alpha_poker/dojo_catalog.json": "2f469e28c4138d3a0af2fc7c6d282d54ca068aa8868a8f66a1a93fc0c251cbed",
+    "cli/alpha_poker_cli/dojo.py": "03cf6e705882d5ecbc992c5766548080d5a4030d9a981fb9ef710523ee537b8a",
+    "public/alpha-poker-starter.zip": "be9665fe7ffd5c48cc0f48265ae1adfac8cc3bd1b24cb9a42406e1c2007d95c7",
+    "qa/dojo-calibration.json": "91f6bf3e39edc19b2f0131bc5ab92dc70cfc0bb999213c0022b2701d648d09b6"
+  }
+}

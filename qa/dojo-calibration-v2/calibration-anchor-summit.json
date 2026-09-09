@@ -1,0 +1,53 @@
+{
+  "a": "anchor",
+  "b": "summit",
+  "wins": 2,
+  "losses": 8,
+  "ties": 0,
+  "net_chips": -31054,
+  "errors": 0,
+  "matches": [
+    {
+      "net_chips": -2565,
+      "errors": 0
+    },
+    {
+      "net_chips": -5585,
+      "errors": 0
+    },
+    {
+      "net_chips": -2818,
+      "errors": 0
+    },
+    {
+      "net_chips": -7860,
+      "errors": 0
+    },
+    {
+      "net_chips": -680,
+      "errors": 0
+    },
+    {
+      "net_chips": -4105,
+      "errors": 0
+    },
+    {
+      "net_chips": 312,
+      "errors": 0
+    },
+    {
+      "net_chips": 2412,
+      "errors": 0
+    },
+    {
+      "net_chips": -8030,
+      "errors": 0
+    },
+    {
+      "net_chips": -2135,
+      "errors": 0
+    }
+  ],
+  "deal_seed": 9818202600,
+  "strategy_seed": 1893377101800
+}

@@ -83,7 +83,8 @@ test("Rivals keeps the browser contract and direct-challenge rules explicit", as
   assert.match(workspace, /dateStyle: "medium",\s*timeStyle: "short"/);
   assert.doesNotMatch(workspace, /timeZone: "UTC"/);
   assert.match(workspace, /highlightedId=\{recap\}/);
-  assert.match(workspace, /z-50 flex items-end/);
+  assert.match(workspace, /OPPONENT_BACKDROP/);
+  assert.match(await readFile(new URL("../app/components/rivals/OpponentSurfaces.tsx", import.meta.url), "utf8"), /z-50 flex items-end/);
   assert.doesNotMatch(workspace, /<aside\s+ref=\{panel\}\s+role="dialog"/);
   assert.match(handReplay, /event\.hands/);
   assert.match(handReplay, /shown\.hole_cards/);
@@ -231,15 +232,18 @@ test("the rival overlay shows exactly one of loading, error, or detail", async (
     workspace,
     /Challenges unlock when they\s+submit an active bot\./,
   );
-  assert.match(workspace, /h-\[18\.5rem\]/);
-  assert.match(workspace, /max-w-\[20\.5625rem\]/);
+  const surfaces = await readFile(new URL("../app/components/rivals/OpponentSurfaces.tsx", import.meta.url), "utf8");
+  assert.match(workspace, /OpponentCardSurface/);
+  assert.match(surfaces, /h-\[18\.5rem\]/);
+  assert.match(surfaces, /max-w-\[20\.5625rem\]/);
   assert.match(workspace, /min-h-0 flex-1 items-start[^\n]*overflow-hidden/);
   assert.match(workspace, /className="h-28 w-28"/);
-  assert.match(workspace, /h-\[92dvh\]/);
-  assert.match(workspace, /sm:h-\[calc\(100dvh-2rem\)\]/);
+  assert.match(workspace, /OPPONENT_PANEL/);
+  assert.match(surfaces, /h-\[92dvh\]/);
+  assert.match(surfaces, /sm:h-\[calc\(100dvh-2rem\)\]/);
   assert.match(workspace, /h-1 w-7 rounded-full bg-zinc-600/);
   assert.match(workspace, /mt-6 flex min-h-0 flex-1 flex-col overflow-hidden/);
-  assert.match(workspace, /circle/);
+  assert.match(surfaces, /circle/);
   assert.match(
     workspace,
     /direct_record\.wins\} – \{rival\.direct_record\.losses/,

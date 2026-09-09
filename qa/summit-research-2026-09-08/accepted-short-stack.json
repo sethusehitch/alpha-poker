@@ -1,0 +1,8 @@
+{
+  "actions": {
+    "all_in": 100
+  },
+  "errors": [],
+  "passed": true,
+  "interpretation": "Checks that strong short-stack aggression is reachable; not an optimality test."
+}

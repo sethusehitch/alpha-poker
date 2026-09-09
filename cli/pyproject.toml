@@ -17,4 +17,4 @@ where = ["."]
 include = ["alpha_poker_cli*"]
 
 [tool.setuptools.package-data]
-alpha_poker_cli = ["viewer/*", "viewer/assets/*", "viewer/characters/*"]
+alpha_poker_cli = ["viewer/*", "viewer/assets/*", "viewer/characters/*", "dojo_engine/*.json"]

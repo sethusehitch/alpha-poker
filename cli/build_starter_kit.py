@@ -20,16 +20,17 @@ FILES = (
     (ROOT / "cli" / "alpha_poker_cli" / "main.py", "cli/alpha_poker_cli/main.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "runner.py", "cli/alpha_poker_cli/runner.py"),
     (ROOT / "cli" / "alpha_poker_cli" / "local_recap.py", "cli/alpha_poker_cli/local_recap.py"),
+    (ROOT / "cli" / "alpha_poker_cli" / "dojo.py", "cli/alpha_poker_cli/dojo.py"),
 )
 FIXED_TIME = (2026, 1, 1, 0, 0, 0)
 
 
 def build() -> Path:
     package = ROOT / "cli/alpha_poker_cli"
-    if not (package / "viewer/index.html").exists() or not (package / "_recap/recaps.py").exists():
+    if not (package / "viewer/index.html").exists() or not (package / "_recap/recaps.py").exists() or not (package / "dojo_engine/dojo_catalog.json").exists():
         raise RuntimeError("Run npm run build:local-recap before packaging the starter kit")
     generated = [(p, "cli/alpha_poker_cli/" + str(p.relative_to(package)))
-                 for directory in (package / "viewer", package / "_recap")
+                 for directory in (package / "viewer", package / "_recap", package / "dojo_engine")
                  for p in sorted(directory.rglob("*")) if p.is_file() and "__pycache__" not in p.parts]
     DESTINATION.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(DESTINATION, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

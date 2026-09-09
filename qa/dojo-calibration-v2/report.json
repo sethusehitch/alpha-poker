@@ -1,0 +1,1101 @@
+{
+  "method": "200-hand fixed-stack NLHE, 100 isolated duplicate deals per match, 10 matches per pairing; logistic match-score fit with half-win prior, centered at 1200",
+  "versions": {
+    "pebble": "dojo-v1",
+    "spark": "dojo-v1",
+    "anchor": "dojo-v1",
+    "mirage": "dojo-v1",
+    "summit": "summit-v2"
+  },
+  "source_hashes": {
+    "/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/alpha_poker/dojo.py": "8a417238c45123632198b231cfa13146f4110ed0511a0e77dfbe6b4ef1e03d91",
+    "/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/alpha_poker/summit_policy.py": "cda885295952950167ab0ae770a5611598f598b56c0d7a776e659515c7f0fb56",
+    "/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/alpha_poker/engine.py": "5ef5b97806c29547585eafb3ac94df1927c3eb24a3ecf75c85d0008e50f7e428",
+    "/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/alpha_poker/evaluator.py": "6c10d3bee6ab29755440b6ad6a3d4c865faedeb7c7143fc1577fbdfce35de2c6",
+    "/Users/sethsaperstein/Documents/AlphaSchool/alpha-poker-dojo/server/alpha_poker/dojo_catalog.json": "ab7aaed8691ce985fce1759d24ceb017cfc3c49d62dbaa22a3c68f55ab3808f2"
+  },
+  "calibration": {
+    "ratings": {
+      "pebble": 692,
+      "spark": 1042,
+      "anchor": 1219,
+      "mirage": 1452,
+      "summit": 1595
+    },
+    "matchups": [
+      {
+        "a": "pebble",
+        "b": "spark",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28640,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -2840,
+            "errors": 0
+          },
+          {
+            "net_chips": -2980,
+            "errors": 0
+          },
+          {
+            "net_chips": -2760,
+            "errors": 0
+          },
+          {
+            "net_chips": -2860,
+            "errors": 0
+          },
+          {
+            "net_chips": -2720,
+            "errors": 0
+          },
+          {
+            "net_chips": -2840,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2880,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9810202600,
+        "strategy_seed": 1893369101800
+      },
+      {
+        "a": "pebble",
+        "b": "anchor",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -2040,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -120,
+            "errors": 0
+          },
+          {
+            "net_chips": -180,
+            "errors": 0
+          },
+          {
+            "net_chips": -160,
+            "errors": 0
+          },
+          {
+            "net_chips": -140,
+            "errors": 0
+          },
+          {
+            "net_chips": -270,
+            "errors": 0
+          },
+          {
+            "net_chips": -210,
+            "errors": 0
+          },
+          {
+            "net_chips": -370,
+            "errors": 0
+          },
+          {
+            "net_chips": -150,
+            "errors": 0
+          },
+          {
+            "net_chips": -270,
+            "errors": 0
+          },
+          {
+            "net_chips": -170,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9811202600,
+        "strategy_seed": 1893370101800
+      },
+      {
+        "a": "pebble",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -14080,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -1290,
+            "errors": 0
+          },
+          {
+            "net_chips": -1430,
+            "errors": 0
+          },
+          {
+            "net_chips": -1290,
+            "errors": 0
+          },
+          {
+            "net_chips": -1440,
+            "errors": 0
+          },
+          {
+            "net_chips": -1450,
+            "errors": 0
+          },
+          {
+            "net_chips": -1480,
+            "errors": 0
+          },
+          {
+            "net_chips": -1190,
+            "errors": 0
+          },
+          {
+            "net_chips": -1440,
+            "errors": 0
+          },
+          {
+            "net_chips": -1560,
+            "errors": 0
+          },
+          {
+            "net_chips": -1510,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9812202600,
+        "strategy_seed": 1893371101800
+      },
+      {
+        "a": "pebble",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28680,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -3000,
+            "errors": 0
+          },
+          {
+            "net_chips": -2660,
+            "errors": 0
+          },
+          {
+            "net_chips": -3000,
+            "errors": 0
+          },
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2840,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2880,
+            "errors": 0
+          },
+          {
+            "net_chips": -2660,
+            "errors": 0
+          },
+          {
+            "net_chips": -2840,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9813202600,
+        "strategy_seed": 1893372101800
+      },
+      {
+        "a": "spark",
+        "b": "anchor",
+        "wins": 2,
+        "losses": 8,
+        "ties": 0,
+        "net_chips": -19846,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -6473,
+            "errors": 0
+          },
+          {
+            "net_chips": -380,
+            "errors": 0
+          },
+          {
+            "net_chips": -4355,
+            "errors": 0
+          },
+          {
+            "net_chips": -1026,
+            "errors": 0
+          },
+          {
+            "net_chips": 2453,
+            "errors": 0
+          },
+          {
+            "net_chips": -4357,
+            "errors": 0
+          },
+          {
+            "net_chips": -2347,
+            "errors": 0
+          },
+          {
+            "net_chips": -4775,
+            "errors": 0
+          },
+          {
+            "net_chips": 2869,
+            "errors": 0
+          },
+          {
+            "net_chips": -1455,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9814202600,
+        "strategy_seed": 1893373101800
+      },
+      {
+        "a": "spark",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -274294,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -30019,
+            "errors": 0
+          },
+          {
+            "net_chips": -24128,
+            "errors": 0
+          },
+          {
+            "net_chips": -23169,
+            "errors": 0
+          },
+          {
+            "net_chips": -26083,
+            "errors": 0
+          },
+          {
+            "net_chips": -34585,
+            "errors": 0
+          },
+          {
+            "net_chips": -20367,
+            "errors": 0
+          },
+          {
+            "net_chips": -40217,
+            "errors": 0
+          },
+          {
+            "net_chips": -32697,
+            "errors": 0
+          },
+          {
+            "net_chips": -19565,
+            "errors": 0
+          },
+          {
+            "net_chips": -23464,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9815202600,
+        "strategy_seed": 1893374101800
+      },
+      {
+        "a": "spark",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -457583,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -48356,
+            "errors": 0
+          },
+          {
+            "net_chips": -40267,
+            "errors": 0
+          },
+          {
+            "net_chips": -53478,
+            "errors": 0
+          },
+          {
+            "net_chips": -54152,
+            "errors": 0
+          },
+          {
+            "net_chips": -31195,
+            "errors": 0
+          },
+          {
+            "net_chips": -56542,
+            "errors": 0
+          },
+          {
+            "net_chips": -54241,
+            "errors": 0
+          },
+          {
+            "net_chips": -47708,
+            "errors": 0
+          },
+          {
+            "net_chips": -50254,
+            "errors": 0
+          },
+          {
+            "net_chips": -21390,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9816202600,
+        "strategy_seed": 1893375101800
+      },
+      {
+        "a": "anchor",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -51555,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -7784,
+            "errors": 0
+          },
+          {
+            "net_chips": -931,
+            "errors": 0
+          },
+          {
+            "net_chips": -1737,
+            "errors": 0
+          },
+          {
+            "net_chips": -5848,
+            "errors": 0
+          },
+          {
+            "net_chips": -8185,
+            "errors": 0
+          },
+          {
+            "net_chips": -3702,
+            "errors": 0
+          },
+          {
+            "net_chips": -5436,
+            "errors": 0
+          },
+          {
+            "net_chips": -6398,
+            "errors": 0
+          },
+          {
+            "net_chips": -4707,
+            "errors": 0
+          },
+          {
+            "net_chips": -6827,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9817202600,
+        "strategy_seed": 1893376101800
+      },
+      {
+        "a": "anchor",
+        "b": "summit",
+        "wins": 2,
+        "losses": 8,
+        "ties": 0,
+        "net_chips": -31054,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -2565,
+            "errors": 0
+          },
+          {
+            "net_chips": -5585,
+            "errors": 0
+          },
+          {
+            "net_chips": -2818,
+            "errors": 0
+          },
+          {
+            "net_chips": -7860,
+            "errors": 0
+          },
+          {
+            "net_chips": -680,
+            "errors": 0
+          },
+          {
+            "net_chips": -4105,
+            "errors": 0
+          },
+          {
+            "net_chips": 312,
+            "errors": 0
+          },
+          {
+            "net_chips": 2412,
+            "errors": 0
+          },
+          {
+            "net_chips": -8030,
+            "errors": 0
+          },
+          {
+            "net_chips": -2135,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9818202600,
+        "strategy_seed": 1893377101800
+      },
+      {
+        "a": "mirage",
+        "b": "summit",
+        "wins": 1,
+        "losses": 9,
+        "ties": 0,
+        "net_chips": -51962,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -11928,
+            "errors": 0
+          },
+          {
+            "net_chips": -3112,
+            "errors": 0
+          },
+          {
+            "net_chips": -6689,
+            "errors": 0
+          },
+          {
+            "net_chips": -9072,
+            "errors": 0
+          },
+          {
+            "net_chips": 1346,
+            "errors": 0
+          },
+          {
+            "net_chips": -2186,
+            "errors": 0
+          },
+          {
+            "net_chips": -3521,
+            "errors": 0
+          },
+          {
+            "net_chips": -3298,
+            "errors": 0
+          },
+          {
+            "net_chips": -918,
+            "errors": 0
+          },
+          {
+            "net_chips": -12584,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9819202600,
+        "strategy_seed": 1893378101800
+      }
+    ],
+    "total_hands": 20000
+  },
+  "validation": {
+    "ratings": {
+      "pebble": 637,
+      "spark": 971,
+      "anchor": 1170,
+      "mirage": 1453,
+      "summit": 1769
+    },
+    "matchups": [
+      {
+        "a": "pebble",
+        "b": "spark",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28980,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2780,
+            "errors": 0
+          },
+          {
+            "net_chips": -2840,
+            "errors": 0
+          },
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2840,
+            "errors": 0
+          },
+          {
+            "net_chips": -2880,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9910302600,
+        "strategy_seed": 1912688401800
+      },
+      {
+        "a": "pebble",
+        "b": "anchor",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -2190,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -240,
+            "errors": 0
+          },
+          {
+            "net_chips": -170,
+            "errors": 0
+          },
+          {
+            "net_chips": -180,
+            "errors": 0
+          },
+          {
+            "net_chips": -150,
+            "errors": 0
+          },
+          {
+            "net_chips": -230,
+            "errors": 0
+          },
+          {
+            "net_chips": -160,
+            "errors": 0
+          },
+          {
+            "net_chips": -230,
+            "errors": 0
+          },
+          {
+            "net_chips": -330,
+            "errors": 0
+          },
+          {
+            "net_chips": -310,
+            "errors": 0
+          },
+          {
+            "net_chips": -190,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9911302600,
+        "strategy_seed": 1912689401800
+      },
+      {
+        "a": "pebble",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -14890,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -1310,
+            "errors": 0
+          },
+          {
+            "net_chips": -1530,
+            "errors": 0
+          },
+          {
+            "net_chips": -1540,
+            "errors": 0
+          },
+          {
+            "net_chips": -1300,
+            "errors": 0
+          },
+          {
+            "net_chips": -1610,
+            "errors": 0
+          },
+          {
+            "net_chips": -1560,
+            "errors": 0
+          },
+          {
+            "net_chips": -1540,
+            "errors": 0
+          },
+          {
+            "net_chips": -1490,
+            "errors": 0
+          },
+          {
+            "net_chips": -1660,
+            "errors": 0
+          },
+          {
+            "net_chips": -1350,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9912302600,
+        "strategy_seed": 1912690401800
+      },
+      {
+        "a": "pebble",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -28650,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2810,
+            "errors": 0
+          },
+          {
+            "net_chips": -2790,
+            "errors": 0
+          },
+          {
+            "net_chips": -2880,
+            "errors": 0
+          },
+          {
+            "net_chips": -2970,
+            "errors": 0
+          },
+          {
+            "net_chips": -2760,
+            "errors": 0
+          },
+          {
+            "net_chips": -2680,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          },
+          {
+            "net_chips": -2960,
+            "errors": 0
+          },
+          {
+            "net_chips": -2920,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9913302600,
+        "strategy_seed": 1912691401800
+      },
+      {
+        "a": "spark",
+        "b": "anchor",
+        "wins": 1,
+        "losses": 9,
+        "ties": 0,
+        "net_chips": -21031,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -1720,
+            "errors": 0
+          },
+          {
+            "net_chips": -1557,
+            "errors": 0
+          },
+          {
+            "net_chips": -9,
+            "errors": 0
+          },
+          {
+            "net_chips": 424,
+            "errors": 0
+          },
+          {
+            "net_chips": -1885,
+            "errors": 0
+          },
+          {
+            "net_chips": -2211,
+            "errors": 0
+          },
+          {
+            "net_chips": -2580,
+            "errors": 0
+          },
+          {
+            "net_chips": -5587,
+            "errors": 0
+          },
+          {
+            "net_chips": -1706,
+            "errors": 0
+          },
+          {
+            "net_chips": -4200,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9914302600,
+        "strategy_seed": 1912692401800
+      },
+      {
+        "a": "spark",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -355243,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -33094,
+            "errors": 0
+          },
+          {
+            "net_chips": -38513,
+            "errors": 0
+          },
+          {
+            "net_chips": -43722,
+            "errors": 0
+          },
+          {
+            "net_chips": -15222,
+            "errors": 0
+          },
+          {
+            "net_chips": -48394,
+            "errors": 0
+          },
+          {
+            "net_chips": -27811,
+            "errors": 0
+          },
+          {
+            "net_chips": -44865,
+            "errors": 0
+          },
+          {
+            "net_chips": -24054,
+            "errors": 0
+          },
+          {
+            "net_chips": -43621,
+            "errors": 0
+          },
+          {
+            "net_chips": -35947,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9915302600,
+        "strategy_seed": 1912693401800
+      },
+      {
+        "a": "spark",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -477108,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -68252,
+            "errors": 0
+          },
+          {
+            "net_chips": -46892,
+            "errors": 0
+          },
+          {
+            "net_chips": -48758,
+            "errors": 0
+          },
+          {
+            "net_chips": -48683,
+            "errors": 0
+          },
+          {
+            "net_chips": -57444,
+            "errors": 0
+          },
+          {
+            "net_chips": -62911,
+            "errors": 0
+          },
+          {
+            "net_chips": -46042,
+            "errors": 0
+          },
+          {
+            "net_chips": -43729,
+            "errors": 0
+          },
+          {
+            "net_chips": -24929,
+            "errors": 0
+          },
+          {
+            "net_chips": -29468,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9916302600,
+        "strategy_seed": 1912694401800
+      },
+      {
+        "a": "anchor",
+        "b": "mirage",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -51659,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -3878,
+            "errors": 0
+          },
+          {
+            "net_chips": -3641,
+            "errors": 0
+          },
+          {
+            "net_chips": -4097,
+            "errors": 0
+          },
+          {
+            "net_chips": -8596,
+            "errors": 0
+          },
+          {
+            "net_chips": -647,
+            "errors": 0
+          },
+          {
+            "net_chips": -7186,
+            "errors": 0
+          },
+          {
+            "net_chips": -8986,
+            "errors": 0
+          },
+          {
+            "net_chips": -5033,
+            "errors": 0
+          },
+          {
+            "net_chips": -5457,
+            "errors": 0
+          },
+          {
+            "net_chips": -4138,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9917302600,
+        "strategy_seed": 1912695401800
+      },
+      {
+        "a": "anchor",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -33999,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -3618,
+            "errors": 0
+          },
+          {
+            "net_chips": -2145,
+            "errors": 0
+          },
+          {
+            "net_chips": -3502,
+            "errors": 0
+          },
+          {
+            "net_chips": -1835,
+            "errors": 0
+          },
+          {
+            "net_chips": -8180,
+            "errors": 0
+          },
+          {
+            "net_chips": -353,
+            "errors": 0
+          },
+          {
+            "net_chips": -3825,
+            "errors": 0
+          },
+          {
+            "net_chips": -4205,
+            "errors": 0
+          },
+          {
+            "net_chips": -488,
+            "errors": 0
+          },
+          {
+            "net_chips": -5848,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9918302600,
+        "strategy_seed": 1912696401800
+      },
+      {
+        "a": "mirage",
+        "b": "summit",
+        "wins": 0,
+        "losses": 10,
+        "ties": 0,
+        "net_chips": -68854,
+        "errors": 0,
+        "matches": [
+          {
+            "net_chips": -16362,
+            "errors": 0
+          },
+          {
+            "net_chips": -10951,
+            "errors": 0
+          },
+          {
+            "net_chips": -1229,
+            "errors": 0
+          },
+          {
+            "net_chips": -8247,
+            "errors": 0
+          },
+          {
+            "net_chips": -2203,
+            "errors": 0
+          },
+          {
+            "net_chips": -1009,
+            "errors": 0
+          },
+          {
+            "net_chips": -3114,
+            "errors": 0
+          },
+          {
+            "net_chips": -9655,
+            "errors": 0
+          },
+          {
+            "net_chips": -10019,
+            "errors": 0
+          },
+          {
+            "net_chips": -6065,
+            "errors": 0
+          }
+        ],
+        "deal_seed": 9919302600,
+        "strategy_seed": 1912697401800
+      }
+    ],
+    "total_hands": 20000
+  }
+}

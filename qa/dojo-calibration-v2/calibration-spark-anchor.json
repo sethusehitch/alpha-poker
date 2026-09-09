@@ -1,0 +1,53 @@
+{
+  "a": "spark",
+  "b": "anchor",
+  "wins": 2,
+  "losses": 8,
+  "ties": 0,
+  "net_chips": -19846,
+  "errors": 0,
+  "matches": [
+    {
+      "net_chips": -6473,
+      "errors": 0
+    },
+    {
+      "net_chips": -380,
+      "errors": 0
+    },
+    {
+      "net_chips": -4355,
+      "errors": 0
+    },
+    {
+      "net_chips": -1026,
+      "errors": 0
+    },
+    {
+      "net_chips": 2453,
+      "errors": 0
+    },
+    {
+      "net_chips": -4357,
+      "errors": 0
+    },
+    {
+      "net_chips": -2347,
+      "errors": 0
+    },
+    {
+      "net_chips": -4775,
+      "errors": 0
+    },
+    {
+      "net_chips": 2869,
+      "errors": 0
+    },
+    {
+      "net_chips": -1455,
+      "errors": 0
+    }
+  ],
+  "deal_seed": 9814202600,
+  "strategy_seed": 1893373101800
+}
